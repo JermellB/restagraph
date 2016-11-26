@@ -1,7 +1,7 @@
-(defpackage #:restagraph
+(defpackage restagraph
   (:use
     #:cl)
-  (:export
-    startup
-    shutdown
-    ))
+  (:export startup
+           shutdown
+           populate-schema
+           ))
