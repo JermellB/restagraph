@@ -2,11 +2,6 @@
 
 (in-package #:restagraph)
 
-(defparameter *config-vars*
-  `(:listen-address "localhost"
-    :listen-port 4950
-    :datastore ,(make-instance 'neo4cl:neo4j-rest-server
-                               :dbpasswd "wallaby")))
 
 ;;; Customised Hunchentoot acceptor.
 ;;; Carries information about the datastore being used.
@@ -23,7 +18,7 @@
 
 ;;; We can't directly check whether this acceptor is running,
 ;;; so we're using the existence of its special variable as a proxy.
-(defvar *restagraph-acceptor*
+(defparameter *restagraph-acceptor*
   (make-instance 'restagraph-acceptor
                  :address (getf *config-vars* :listen-address)
                  :port (getf *config-vars* :listen-port)
@@ -35,16 +30,33 @@
                  :datastore (getf *config-vars* :datastore)))
 
 ;;; Define a logging method
-(defmethod tbnl:acceptor-log-message ((acceptor restagraph-acceptor) log-level format-string &rest format-arguments)
+(defmethod tbnl:acceptor-log-message ((acceptor restagraph-acceptor)
+                                      log-level
+                                      format-string
+                                      &rest format-arguments)
   (log-message log-level (append (list format-string) format-arguments)))
 
-;;; Tell Hunchentoot to extract POST parameters for PUT and DELETE requests
+;;; Configure Hunchentoot to extract POST-style parameters
+;;; when processing PUT and DELETE requests
 (push :PUT tbnl:*methods-for-post-parameters*)
 (push :DELETE tbnl:*methods-for-post-parameters*)
 
+;;; Define a default dispatch-table
+(setf tbnl:*dispatch-table*
+      (list
+        ;(tbnl:create-prefix-dispatcher "/v1/ipv4-addresses/" 'ipv4-address)
+        ;;
+        ;; Fallback.
+        ;; This must be last, because they're inspected in order,
+        ;; and the first match wins.
+        (tbnl:create-prefix-dispatcher "/" 'four-oh-four)))
+
 (defun startup ()
-  (log-message :info
-               (format nil "Starting up the restagraph application server"))
+  (log-message :info "Starting up the restagraph application server")
+  (log-message :info "Loading the schema from the database")
+  (populate-schema (datastore *restagraph-acceptor*))
+  (log-message :info "Generating the REST API from the schema")
+  (log-message :info "Starting up Hunchentoot to serve HTTP requests")
   (handler-case
     (tbnl:start *restagraph-acceptor*)
     (usocket:address-in-use-error

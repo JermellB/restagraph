@@ -10,5 +10,5 @@
                (:file "generics")
                (:file "neo4j")
                (:file "restagraph")
-               (:file "hunchentoot-functions")
+               (:file "config")
                (:file "hunchentoot")))
