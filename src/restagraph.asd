@@ -7,6 +7,8 @@
                #:hunchentoot)
   :components ((:file "package")
                (:file "logging")
+               (:file "generics")
+               (:file "neo4j")
                (:file "restagraph")
                (:file "hunchentoot-functions")
                (:file "hunchentoot")))
