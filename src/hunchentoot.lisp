@@ -6,6 +6,7 @@
 ;;; Customised Hunchentoot acceptor.
 ;;; Carries information about the datastore being used.
 (defclass restagraph-acceptor (tbnl:easy-acceptor)
+  ;; Class attributes
   ((datastore :initarg :datastore
               :reader datastore
               :initform (error "Datastore object must be supplied.")
@@ -13,6 +14,7 @@
    (url-base :initarg :url-base
              :reader url-base
              :initform "localhost"))
+  ;; Class defaults
   (:default-initargs :address "127.0.0.1")
   (:documentation "vhost object, subclassed from tbnl:easy-acceptor"))
 
@@ -53,8 +55,9 @@
 
 (defun startup ()
   (log-message :info "Starting up the restagraph application server")
-  (log-message :info "Loading the schema from the database")
-  (populate-schema (datastore *restagraph-acceptor*))
+  (log-message :info "Generating the schema from the database contents")
+  (setf (getf *config-vars* :schema)
+        (populate-schema (datastore *restagraph-acceptor*)))
   (log-message :info "Generating the REST API from the schema")
   (log-message :info "Starting up Hunchentoot to serve HTTP requests")
   (handler-case
