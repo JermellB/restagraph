@@ -8,6 +8,9 @@
 (defparameter *server*
   (restagraph::datastore restagraph::*restagraph-acceptor*))
 
+(setf (getf restagraph::*config-vars* :schema)
+        (restagraph::populate-schema *server*))
+
 (fiveam:def-suite main)
 (fiveam:in-suite main)
 
@@ -28,3 +31,12 @@
   (fiveam:is (listp (restagraph::add-class-relationship-to-schema schema "foo" "is-a" "bar")))
   ;; Confirm that the relationship is present
   ))
+
+(fiveam:test
+  resource-instances
+  "Basic operations on class/resource instances"
+  (multiple-value-bind (results code message)
+    (restagraph::store-class-instance *server* "router" '(("uid" . "amchitka") ("comment" . "Test-router number 1")))
+    (declare (ignore results)
+             (ignore message))
+    (fiveam:is (equal code 200))))

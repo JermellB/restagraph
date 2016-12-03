@@ -21,7 +21,7 @@
 
 ;;;; Class instances
 
-(defgeneric store-class-instance (db attributes)
+(defgeneric store-class-instance (db classname attributes)
   (:documentation "Store an instance of a class in the database.
 Return an error if
 - the classname is not present in the schema

@@ -22,10 +22,8 @@
 
 ;;;; Classes
 
-(defmethod store-class-instance ((db neo4cl:neo4j-rest-server) post-params)
-  (let* (;; We need the classname in a couple of places; we may as well grab it now
-         (classname (cdr (assoc "type" post-params :test 'equal)))
-         ;; Local cache of the schema for the requested class
+(defmethod store-class-instance ((db neo4cl:neo4j-rest-server) classname post-params)
+  (let* (;; Local cache of the schema for the requested class
          (classdata (get-class-from-schema-by-name (getf *config-vars* :schema) classname))
          ;; Attributes that are valid for this resource type
          (valid-attributes (gethash "attributes" classdata))
@@ -40,8 +38,8 @@
     ;; Check for invalid attributes in the request
     (log-message :debug (format nil "Checking validity of supplied parameters ~A." post-params))
     (loop for (name . value) in post-params
-          do (if (or (member name '("type" "uid") :test 'equal)    ; Mandatory values
-                     (gethash name valid-attributes)  ; User-configured defaults
+          do (if (or (equal name '"uid")                ; Mandatory values
+                     (gethash name valid-attributes)    ; User-configured defaults
                      (member name (getf *config-vars* :default-write-attributes) :test 'equal))
                (push (cons (intern name :keyword) value) attributes)
                (push name invalid-attributes)))
