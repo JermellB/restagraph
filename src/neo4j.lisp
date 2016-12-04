@@ -35,6 +35,10 @@
     (log-message :debug (format nil "Checking validity of class name '~A'." classname))
     (unless classname
       (error (format nil "The class name ~A is not present in the schema." classname)))
+    ;; Check whether a UID has been specified
+    (unless (assoc "uid" post-params :test 'equal)
+      (log-message :debug "No UID found in the request parameters")
+      (error "UID must be supplied as a POST parameter."))
     ;; Check for invalid attributes in the request
     (log-message :debug (format nil "Checking validity of supplied parameters ~A." post-params))
     (loop for (name . value) in post-params
@@ -44,7 +48,7 @@
                (push (cons (intern name :keyword) value) attributes)
                (push name invalid-attributes)))
     ;; Report on the valid attributes we have
-    (log-message :debug "The following attributes will be used when creating the resource: ~{~A~^, ~}." attributes)
+    (log-message :debug (format nil "The following attributes will be used when creating the resource: ~{~A~^, ~}." attributes))
     ;; If any requested attributes are invalid, report them as an error
     (when invalid-attributes
       (let ((message (format nil "These requested attributes are invalid for the resource-type ~A: ~{~A~^, ~}."
