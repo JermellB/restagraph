@@ -20,7 +20,7 @@ The third element is relationships between `rgResource` objects. These are imple
 
 For each `rgResource` object, the following patterns are recognised by the application server:
 
-Create a resource:
+### Create a resource
 ```
 POST /api/v1/<resource-type>
 ```
@@ -30,7 +30,7 @@ With payload of `'uid=<uid>'`, plus optionally `'<attribute>=attribute'` pairs f
 Returns 201 CREATED if it succeeded.
 
 
-Retrieve a resource:
+### Retrieve a resource
 ```
 GET /api/v1/<resource-type>/<uid>
 ```
@@ -38,7 +38,7 @@ GET /api/v1/<resource-type>/<uid>
 Returns a JSON representation of the resource, with status code 200.
 
 
-Delete a resource:
+### Delete a resource
 ```
 DELETE /api/v1/<resource-type>
 ```
@@ -49,25 +49,25 @@ Returns 200 if it succeeded.
 
 ## The API it _will_ generate in the future
 
-Create/delete a relationship to another object:
+### Create/delete a relationship to another object
 ```
 POST|GET|DELETE /api/v1/<resource-name>/<unique ID>/<relationship>
 ```
 
 
-Create/retrieve/delete an attribute for an object of type `<resource-name>`:
+### Create/retrieve/delete an attribute for an object of type `<resource-name>`
 ```
 POST|GET|DELETE /api/v1/<resource-name>/<unique ID>/<attribute-name>
 ```
 
 
-Search for objects of type `<resource-name>`, matching a set of attribute/value pairs:
+### Search for objects of type `<resource-name>`, matching a set of attribute/value pairs
 ```
 GET /api/v1/<resource-name>/?<attribute-name>=<value>
 ```
 
 
-Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs:
+### Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs
 ```
 GET /api/v1/<resource-name>/<unique ID>/<relationship>/?<attribute-name>=<value>
 ```
@@ -75,7 +75,7 @@ GET /api/v1/<resource-name>/<unique ID>/<relationship>/?<attribute-name>=<value>
 
 ## Working example
 
-Using the following Cyper to define the schema
+Using the following Cyper to define the schema:
 ```
 CREATE (:rgResource {name: 'routers'});
 CREATE (:rgResource {name: 'interfaces'});
@@ -84,7 +84,7 @@ MATCH (r:rgResource {name: 'routers'}), (i:rgResource {name: 'interfaces'}) CREA
 MATCH (i:rgResource {name: 'interfaces'}), (a:rgResource {name: 'ipv4Addresses'}) CREATE (i)-[:Ipv4Addresses]->(a);
 ```
 
-Create a router
+Create a router:
 ```
 prompt> curl -i -X POST -d 'uid=amchitka' -d 'comment=Router 1' http://localhost:4950/api/v1/routers
 HTTP/1.1 201 Created
@@ -96,7 +96,7 @@ Content-Type: text/plain; charset=utf-8
 201 CREATED
 ```
 
-Retrieve its details
+Retrieve its details:
 ```
 prompt> curl -i http://localhost:4950/api/v1/routers/amchitka
 HTTP/1.1 200 OK
@@ -108,7 +108,7 @@ Content-Type: application/json
 {"uid":"amchitka","comment":"Router 1"}
 ```
 
-Delete it
+Delete it:
 ```
 prompt> curl -i -X DELETE -d 'uid=amchitka' -d 'comment=Router 1' http://localhost:4950/api/v1/routers
 HTTP/1.1 200 OK
@@ -120,7 +120,7 @@ Content-Type: text/plain; charset=utf-8
 OK
 ```
 
-Confirm that it's gone
+Confirm that it's gone:
 ```
 prompt> curl -i http://localhost:4950/api/v1/routers/amchitka
 HTTP/1.1 404 Not Found
