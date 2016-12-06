@@ -26,3 +26,9 @@
 Return an error if
 - the resource type is not present in the schema
 - any of the attributes is not defined in the schema for this resource type."))
+
+(defgeneric get-resource-by-uid (db resourcetype uid)
+  (:documentation "Retrieve a representation of a resource from the database."))
+
+(defgeneric delete-resource-by-uid (db resourcetype uid)
+  (:documentation "Delete a resource from the database."))

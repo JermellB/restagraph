@@ -60,8 +60,8 @@
 (defun resource-dispatcher ()
   "Hunchentoot dispatch function to handle an API request relating directly to a resource."
   (log-message :debug "Attempting to dispatch a resource request")
-  (let* ((uri-parts (ppcre:split "/" (tbnl:request-uri*)))
-         (resource-type (fourth uri-parts)))
+  (let* ((uri-parts (ppcre:split "/" (cl-ppcre:regex-replace *uri-base* (tbnl:request-uri*) "")))
+         (resource-type (first uri-parts)))
     (unless resource-type
       (error (format nil "No resource-type identified from URI '~A'" (tbnl:request-uri*))))
     (log-message :debug (format nil "Dispatching a ~A request for resource-type '~A'"
@@ -70,23 +70,53 @@
       ;; POST -> Store a resource
       ((equal (tbnl:request-method*) :POST)
        (setf (tbnl:content-type*) "text/plain")
-       (handler-bind
-         ((error
-            #'(lambda (e)
-                (declare (ignore e))
-                (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-                "Well, that didn't work.")))
-         (multiple-value-bind (results code message)
-           (store-resource (datastore tbnl:*acceptor*) resource-type (tbnl:post-parameters*))
-           (declare (ignore results)
-                    (ignore message))
-           (if (equal code 200)
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               "201 CREATED")
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
-               (format nil "~A Well, that didn't work." code))))))
+       (multiple-value-bind (results code message)
+         (store-resource (datastore tbnl:*acceptor*) resource-type (tbnl:post-parameters*))
+         (declare (ignore results)
+                  (ignore message))
+         (if (equal code 200)
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             "201 CREATED")
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+             (format nil "~A Well, that didn't work." code)))))
+      ;; GET -> Retrieve the resource's details
+      ((equal (tbnl:request-method*) :GET)
+       (let ((uid (second uri-parts)))
+         ;; We have a UID; carry on
+         (if uid
+           (let ((result (get-resource-by-uid (datastore tbnl:*acceptor*) resource-type uid)))
+             ;; If nothing was returned, that's a 404
+             (if (equal result "{}")
+               (progn
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-not-found+)
+                 (format nil "No ~A found with a UID of ~A." resource-type uid))
+               ;; If we got this far, assume it worked and return whatever we received
+               (progn
+                 (setf (tbnl:content-type*) "application/json")
+                 result)))
+           ;; No UID, no service
+           (progn
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+             "UID is required"))))
+      ;; DELETE -> Delete the resource from the db
+      ((equal (tbnl:request-method*) :DELETE)
+       ;; It'll be this type either way; just set it once.
+       (setf (tbnl:content-type*) "text/plain")
+       ;; If we don't have the UID, this won't work so well
+       (let ((uid (tbnl:post-parameter "uid")))
+         (if uid
+           (multiple-value-bind (results code message)
+             (delete-resource-by-uid (datastore tbnl:*acceptor*) resource-type uid)
+             (declare (ignore results))
+             (setf (tbnl:return-code*) code)
+             message)
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+             "UID is required"))))
       ;; Fallback: anything we don't already know how to handle
       (t
        (method-not-implemented)))))

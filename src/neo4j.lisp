@@ -23,7 +23,7 @@
 
 ;;;; Resources
 
-(defmethod store-resource ((db neo4cl:neo4j-rest-server) resourcetype post-params)
+(defmethod store-resource ((db neo4cl:neo4j-rest-server) (resourcetype string) (post-params list))
   (let* (;; Local cache of the schema for the requested resource-type
          (typedata (get-resourcetype-from-schema-by-name (getf *config-vars* :schema) resourcetype))
          ;; Attributes that are valid for this resource type
@@ -65,3 +65,17 @@
           ((:STATEMENT . ,(format nil "CREATE (:~A { properties })" resourcetype))
            (:PARAMETERS .
             ((:PROPERTIES . ,attributes)))))))))
+
+(defmethod get-resource-by-uid ((db neo4cl:neo4j-rest-server) (resourcetype string) (uid string))
+  (cl-json:encode-json-alist-to-string
+    (neo4cl:extract-data-from-get-request
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) RETURN n" resourcetype uid)))))))))
+
+(defmethod delete-resource-by-uid ((db neo4cl:neo4j-rest-server) (resourcetype string) (uid string))
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DELETE n" resourcetype uid)))))))
