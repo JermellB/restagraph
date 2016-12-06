@@ -3,26 +3,26 @@
 
 ;;;; Schema
 
-(defgeneric get-classes-from-db (db)
-  (:documentation "Extract the class definitions from the database"))
+(defgeneric get-resources-from-db (db)
+  (:documentation "Extract the resource definitions from the database"))
 
-(defgeneric get-class-relationships-from-db (db)
-  (:documentation "Extract the relationships between the classes, from the database"))
+(defgeneric get-resource-relationships-from-db (db)
+  (:documentation "Extract the relationships between the resource types, from the database"))
 
-(defgeneric add-class-to-schema (schema newclass)
-  (:documentation "Add a class to a schema, ensuring the internal structure is ready to receive new attributes and relationships."))
+(defgeneric add-resourcetype-to-schema (schema resourcetype)
+  (:documentation "Add a resource-type to a schema, ensuring the internal structure is ready to receive new attributes and relationships."))
 
-(defgeneric get-class-from-schema-by-name (schema classname)
-  (:documentation "Extract a class' definition from the schema, by name."))
+(defgeneric get-resourcetype-from-schema-by-name (schema resourcename)
+  (:documentation "Extract a resource' definition from the schema, by name."))
 
-(defgeneric add-class-relationship-to-schema (schema from-class relationship to-class)
-  (:documentation "Update the schema with a directional relationship between two classes, returning an error if either of the classes doesn't exist."))
+(defgeneric add-resource-relationship-to-schema (schema from-resource relationship to-resource)
+  (:documentation "Update the schema with a directional relationship between two resource types, returning an error if either of the resource types doesn't exist."))
 
 
-;;;; Class instances
+;;;; Resource instances
 
-(defgeneric store-class-instance (db classname attributes)
-  (:documentation "Store an instance of a class in the database.
+(defgeneric store-resource (db resourcetype attributes)
+  (:documentation "Store a resource in the database.
 Return an error if
-- the classname is not present in the schema
-- any of the attributes is not defined in the schema for this class"))
+- the resource type is not present in the schema
+- any of the attributes is not defined in the schema for this resource type."))

@@ -9,45 +9,45 @@ A framework of sorts for producing a REST API for a Neo4J graph database, from a
 
 ## What goes in the database
 
-Objects/resources are defined with the label `rgClass`; their name becomes the label used to create their nodes in the database.
+Objects/resources are defined with the label `rgResource`; their name becomes the label used to create their nodes in the database.
 
 Their attributes are created as objects with the label `rgAttribute`, linked via the `hasAttribute` relationship. This is partly because it's the best fit with the graph model, and partly because it enables me to add attributes to the attributes later, such as `MIMEtype` or `mandatory`.
 
-The third element is relationships between `rgClass` objects. These are implemented as regular Neo4J relationships, and define the relationships that can be created from one class instance to another.
+The third element is relationships between `rgResource` objects. These are implemented as regular Neo4J relationships, and define the relationships that can be created from one resource instance to another.
 
 ## What API you get
 
-For each `rgClass` object, the following patterns are recognised by the application server:
+For each `rgResource` object, the following patterns are recognised by the application server:
 
-Create/retrieve/delete an object of type `<class-name>`:
+Create/retrieve/delete an object of type `<resource-name>`:
 ```
-/api/v1/<class-name>/<unique ID>/
+/api/v1/<resource-name>/<unique ID>/
 ```
 
-Create/retrieve/delete an attribute for an object of type `<class-name>`:
+Create/retrieve/delete an attribute for an object of type `<resource-name>`:
 ```
-/api/v1/<class-name>/<unique ID>/<attribute-name>
+/api/v1/<resource-name>/<unique ID>/<attribute-name>
 ```
 
 Create/delete a relationship to another object:
 ```
-/api/v1/<class-name>/<unique ID>/<relationship>/<unique ID of target node>
+/api/v1/<resource-name>/<unique ID>/<relationship>/<unique ID of target node>
 ```
 
-Search for objects of type `<class-name>`, matching a set of attribute/value pairs:
+Search for objects of type `<resource-name>`, matching a set of attribute/value pairs:
 ```
-/api/v1/<class-name>/?<attribute-name>=<value>
+/api/v1/<resource-name>/?<attribute-name>=<value>
 ```
 
 Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs:
 ```
-/api/v1/<class-name>/<unique ID>/<relationship>/?<attribute-name>=<value>
+/api/v1/<resource-name>/<unique ID>/<relationship>/?<attribute-name>=<value>
 ```
 
 Per the usual REST pattern, the HTTP methods POST, GET and DELETE are used for create, retrieve and delete operations, respectively.
 
 ## Stuff I'm currently thinking of adding once that's working
 
-- discovery, because it'd be nice to get a list of classes/resources and their attributes
+- discovery, because it'd be nice to get a list of resources/resources and their attributes
 - hypermedia links, to help with on-the-fly discovery
 - regex searching for text content in attributes

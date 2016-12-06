@@ -5,36 +5,37 @@
 
 ;;;; Schema methods and functions
 
-(defmethod get-classes-from-db ((db neo4cl:neo4j-rest-server))
+(defmethod get-resources-from-db ((db neo4cl:neo4j-rest-server))
   (mapcar #'car
           (neo4cl::extract-rows-from-get-request
             (neo4cl:neo4j-transaction
               db
               `((:STATEMENTS
-                  ((:STATEMENT . "MATCH (c:rgClass) RETURN c.name"))))))))
+                  ((:STATEMENT . "MATCH (c:rgResource) RETURN c.name"))))))))
 
-(defmethod get-class-relationships-from-db ((db neo4cl:neo4j-rest-server))
+(defmethod get-resource-relationships-from-db ((db neo4cl:neo4j-rest-server))
           (neo4cl::extract-rows-from-get-request
             (neo4cl:neo4j-transaction
               db
               `((:STATEMENTS
-                  ((:STATEMENT . "MATCH (c:rgClass)-[r]->(t:rgClass) RETURN c.name, type(r), t.name")))))))
+                  ((:STATEMENT . "MATCH (c:rgResource)-[r]->(t:rgResource) RETURN c.name, type(r), t.name")))))))
 
-;;;; Classes
 
-(defmethod store-class-instance ((db neo4cl:neo4j-rest-server) classname post-params)
-  (let* (;; Local cache of the schema for the requested class
-         (classdata (get-class-from-schema-by-name (getf *config-vars* :schema) classname))
+;;;; Resources
+
+(defmethod store-resource ((db neo4cl:neo4j-rest-server) resourcetype post-params)
+  (let* (;; Local cache of the schema for the requested resource-type
+         (typedata (get-resourcetype-from-schema-by-name (getf *config-vars* :schema) resourcetype))
          ;; Attributes that are valid for this resource type
-         (valid-attributes (gethash "attributes" classdata))
+         (valid-attributes (gethash "attributes" typedata))
          ;; Attributes with which to create the resource
          (attributes ())
          ;; Attributes that were specified but aren't valid for this resource-type
          (invalid-attributes ()))
     ;; Check whether the requested classname is valid
-    (log-message :debug (format nil "Checking validity of class name '~A'." classname))
-    (unless classname
-      (error (format nil "The class name ~A is not present in the schema." classname)))
+    (log-message :debug (format nil "Checking validity of resource type '~A'." resourcetype))
+    (unless resourcetype
+      (error (format nil "The resource type ~A is not present in the schema." resourcetype)))
     ;; Check whether a UID has been specified
     (unless (assoc "uid" post-params :test 'equal)
       (log-message :debug "No UID found in the request parameters")
@@ -52,15 +53,15 @@
     ;; If any requested attributes are invalid, report them as an error
     (when invalid-attributes
       (let ((message (format nil "These requested attributes are invalid for the resource-type ~A: ~{~A~^, ~}."
-                             classname
+                             resourcetype
                              invalid-attributes)))
         (log-message :debug message)
         (error message)))
-    ;; If we got this far, we have a valid class name and valid attribute names.
+    ;; If we got this far, we have a valid resource type and valid attribute names.
     ;; Make it happen
     (neo4cl:neo4j-transaction
       db
       `((:STATEMENTS
-          ((:STATEMENT . ,(format nil "CREATE (:~A { properties })" classname))
+          ((:STATEMENT . ,(format nil "CREATE (:~A { properties })" resourcetype))
            (:PARAMETERS .
             ((:PROPERTIES . ,attributes)))))))))

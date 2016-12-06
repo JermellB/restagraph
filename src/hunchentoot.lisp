@@ -77,7 +77,7 @@
                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
                 "Well, that didn't work.")))
          (multiple-value-bind (results code message)
-           (store-class-instance (datastore tbnl:*acceptor*) resource-type (tbnl:post-parameters*))
+           (store-resource (datastore tbnl:*acceptor*) resource-type (tbnl:post-parameters*))
            (declare (ignore results)
                     (ignore message))
            (if (equal code 200)
