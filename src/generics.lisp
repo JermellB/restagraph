@@ -4,12 +4,22 @@
 ;;;; Schema
 
 (defgeneric get-resources-from-db (db)
-  (:documentation "Extract the resource definitions from the database"))
+  (:documentation "Extract the resource definitions from the database.
+Returns a hashtable:
+- <resource-type> -> hash-table
+-- <attribute-name> -> hash-table
+--- <attribute-attributes> -> alist"))
+
+(defgeneric get-resource-names-from-db (db)
+  (:documentation "Extract the names of resource definitions from the database"))
+
+(defgeneric get-resource-attributes-from-db (db)
+  (:documentation "Extract the attributes from resource definitions from the database"))
 
 (defgeneric get-resource-relationships-from-db (db)
   (:documentation "Extract the relationships between the resource types, from the database"))
 
-(defgeneric add-resourcetype-to-schema (schema resourcetype)
+(defgeneric add-resourcetype-to-schema (schema resourcetype attributes)
   (:documentation "Add a resource-type to a schema, ensuring the internal structure is ready to receive new attributes and relationships."))
 
 (defgeneric get-resourcetype-from-schema-by-name (schema resourcename)

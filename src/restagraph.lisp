@@ -4,19 +4,16 @@
 ;;;;
 ;;;; Pure-functional methods
 
-(defmethod add-resourcetype-to-schema ((schema hash-table) (resourcetype string))
+(defmethod add-resourcetype-to-schema ((schema hash-table) (resourcetype string) (attributes hash-table))
   (log-message :debug (format nil "Ensuring resource type '~A' is present in the schema" resourcetype))
-  (unless (gethash resourcetype schema)
-    (progn
-      ;; Add the resource-type to the schema
-      (setf (gethash resourcetype schema)
-            (make-hash-table :test 'equal))
-      ;; Add the 'attributes' subschema for the resource-type
-      (setf (gethash "attributes" (gethash resourcetype schema))
-            (make-hash-table :test 'equal))
-      ;; Add the 'relationships' subschema for the resource-type
-      (setf (gethash "relationships" (gethash resourcetype schema))
-            (make-hash-table :test 'equal)))))
+  ;; Add the resource-type to the schema
+  (setf (gethash resourcetype schema)
+        (make-hash-table :test 'equal))
+  ;; Add the 'attributes' subschema for the resource-type
+  (setf (gethash "attributes" (gethash resourcetype schema)) attributes)
+  ;; Add the 'relationships' subschema for the resource-type
+  (setf (gethash "relationships" (gethash resourcetype schema))
+        (make-hash-table :test 'equal)))
 
 (defmethod get-resourcetype-from-schema-by-name ((schema hash-table) (resourcename string))
   (gethash resourcename schema))
@@ -51,8 +48,8 @@
    and returns it as a set of nested alists.
    If a schema isn't supplied, automatically creates one in the default form of a hash-table."
   (log-message :debug "Populating the schema with resource types")
-  (mapcar #'(lambda (typename)
-              (add-resourcetype-to-schema schema typename))
+  (maphash #'(lambda (typename attributes)
+              (add-resourcetype-to-schema schema typename attributes))
           (get-resources-from-db db))
   (log-message :debug "Populating the schema with relationships between the resource types")
   (mapcar #'(lambda (reltriple)

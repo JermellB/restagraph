@@ -30,7 +30,10 @@
                  :access-log-destination (make-synonym-stream 'cl:*standard-output*)
                  :message-log-destination (make-synonym-stream 'cl:*standard-output*)
                  ;; Datastore object - for specialising all the db methods on
-                 :datastore (getf *config-vars* :datastore)))
+                 :datastore (make-instance 'neo4cl:neo4j-rest-server
+                                           :hostname (getf *config-vars* :dbhostname)
+                                           :dbpasswd (getf *config-vars* :dbpasswd)
+                                           :dbuser (getf *config-vars* :dbusername))))
 
 ;;; Define a logging method
 (defmethod tbnl:acceptor-log-message ((acceptor restagraph-acceptor)
