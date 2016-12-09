@@ -124,6 +124,82 @@
       (t
        (method-not-implemented)))))
 
+(defun relationship-dispatcher ()
+  "Hunchentoot dispatch function to handle an API request to create, delete or inspect relationships between resources."
+  (log-message :debug "Attempting to dispatch a relationship request")
+  (let* ((uri-parts (ppcre:split "/" (cl-ppcre:regex-replace *uri-base* (tbnl:request-uri*) "")))
+         (resource-type (first uri-parts))
+         (relationship (second uri-parts)))
+    (log-message :debug (format nil "Dispatching a request for a ~A relationship on resource type ~A."
+                                relationship resource-type))
+    (cond
+      ;;; POST -> Create a relationship
+      ((equal (tbnl:request-method*) :POST)
+       ;; Sanity-check of parameters
+       (unless (and
+                 (tbnl:post-parameter "from-type")
+                 (tbnl:post-parameter "from-uid")
+                 (tbnl:post-parameter "relationship")
+                 (tbnl:post-parameter "to-type")
+                 (tbnl:post-parameter "to-uid"))
+         (error "All parameters are required: from-type, from-uid, relationship, to-type and to-uid"))
+       ;; Attempt to create it
+       (multiple-value-bind (result code message)
+         (create-relationship (datastore tbnl:*acceptor*)
+                              (tbnl:post-parameter "from-type")
+                              (tbnl:post-parameter "from-uid")
+                              (tbnl:post-parameter "relationship")
+                              (tbnl:post-parameter "to-type")
+                              (tbnl:post-parameter "to-uid"))
+         (declare (ignore result)
+                  (ignore message))
+         ;; Handle the various outcomes
+         (if (equal code 200)
+           ;; It worked!
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             (setf (tbnl:content-type*) "text/plain")
+             "201 CREATED")
+           ;; It didn't work
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+             (setf (tbnl:content-type*) "text/plain")
+             "Nope. Try again."))))
+      ;;; DELETE -> Remove a relationship
+      ((equal (tbnl:request-method*) :DELETE)
+       ;; Sanity-check of parameters
+       (unless (and
+                 (tbnl:post-parameter "from-type")
+                 (tbnl:post-parameter "from-uid")
+                 (tbnl:post-parameter "relationship")
+                 (tbnl:post-parameter "to-type")
+                 (tbnl:post-parameter "to-uid"))
+         (error "All parameters are required: from-type, from-uid, relationship, to-type and to-uid"))
+       ;; Attempt to create it
+       (multiple-value-bind (result code message)
+         (delete-relationship (datastore tbnl:*acceptor*)
+                              (tbnl:post-parameter "from-type")
+                              (tbnl:post-parameter "from-uid")
+                              (tbnl:post-parameter "relationship")
+                              (tbnl:post-parameter "to-type")
+                              (tbnl:post-parameter "to-uid"))
+         (declare (ignore result)
+                  (ignore message))
+         ;; Handle the various outcomes
+         (if (equal code 200)
+           ;; It worked!
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             (setf (tbnl:content-type*) "text/plain")
+             "201 CREATED")
+           ;; It didn't work
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+             (setf (tbnl:content-type*) "text/plain")
+             "Nope. Try again."))))
+      (t
+        (method-not-implemented)))))
+
 (defun startup ()
   (log-message :info "Starting up the restagraph application server")
   ;; Populate the schema from the database
@@ -138,14 +214,30 @@
           ;; This must be last, because they're inspected in order,
           ;; and the first match wins.
           (tbnl:create-prefix-dispatcher "/" 'four-oh-four)))
-  (maphash #'(lambda (resource details)
-               (declare (ignore details))
-               (let ((uri (format nil "~A~A" *uri-base* resource)))
-                 (log-message :debug (format nil "Installing a resource handler for '~A' at '~A'."
-                                             resource uri))
-                 (pushnew (tbnl:create-regex-dispatcher uri 'resource-dispatcher)
-                          tbnl:*dispatch-table*)))
-           (getf *config-vars* :schema))
+  ;; Add API handlers to the resource table
+  (maphash
+    ;; Outer loop of resources
+    #'(lambda (resource details)
+        ;; Inner loop of relationships on resources.
+        ;; Add these first, to make them the more-specific match.
+        (maphash #'(lambda (relationship targets)
+                     (declare (ignore targets))
+                     ;; Predefine the URI once to use at least twice
+                     (let ((uri (format nil "~A~A/~A" *uri-base* resource relationship)))
+                       (log-message :debug (format nil "Installing a relationship handler for ~A/~A"
+                                                   resource relationship))
+                       ;; Actually add it to the dispatch table
+                       (pushnew (tbnl:create-regex-dispatcher uri 'relationship-dispatcher)
+                                tbnl:*dispatch-table*)))
+                 (gethash "relationships" details))
+        ;; Now add the less-specific handler for the resource itself,
+        ;; again predefining the URI to use twice.
+        (let ((uri (format nil "~A~A" *uri-base* resource)))
+          (log-message :debug (format nil "Installing a resource handler for '~A' at '~A'."
+                                      resource uri))
+          (pushnew (tbnl:create-regex-dispatcher uri 'resource-dispatcher)
+                   tbnl:*dispatch-table*)))
+    (getf *config-vars* :schema))
   (log-message :info "Starting up Hunchentoot to serve HTTP requests")
   (handler-case
     (tbnl:start *restagraph-acceptor*)
