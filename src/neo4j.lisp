@@ -14,7 +14,7 @@
                   ((:STATEMENT . "MATCH (c:rgResource) RETURN c.name"))))))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server))
-  (neo4cl::extract-rows-from-get-request
+  (neo4cl::extract-rows-from-get-request 
     (neo4cl:neo4j-transaction
       db
       `((:STATEMENTS
@@ -106,4 +106,33 @@
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
-        ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DELETE n" resourcetype uid)))))))
+        ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n" resourcetype uid)))))))
+
+
+;;;; Relationships
+
+(defmethod create-relationship ((db neo4cl:neo4j-rest-server)
+                                (source-type string)
+                                (source-uid string)
+                                (reltype string)
+                                (dest-type string)
+                                (dest-uid string))
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT .
+          ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) CREATE (a)-[:~A]->(b)"
+                   source-type source-uid dest-type dest-uid reltype)))))))
+
+(defmethod delete-relationship ((db neo4cl:neo4j-rest-server)
+                                (source-type string)
+                                (source-uid string)
+                                (reltype string)
+                                (dest-type string)
+                                (dest-uid string))
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT .
+          ,(format nil "MATCH (a:~A { uid: '~A' })-[r:~A]->(b:~A { uid: '~A' }) DELETE r"
+                   source-type source-uid reltype dest-type dest-uid)))))))

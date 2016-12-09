@@ -41,4 +41,12 @@ Return an error if
   (:documentation "Retrieve a representation of a resource from the database."))
 
 (defgeneric delete-resource-by-uid (db resourcetype uid)
-  (:documentation "Delete a resource from the database."))
+  (:documentation "Delete a resource from the database. Automatically remove all relationships to other nodes."))
+
+;;;; Relationships
+
+(defgeneric create-relationship (db source-type source-uid reltype dest-type dest-uid)
+  (:documentation "Create a relationship between two resources"))
+
+(defgeneric delete-relationship (db source-type source-uid reltype dest-type dest-uid)
+  (:documentation "Delete a relationship between two resources"))
