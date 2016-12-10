@@ -124,6 +124,20 @@
           ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) CREATE (a)-[:~A]->(b)"
                    source-type source-uid dest-type dest-uid reltype)))))))
 
+(defmethod get-resources-with-relationship ((db neo4cl:neo4j-rest-server)
+                                            (resourcetype string)
+                                            (uid string)
+                                            (relationship string))
+  (mapcar #'(lambda (row)
+              `(("resource-type" . ,(caar row)) ("uid" . ,(second row))))
+          (neo4cl:extract-rows-from-get-request
+            (neo4cl:neo4j-transaction
+              db
+              `((:STATEMENTS
+                  ((:STATEMENT .
+                    ,(format nil "MATCH (a:~A {uid: '~A' })-[:~A]->(b) RETURN labels(b), b.uid"
+                             resourcetype uid relationship)))))))))
+
 (defmethod delete-relationship ((db neo4cl:neo4j-rest-server)
                                 (source-type string)
                                 (source-uid string)

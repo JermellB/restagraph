@@ -98,13 +98,14 @@
                  (format nil "No ~A found with a UID of ~A." resource-type uid))
                ;; If we got this far, assume it worked and return whatever we received
                (progn
+                 (setf (tbnl:return-code*) tbnl:+http-ok+)
                  (setf (tbnl:content-type*) "application/json")
                  result)))
            ;; No UID, no service
            (progn
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-             "UID is required"))))
+             "The UID portion of the URI is required"))))
       ;; DELETE -> Delete the resource from the db
       ((equal (tbnl:request-method*) :DELETE)
        ;; It'll be this type either way; just set it once.
@@ -129,74 +130,104 @@
   (log-message :debug "Attempting to dispatch a relationship request")
   (let* ((uri-parts (ppcre:split "/" (cl-ppcre:regex-replace *uri-base* (tbnl:request-uri*) "")))
          (resource-type (first uri-parts))
-         (relationship (second uri-parts)))
+         (uid (second uri-parts))
+         (relationship (third uri-parts)))
     (log-message :debug (format nil "Dispatching a request for a ~A relationship on resource type ~A."
                                 relationship resource-type))
     (cond
       ;;; POST -> Create a relationship
       ((equal (tbnl:request-method*) :POST)
        ;; Sanity-check of parameters
-       (unless (and
-                 (tbnl:post-parameter "from-type")
-                 (tbnl:post-parameter "from-uid")
-                 (tbnl:post-parameter "relationship")
-                 (tbnl:post-parameter "to-type")
-                 (tbnl:post-parameter "to-uid"))
-         (error "All parameters are required: from-type, from-uid, relationship, to-type and to-uid"))
-       ;; Attempt to create it
-       (multiple-value-bind (result code message)
-         (create-relationship (datastore tbnl:*acceptor*)
-                              (tbnl:post-parameter "from-type")
-                              (tbnl:post-parameter "from-uid")
-                              (tbnl:post-parameter "relationship")
-                              (tbnl:post-parameter "to-type")
-                              (tbnl:post-parameter "to-uid"))
-         (declare (ignore result)
-                  (ignore message))
-         ;; Handle the various outcomes
-         (if (equal code 200)
-           ;; It worked!
-           (progn
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             (setf (tbnl:content-type*) "text/plain")
-             "201 CREATED")
-           ;; It didn't work
+       (progn
+         (unless (and
+                   (tbnl:post-parameter "to-type")
+                   (tbnl:post-parameter "to-uid"))
            (progn
              (setf (tbnl:return-code*) tbnl:+http-bad-request+)
              (setf (tbnl:content-type*) "text/plain")
-             "Nope. Try again."))))
+             "All parameters are required: to-type and to-uid"))
+         ;; Attempt to create it
+         (log-message :debug "Attempting to create a ~A relationship from ~A ~A to ~A ~A"
+                      relationship
+                      resource-type
+                      uid
+                      (tbnl:post-parameter "to-type")
+                      (tbnl:post-parameter "to-uid"))
+         (multiple-value-bind (result code message)
+           (create-relationship (datastore tbnl:*acceptor*)
+                                resource-type
+                                uid
+                                relationship
+                                (tbnl:post-parameter "to-type")
+                                (tbnl:post-parameter "to-uid"))
+           (declare (ignore result)
+                    (ignore message))
+           ;; Handle the various outcomes
+           (if (equal code 200)
+             ;; It worked!
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               (setf (tbnl:content-type*) "text/plain")
+               "201 CREATED")
+             ;; It didn't work
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               (setf (tbnl:content-type*) "text/plain")
+               "Nope. Try again.")))))
+      ;;; GET -> Retrieve a summary of resources with a given relationship to this one
+      ((equal (tbnl:request-method*) :GET)
+       (log-message :debug "Attempting to dispatch a GET request")
+       (log-message :debug (format nil "Retrieving ~A relationships from ~A ~A"
+                                   relationship resource-type uid))
+       (let ((result
+               (get-resources-with-relationship
+                 (datastore tbnl:*acceptor*)
+                 resource-type
+                 uid
+                 relationship)))
+         ;; Check what came back
+         (if result
+           ;; If it was actual content, return that
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-ok+)
+             (setf (tbnl:content-type*) "application/json")
+             (log-message :debug (format nil "Returning result '~A'" result))
+             (cl-json:encode-json-to-string result))
+           ;; If it was empty, report that instead
+           (progn
+             (setf (tbnl:return-code*) tbnl:+http-not-found+)
+             (setf (tbnl:content-type*) "text/plain")
+             (format nil "No ~A found for ~A ~A" relationship resource-type uid)))))
       ;;; DELETE -> Remove a relationship
       ((equal (tbnl:request-method*) :DELETE)
        ;; Sanity-check of parameters
-       (unless (and
-                 (tbnl:post-parameter "from-type")
-                 (tbnl:post-parameter "from-uid")
-                 (tbnl:post-parameter "relationship")
-                 (tbnl:post-parameter "to-type")
-                 (tbnl:post-parameter "to-uid"))
-         (error "All parameters are required: from-type, from-uid, relationship, to-type and to-uid"))
-       ;; Attempt to create it
-       (multiple-value-bind (result code message)
-         (delete-relationship (datastore tbnl:*acceptor*)
-                              (tbnl:post-parameter "from-type")
-                              (tbnl:post-parameter "from-uid")
-                              (tbnl:post-parameter "relationship")
-                              (tbnl:post-parameter "to-type")
-                              (tbnl:post-parameter "to-uid"))
-         (declare (ignore result)
-                  (ignore message))
-         ;; Handle the various outcomes
-         (if (equal code 200)
-           ;; It worked!
-           (progn
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             (setf (tbnl:content-type*) "text/plain")
-             "201 CREATED")
-           ;; It didn't work
-           (progn
-             (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-             (setf (tbnl:content-type*) "text/plain")
-             "Nope. Try again."))))
+       (progn
+         (unless (and
+                   (tbnl:post-parameter "to-type")
+                   (tbnl:post-parameter "to-uid"))
+           (error "All parameters are required: to-type and to-uid"))
+         ;; Attempt to create it
+         (multiple-value-bind (result code message)
+           (delete-relationship (datastore tbnl:*acceptor*)
+                                resource-type
+                                uid
+                                relationship
+                                (tbnl:post-parameter "to-type")
+                                (tbnl:post-parameter "to-uid"))
+           (declare (ignore result)
+                    (ignore message))
+           ;; Handle the various outcomes
+           (if (equal code 200)
+             ;; It worked!
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               (setf (tbnl:content-type*) "text/plain")
+               "201 CREATED")
+             ;; It didn't work
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               (setf (tbnl:content-type*) "text/plain")
+               "Nope. Try again.")))))
       (t
         (method-not-implemented)))))
 
@@ -218,25 +249,25 @@
   (maphash
     ;; Outer loop of resources
     #'(lambda (resource details)
-        ;; Inner loop of relationships on resources.
-        ;; Add these first, to make them the more-specific match.
-        (maphash #'(lambda (relationship targets)
-                     (declare (ignore targets))
-                     ;; Predefine the URI once to use at least twice
-                     (let ((uri (format nil "~A~A/~A" *uri-base* resource relationship)))
-                       (log-message :debug (format nil "Installing a relationship handler for ~A/~A"
-                                                   resource relationship))
-                       ;; Actually add it to the dispatch table
-                       (pushnew (tbnl:create-regex-dispatcher uri 'relationship-dispatcher)
-                                tbnl:*dispatch-table*)))
-                 (gethash "relationships" details))
         ;; Now add the less-specific handler for the resource itself,
         ;; again predefining the URI to use twice.
         (let ((uri (format nil "~A~A" *uri-base* resource)))
           (log-message :debug (format nil "Installing a resource handler for '~A' at '~A'."
                                       resource uri))
           (pushnew (tbnl:create-regex-dispatcher uri 'resource-dispatcher)
-                   tbnl:*dispatch-table*)))
+                   tbnl:*dispatch-table*))
+        ;; Inner loop of relationships on resources.
+        ;; Add these first, to make them the more-specific match.
+        (maphash #'(lambda (relationship targets)
+                     (declare (ignore targets))
+                     ;; Predefine the URI once to use at least twice
+                     (let ((uri (format nil "~A~A/.+/~A" *uri-base* resource relationship)))
+                       (log-message :debug (format nil "Installing a relationship handler for '~A/~A' at '~A'"
+                                                   resource relationship uri))
+                       ;; Actually add it to the dispatch table
+                       (pushnew (tbnl:create-regex-dispatcher uri 'relationship-dispatcher)
+                                tbnl:*dispatch-table*)))
+                 (gethash "relationships" details)))
     (getf *config-vars* :schema))
   (log-message :info "Starting up Hunchentoot to serve HTTP requests")
   (handler-case

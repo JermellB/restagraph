@@ -48,5 +48,9 @@ Return an error if
 (defgeneric create-relationship (db source-type source-uid reltype dest-type dest-uid)
   (:documentation "Create a relationship between two resources"))
 
+(defgeneric get-resources-with-relationship (db resourcetype uid reltype)
+  (:documentation "Retrieve a summary of all resources with a given relationship to this one.
+  Return a list of two-element lists, where the first element is the resource-type and the second is the UID."))
+
 (defgeneric delete-relationship (db source-type source-uid reltype dest-type dest-uid)
   (:documentation "Delete a relationship between two resources"))
