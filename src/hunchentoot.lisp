@@ -52,7 +52,7 @@
 (defun four-oh-four ()
   "Fallthrough handler, for anything we haven't already defined."
   (setf (tbnl:content-type*) "text/plain")
-  (setf (tbnl:return-code*) tbnl:+http-not-found+)
+  (setf (tbnl:return-code*) tbnl:+http-bad-request+)
   "This is not a valid URI")
 
 (defun method-not-implemented ()
