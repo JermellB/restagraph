@@ -67,7 +67,7 @@
     ;; Check whether a UID has been specified
     (unless (assoc "uid" post-params :test 'equal)
       (log-message :debug "No UID found in the request parameters")
-      (error "UID must be supplied as a POST parameter."))
+      (error "UID must be supplied"))
     ;; Check for invalid attributes in the request
     (log-message :debug (format nil "Checking validity of supplied parameters ~A." post-params))
     (loop for (name . value) in post-params
