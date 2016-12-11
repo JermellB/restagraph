@@ -279,4 +279,7 @@
 (defun shutdown ()
   (log-message :info
                (format nil "Shutting down the restagraph application server"))
-  (tbnl:stop *restagraph-acceptor*))
+  (handler-case
+    (tbnl:stop *restagraph-acceptor*)
+    ;; Catch the case where it's already shut down
+    (tbnl::unbound-slot () (log-message :info "Attempting to shut down Hunchentoot, but it's not running."))))
