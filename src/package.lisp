@@ -1,7 +1,11 @@
 (defpackage restagraph
   (:use
     #:cl)
-  (:export startup
-           shutdown
-           populate-schema
-           ))
+  (:export
+    ;; Operational functions
+    startup
+    shutdown
+    populate-schema
+    ;; Conditions
+    integrity-error
+    ))

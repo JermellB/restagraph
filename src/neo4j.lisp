@@ -117,12 +117,16 @@
                                 (reltype string)
                                 (dest-type string)
                                 (dest-uid string))
-  (neo4cl:neo4j-transaction
-    db
-    `((:STATEMENTS
-        ((:STATEMENT .
-          ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) CREATE (a)-[:~A]->(b)"
-                   source-type source-uid dest-type dest-uid reltype)))))))
+  (if (relationship-valid-p (getf *config-vars* :schema) source-type reltype dest-type)
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS
+          ((:STATEMENT .
+            ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) CREATE (a)-[:~A]->(b)"
+                     source-type source-uid dest-type dest-uid reltype))))))
+    (error 'integrity-error
+           :message (format nil "Relationship ~A is not permitted from ~A to ~A"
+                            reltype source-type dest-type))))
 
 (defmethod get-resources-with-relationship ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string)

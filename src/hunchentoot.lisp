@@ -126,6 +126,12 @@
       (t
        (method-not-implemented)))))
 
+(defun return-integrity-error (message)
+  "Report to the client that their request would have violated an integrity constraint"
+  (setf (tbnl:return-code*) tbnl:+http-conflict+)
+  (setf (tbnl:content-type*) "text/plain")
+  message)
+
 (defun relationship-dispatcher ()
   "Hunchentoot dispatch function to handle an API request to create, delete or inspect relationships between resources."
   (log-message :debug "Attempting to dispatch a relationship request")
@@ -154,27 +160,30 @@
                       uid
                       (tbnl:post-parameter "to-type")
                       (tbnl:post-parameter "to-uid"))
-         (multiple-value-bind (result code message)
-           (create-relationship (datastore tbnl:*acceptor*)
-                                resource-type
-                                uid
-                                relationship
-                                (tbnl:post-parameter "to-type")
-                                (tbnl:post-parameter "to-uid"))
-           (declare (ignore result)
-                    (ignore message))
-           ;; Handle the various outcomes
-           (if (equal code 200)
-             ;; It worked!
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               (setf (tbnl:content-type*) "text/plain")
-               "201 CREATED")
-             ;; It didn't work
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-               (setf (tbnl:content-type*) "text/plain")
-               "Nope. Try again.")))))
+         (handler-case
+           (multiple-value-bind (result code message)
+             (create-relationship (datastore tbnl:*acceptor*)
+                                  resource-type
+                                  uid
+                                  relationship
+                                  (tbnl:post-parameter "to-type")
+                                  (tbnl:post-parameter "to-uid"))
+             (declare (ignore result)
+                      (ignore message))
+             ;; Handle the various outcomes
+             (if (equal code 200)
+               ;; It worked!
+               (progn
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 (setf (tbnl:content-type*) "text/plain")
+                 "201 CREATED")
+               ;; It didn't work
+               (progn
+                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+                 (setf (tbnl:content-type*) "text/plain")
+                 "Nope. Try again.")))
+           (restagraph:integrity-error (e)
+           (return-integrity-error (message e))))))
       ;;; GET -> Retrieve a summary of resources with a given relationship to this one
       ((equal (tbnl:request-method*) :GET)
        (log-message :debug "Attempting to dispatch a GET request")
@@ -250,18 +259,25 @@
   (maphash
     ;; Outer loop of resources
     #'(lambda (resource details)
-        ;; Now add the less-specific handler for the resource itself,
-        ;; again predefining the URI to use twice.
+        ;; Add the less-specific handler for the resource itself.
+        ;; Predefine the URI for consistency when we use it more than once.
         (let ((uri (format nil "~A~A" *uri-base* resource)))
           (log-message :debug (format nil "Installing a resource handler for '~A' at '~A'."
                                       resource uri))
           (pushnew (tbnl:create-regex-dispatcher uri 'resource-dispatcher)
                    tbnl:*dispatch-table*))
+        ;; Add a catch-all for attempts to create an invalid relationship
+        (let ((uri (format nil "~A~A/.+/.+" *uri-base* resource)))
+          (pushnew (tbnl:create-regex-dispatcher
+                     uri
+                     #'(lambda ()
+                         (return-integrity-error (format nil "This relationship is not valid for ~A" resource))))
+                   tbnl:*dispatch-table*))
         ;; Inner loop of relationships on resources.
-        ;; Add these first, to make them the more-specific match.
+        ;; Add these last, to make them the more-specific match.
         (maphash #'(lambda (relationship targets)
                      (declare (ignore targets))
-                     ;; Predefine the URI once to use at least twice
+                     ;; Predefine the URI once for consistency
                      (let ((uri (format nil "~A~A/.+/~A" *uri-base* resource relationship)))
                        (log-message :debug (format nil "Installing a relationship handler for '~A/~A' at '~A'"
                                                    resource relationship uri))

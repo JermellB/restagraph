@@ -28,6 +28,9 @@ Returns a hashtable:
 (defgeneric add-resource-relationship-to-schema (schema from-resource relationship to-resource)
   (:documentation "Update the schema with a directional relationship between two resource types, returning an error if either of the resource types doesn't exist."))
 
+(defgeneric relationship-valid-p (schema from-resource relationship to-resource)
+  (:documentation "Checks whether this type of relationship is permitted between these types of resources. Returns a boolean."))
+
 
 ;;;; Resource instances
 

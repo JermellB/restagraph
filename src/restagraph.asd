@@ -6,6 +6,7 @@
   :depends-on (#:neo4cl
                #:hunchentoot)
   :components ((:file "package")
+               (:file "conditions")
                (:file "logging")
                (:file "generics")
                (:file "neo4j")

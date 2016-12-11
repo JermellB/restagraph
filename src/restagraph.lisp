@@ -51,6 +51,16 @@
     ;; report back to the caller with an error.
     (error "Both the from-type and to-type must already be present in the schema. Ensure they both exist, and try again.")))
 
+(defmethod relationship-valid-p ((schema hash-table)
+                                 (from-resource string)
+                                 (relationship string)
+                                 (to-resource string))
+  (member to-resource
+          (gethash relationship
+                   (gethash "relationships"
+                            (gethash from-resource schema)))
+          :test 'equal))
+
 
 ;;;; Non-pure methods
 

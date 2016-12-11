@@ -51,7 +51,7 @@ class TestResources(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).status_code,
                 404)
 
-class TestRelationships(unittest.TestCase):
+class TestValidRelationships(unittest.TestCase):
     '''
     Basic CRD functions for relationships
     '''
@@ -67,7 +67,7 @@ class TestRelationships(unittest.TestCase):
                 201)
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
                 201)
-        # Create a relationship between them
+        # Create a valid relationship between them
         self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'to-type': self.interfacetype, 'to-uid': self.interfacename}).status_code,
                 201)
         # Confirm that the relationship is there
@@ -84,6 +84,35 @@ class TestRelationships(unittest.TestCase):
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
                 200)
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
+                200)
+
+class TestInvalidRelationships(unittest.TestCase):
+    '''
+    Basic CRD functions for relationships
+    '''
+    routertype = 'routers'
+    routername = 'bikini'
+    routercomment = 'Test router 2'
+    addresstype = 'ipv4Addresses'
+    address = '127.0.0.1'
+    rel_router_interface = 'Interfaces'
+    rel_invalid = 'dysfunctionalRelationship'
+    def test_basic_relationship(self):
+        # Create two new resources
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
+                201)
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.addresstype), data={'uid': self.address}).status_code,
+                201)
+        # Attempt to create a relationship between them, of a type that doesn't exist for the source resource-type
+        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_invalid), data={'to-type': self.addresstype, 'to-uid': self.address}).status_code,
+                409)
+        # Attempt to create an invalid relationship between them
+        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'to-type': self.addresstype, 'to-uid': self.address}).status_code,
+                409)
+        # Delete the resources
+        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
+                200)
+        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.addresstype), data={'uid': self.address}).status_code,
                 200)
 
 # Make it happen
