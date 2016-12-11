@@ -1,7 +1,18 @@
 (in-package #:restagraph)
 
 ;;;; Schema methods and functions
-;;;;
+
+;;; For reference, the schema model based on a hash-table:
+;; - schema (hash-table :test 'equal)
+;;   - <resourcetype> (string) -> (hash-table :test 'equal)
+;;     - 'attributes' -> (hash-table :test 'equal)
+;;       - <attribute-name> -> alist - these are currently ignored,
+;;                                   - but I have plans to use them in the future.
+;;     - 'relationships' -> (hash-table :test 'equal)
+;;       - <relationship type> -> list of strings
+;;         - <target relationship> - these are the resource-types to which the source-type
+;;                                   is permitted to have this kind of relationship.
+
 ;;;; Pure-functional methods
 
 (defmethod add-resourcetype-to-schema ((schema hash-table) (resourcetype string) (attributes hash-table))
