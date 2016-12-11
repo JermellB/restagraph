@@ -57,6 +57,7 @@
 
 (defun method-not-implemented ()
   "Default response for a client making a request we don't support"
+  (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-method-not-allowed+)
   "Method not supported")
 
