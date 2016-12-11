@@ -74,17 +74,21 @@
       ;; POST -> Store a resource
       ((equal (tbnl:request-method*) :POST)
        (setf (tbnl:content-type*) "text/plain")
-       (multiple-value-bind (results code message)
-         (store-resource (datastore tbnl:*acceptor*) resource-type (tbnl:post-parameters*))
-         (declare (ignore results)
-                  (ignore message))
-         (if (equal code 200)
-           (progn
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             "201 CREATED")
-           (progn
-             (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
-             (format nil "~A Well, that didn't work." code)))))
+       (handler-case
+         (multiple-value-bind (results code message)
+           (store-resource (datastore tbnl:*acceptor*) resource-type (tbnl:post-parameters*))
+           (declare (ignore results)
+                    (ignore message))
+           (if (equal code 200)
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               "201 CREATED")
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+               (format nil "~A Well, that didn't work." code))))
+         ;; Client error
+         (restagraph:integrity-error (e)
+                                     (return-integrity-error (message e)))))
       ;; GET -> Retrieve the resource's details
       ((equal (tbnl:request-method*) :GET)
        (let ((uid (second uri-parts)))
@@ -248,6 +252,8 @@
   (log-message :info "Generating the schema from the database contents")
   (setf (getf *config-vars* :schema)
         (populate-schema (datastore *restagraph-acceptor*)))
+  ;; Create the schema within the database
+  (create-db-schema (datastore *restagraph-acceptor*) (getf *config-vars* :schema))
   ;; Configure Hunchentoot's dispatch table
   (log-message :info "Generating the REST API from the schema")
   (setf tbnl:*dispatch-table*

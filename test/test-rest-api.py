@@ -115,6 +115,25 @@ class TestInvalidRelationships(unittest.TestCase):
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.addresstype), data={'uid': self.address}).status_code,
                 200)
 
+class TestDbSchema(unittest.TestCase):
+    '''
+    Check that the DB schema is being enforced.
+    Principally, make sure we can't create duplicates.
+    '''
+    routertype = 'routers'
+    routername = 'bikini'
+    routercomment = 'Test router 2'
+    def test_unique_resources(self):
+        # Create a new resource
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
+                201)
+        # Attempt to create a duplicate.
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
+                409)
+        # Delete the resource
+        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
+                200)
+
 # Make it happen
 if __name__ == '__main__':
     unittest.main()

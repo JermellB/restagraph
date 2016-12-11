@@ -31,6 +31,9 @@ Returns a hashtable:
 (defgeneric relationship-valid-p (schema from-resource relationship to-resource)
   (:documentation "Checks whether this type of relationship is permitted between these types of resources. Returns a boolean."))
 
+(defgeneric create-db-schema (db schema)
+  (:documentation "Creates whatever schema is most appropriate to the DB engine in use"))
+
 
 ;;;; Resource instances
 

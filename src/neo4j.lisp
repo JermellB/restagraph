@@ -46,6 +46,19 @@
               `((:STATEMENTS
                   ((:STATEMENT . "MATCH (c:rgResource)-[r]->(t:rgResource) RETURN c.name, type(r), t.name")))))))
 
+;;; This currently has to be done one query at a time.
+;;; This approach will not scale well.
+(defmethod create-db-schema ((db neo4cl:neo4j-rest-server) (schema hash-table))
+  (mapcar #'(lambda (resource)
+              (let ((statement (format nil "CREATE CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE" resource)))
+                (log-message :debug "Requesting db constraint as follows: '~A'" statement)
+                (neo4cl:neo4j-transaction
+                  db
+                  `((:STATEMENTS
+                      ((:STATEMENT . ,statement)))))))
+          (loop for resources being the hash-keys in schema
+                collecting resources)))
+
 
 ;;;; Resources
 
@@ -87,12 +100,16 @@
         (error message)))
     ;; If we got this far, we have a valid resource type and valid attribute names.
     ;; Make it happen
-    (neo4cl:neo4j-transaction
-      db
-      `((:STATEMENTS
-          ((:STATEMENT . ,(format nil "CREATE (:~A { properties })" resourcetype))
-           (:PARAMETERS .
-            ((:PROPERTIES . ,attributes)))))))))
+    (handler-case
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT . ,(format nil "CREATE (:~A { properties })" resourcetype))
+             (:PARAMETERS .
+              ((:PROPERTIES . ,attributes)))))))
+      (neo4cl::client-error (e)
+                            (error 'restagraph:integrity-error
+                                   :message (neo4cl::message e))))))
 
 (defmethod get-resource-by-uid ((db neo4cl:neo4j-rest-server) (resourcetype string) (uid string))
   (cl-json:encode-json-alist-to-string
