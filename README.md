@@ -1,24 +1,29 @@
 # Restagraph
 
-## What it is, what it does and what it's for*
+## What it is, what it does and what it's for
 
 A framework of sorts for producing a REST API for a Neo4J graph database, from a schema defined within that database.
 
-* OK, what it _will_ be, once I've implemented it. This is the spec I'm working from.
+The aim is a black box that automagically converts a schema into an API, without any _need_ for a regular user to know about its internals.
 
 
 ## What goes in the database
 
 Objects/resources are defined with the label `rgResource`; their name becomes the label used to create their nodes in the database.
 
-Their attributes are created as objects with the label `rgAttribute`, linked via the `hasAttribute` relationship. This is partly because it's the best fit with the graph model, and partly because it enables me to add attributes to the attributes later, such as `MIMEtype` or `mandatory`.
+Their attributes are defined as objects with the label `rgAttribute`, linked to the `rgResource` node via the `hasAttribute` relationship. This is partly because it's the best fit with the graph model, and partly because it enables me to add attributes to the attributes later, such as `MIMEtype` or `mandatory`.
 
 The third element is relationships between `rgResource` objects. These are implemented as regular Neo4J relationships, and define the relationships that can be created from one resource instance to another.
 
 
 ## The API it generates
 
+HTTP return codes are used to indicate success or error, and the Content-type header is set according to whether text or JSON is being returned. As a rule, JSON will be returned on success, and plain text for anything else.
+
+Be aware that full error-handling is being implemented now; some conditions are not yet handled cleanly by Hunchentoot.
+
 For each `rgResource` object, the following patterns are recognised by the application server:
+
 
 ### Create a resource
 ```
@@ -28,6 +33,7 @@ POST /api/v1/<resource-type>
 With payload of `'uid=<uid>'`, plus optionally `'<attribute>=attribute'` pairs for any subset of the attributes defined for this resource type.
 
 Returns 201 CREATED if it succeeded.
+The UID must be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
 
 ### Retrieve a resource
@@ -47,13 +53,19 @@ Requires a payload of `'uid=<uid>'`, and any other parameters are ignored.
 Returns 200 if it succeeded.
 
 
-## The API it _will_ generate in the future
-
 ### Create/delete a relationship to another object
 ```
 POST|GET|DELETE /api/v1/<resource-name>/<unique ID>/<relationship>
 ```
 
+
+### Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs
+```
+GET /api/v1/<resource-name>/<unique ID>/<relationship>/?<attribute-name>=<value>
+```
+
+
+## The API it _will_ generate in the future
 
 ### Create/retrieve/delete an attribute for an object of type `<resource-name>`
 ```
@@ -64,12 +76,6 @@ POST|GET|DELETE /api/v1/<resource-name>/<unique ID>/<attribute-name>
 ### Search for objects of type `<resource-name>`, matching a set of attribute/value pairs
 ```
 GET /api/v1/<resource-name>/?<attribute-name>=<value>
-```
-
-
-### Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs
-```
-GET /api/v1/<resource-name>/<unique ID>/<relationship>/?<attribute-name>=<value>
 ```
 
 
