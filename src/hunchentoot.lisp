@@ -246,6 +246,49 @@
       (t
         (method-not-implemented)))))
 
+(defmethod generate-dispatch-table ((schema hash-table))
+  (let ((dispatch-table (list
+                          ;; Fallback.
+                          ;; This must be last, because they're inspected in order,
+                          ;; and the first match wins.
+                          (tbnl:create-prefix-dispatcher "/" 'four-oh-four))))
+    (maphash
+      ;; Outer loop of resources
+      #'(lambda (resource details)
+          ;; Add the less-specific handler for the resource itself.
+          ;; Predefine the URI for consistency when we use it more than once.
+          (let ((uri (format nil "~A~A" *uri-base* resource)))
+            (log-message :debug (format nil "Installing a resource handler for '~A' at '~A'."
+                                        resource uri))
+            (pushnew (tbnl:create-regex-dispatcher uri 'resource-dispatcher)
+                     dispatch-table))
+          ;; Add a catch-all for attempts to create an invalid relationship
+          (let ((uri (format nil "~A~A/.+/.+" *uri-base* resource)))
+            (pushnew (tbnl:create-regex-dispatcher
+                       uri #'(lambda ()
+                               (return-integrity-error
+                                 (format nil "This relationship is not valid for ~A" resource))))
+                     dispatch-table))
+          ;; Inner loop of relationships on resources.
+          ;; Add these last, to make them the more-specific match.
+          (maphash #'(lambda (relationship targets)
+                       (declare (ignore targets))
+                       ;; Predefine the URI once for consistency
+                       (let ((uri (format nil "~A~A/.+/~A" *uri-base* resource relationship)))
+                         (log-message :debug (format nil "Installing a relationship handler for '~A/~A' at '~A'"
+                                                     resource relationship uri))
+                         ;; Actually add it to the dispatch table
+                         (pushnew (tbnl:create-regex-dispatcher uri 'relationship-dispatcher)
+                                  dispatch-table)))
+                   (gethash "relationships" details)))
+      schema)
+    ;; Now return the dispatch-table we created
+    dispatch-table))
+
+(defun update-dispatch-table ()
+  "Update the dispatch table while Hunchentoot is running. Convenience function for schema development."
+  (setf tbnl:*dispatch-table* (generate-dispatch-table (getf *config-vars* :schema))))
+
 (defun startup ()
   (log-message :info "Starting up the restagraph application server")
   ;; Populate the schema from the database
@@ -256,43 +299,8 @@
   (create-db-schema (datastore *restagraph-acceptor*) (getf *config-vars* :schema))
   ;; Configure Hunchentoot's dispatch table
   (log-message :info "Generating the REST API from the schema")
-  (setf tbnl:*dispatch-table*
-        (list
-          ;; Fallback.
-          ;; This must be last, because they're inspected in order,
-          ;; and the first match wins.
-          (tbnl:create-prefix-dispatcher "/" 'four-oh-four)))
-  ;; Add API handlers to the resource table
-  (maphash
-    ;; Outer loop of resources
-    #'(lambda (resource details)
-        ;; Add the less-specific handler for the resource itself.
-        ;; Predefine the URI for consistency when we use it more than once.
-        (let ((uri (format nil "~A~A" *uri-base* resource)))
-          (log-message :debug (format nil "Installing a resource handler for '~A' at '~A'."
-                                      resource uri))
-          (pushnew (tbnl:create-regex-dispatcher uri 'resource-dispatcher)
-                   tbnl:*dispatch-table*))
-        ;; Add a catch-all for attempts to create an invalid relationship
-        (let ((uri (format nil "~A~A/.+/.+" *uri-base* resource)))
-          (pushnew (tbnl:create-regex-dispatcher
-                     uri
-                     #'(lambda ()
-                         (return-integrity-error (format nil "This relationship is not valid for ~A" resource))))
-                   tbnl:*dispatch-table*))
-        ;; Inner loop of relationships on resources.
-        ;; Add these last, to make them the more-specific match.
-        (maphash #'(lambda (relationship targets)
-                     (declare (ignore targets))
-                     ;; Predefine the URI once for consistency
-                     (let ((uri (format nil "~A~A/.+/~A" *uri-base* resource relationship)))
-                       (log-message :debug (format nil "Installing a relationship handler for '~A/~A' at '~A'"
-                                                   resource relationship uri))
-                       ;; Actually add it to the dispatch table
-                       (pushnew (tbnl:create-regex-dispatcher uri 'relationship-dispatcher)
-                                tbnl:*dispatch-table*)))
-                 (gethash "relationships" details)))
-    (getf *config-vars* :schema))
+  (update-dispatch-table)
+  ;; Start up the server
   (log-message :info "Starting up Hunchentoot to serve HTTP requests")
   (handler-case
     (tbnl:start *restagraph-acceptor*)

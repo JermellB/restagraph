@@ -34,6 +34,9 @@ Returns a hashtable:
 (defgeneric create-db-schema (db schema)
   (:documentation "Creates whatever schema is most appropriate to the DB engine in use"))
 
+(defgeneric generate-dispatch-table (schema)
+  (:documentation "Create a Hunchentoot dispatch table based on the contents of the schema"))
+
 
 ;;;; Resource instances
 
