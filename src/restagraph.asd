@@ -10,6 +10,6 @@
                (:file "logging")
                (:file "generics")
                (:file "neo4j")
-               (:file "restagraph")
+               (:file "schema")
                (:file "config")
                (:file "hunchentoot")))
