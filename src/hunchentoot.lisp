@@ -120,6 +120,7 @@
              message)
            (progn
              (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+             (setf (tbnl:content-type*) "text/plain")
              "UID is required"))))
       ;; Fallback: anything we don't already know how to handle
       (t
