@@ -107,9 +107,17 @@
             ((:STATEMENT . ,(format nil "CREATE (:~A { properties })" resourcetype))
              (:PARAMETERS .
               ((:PROPERTIES . ,attributes)))))))
-      (neo4cl::client-error (e)
-                            (error 'restagraph:integrity-error
-                                   :message (neo4cl::message e))))))
+      ;; Catch selected errors as they come up
+      (neo4cl::client-error
+        (e)
+        (if (and
+              ;; If it's specifically an integrity error, call this out
+              (equal (neo4cl:category e) "Schema")
+              (equal (neo4cl:title e) "ConstraintValidationFailed"))
+          (error 'restagraph:integrity-error
+                 :message (neo4cl:message e))
+          ;; Otherwise, just resignal it
+          (error e))))))
 
 (defmethod get-resource-by-uid ((db neo4cl:neo4j-rest-server) (resourcetype string) (uid string))
   (cl-json:encode-json-alist-to-string
