@@ -121,8 +121,8 @@ class TestDbSchema(unittest.TestCase):
     Principally, make sure we can't create duplicates.
     '''
     routertype = 'routers'
-    routername = 'bikini'
-    routercomment = 'Test router 2'
+    routername = 'whitesands'
+    routercomment = 'Test router 3'
     def test_unique_resources(self):
         # Create a new resource
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
