@@ -6,6 +6,9 @@ A framework of sorts for producing a REST API for a Neo4J graph database, from a
 
 The aim is a black box that automagically converts a schema into an API, without any _need_ for a regular user to know about its internals.
 
+### Current state
+
+Proof-of-concept: it works, but it's brittle and has the bare minimum of functionality.
 
 ## What goes in the database
 
