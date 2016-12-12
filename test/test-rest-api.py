@@ -46,7 +46,7 @@ class TestResources(unittest.TestCase):
         # Delete it
         self.assertEqual(
                 requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
-                200)
+                204)
         # Confirm it's gone
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).status_code,
                 404)
@@ -77,14 +77,14 @@ class TestValidRelationships(unittest.TestCase):
                 [{"resource-type": self.interfacetype, "uid": self.interfacename}])
         # Delete the relationship
         self.assertEqual(requests.delete('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'to-type': self.interfacetype, 'to-uid': self.interfacename}).status_code,
-                200)
+                204)
         # Confirm the relationship is gone
         self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code, 404)
         # Delete the resources
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
-                200)
+                204)
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
-                200)
+                204)
 
 class TestInvalidRelationships(unittest.TestCase):
     '''
@@ -111,9 +111,9 @@ class TestInvalidRelationships(unittest.TestCase):
                 409)
         # Delete the resources
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
-                200)
+                204)
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.addresstype), data={'uid': self.address}).status_code,
-                200)
+                204)
 
 class TestDbSchema(unittest.TestCase):
     '''
@@ -127,12 +127,15 @@ class TestDbSchema(unittest.TestCase):
         # Create a new resource
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
                 201)
+        # Confirm that it's now there
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).json(),
+                { 'uid': self.routername, 'comment': self.routercomment })
         # Attempt to create a duplicate.
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
                 409)
         # Delete the resource
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
-                200)
+                204)
 
 # Make it happen
 if __name__ == '__main__':

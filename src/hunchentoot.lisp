@@ -47,19 +47,62 @@
 (push :PUT tbnl:*methods-for-post-parameters*)
 (push :DELETE tbnl:*methods-for-post-parameters*)
 
-;; Functions for dispatching requests
+
+;; Error response functions
 
 (defun four-oh-four ()
   "Fallthrough handler, for anything we haven't already defined."
   (setf (tbnl:content-type*) "text/plain")
-  (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+  (setf (tbnl:return-code*) tbnl:+http-not-found+)
   "This is not a valid URI")
 
-(defun method-not-implemented ()
+(defun method-not-allowed ()
   "Default response for a client making a request we don't support"
   (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-method-not-allowed+)
-  "Method not supported")
+  "Method not allowed")
+
+(defun uri-not-implemented ()
+  "It's an API request, but not one we're configured for."
+  (setf (tbnl:content-type*) "text/plain")
+  (setf (tbnl:return-code*) tbnl:+http-not-implemented+)
+  "Not implemented")
+
+(defun return-integrity-error (logmessage &optional client-message)
+  "Report to the client that their request would have violated an integrity constraint.
+  The optional client-message "
+  (log-message :warn (format nil "A client triggered an integrity error: ~A" logmessage))
+  (setf (tbnl:return-code*) tbnl:+http-conflict+)
+  (setf (tbnl:content-type*) "text/plain")
+  ;; If we were handed a specific message, use that
+  (if client-message
+  client-message
+  ;; Otherwise, just return a default message.
+  "Integrity violation error."))
+
+(defun return-database-error (message)
+  "There was a database problem. Log it and report something generic to the user, not to keep them in the dark but to reduce the potential for data leakage."
+  (log-message :error (format nil "Database error: ~A" message))
+  (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+  (setf (tbnl:content-type*) "text/plain")
+  "An error occurred with the database. This has been logged, and will be fixed.")
+
+(defun return-transient-error (message)
+  "Transient problem, which may already have self-resolved.. Log it and report something generic to the user, not to keep them in the dark but to reduce the potential for data leakage."
+  (log-message :error (format nil "Database error: ~A" message))
+  (setf (tbnl:return-code*) tbnl:+http-service-unavailable+)
+  (setf (tbnl:content-type*) "text/plain")
+  "A transient error occurred, and has been logged for us to work on. Please try your request again.")
+
+(defun return-client-error (message)
+  "The client made a bad request. Return this information to them, that they may learn from their mistakes."
+  (log-message :info (format nil "Client error: ~A" message))
+  (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+  (setf (tbnl:content-type*) "text/plain")
+  message)
+
+
+;; Functions for dispatching requests
 
 (defun resource-dispatcher ()
   "Hunchentoot dispatch function to handle an API request relating directly to a resource."
@@ -86,9 +129,15 @@
              (progn
                (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
                (format nil "~A Well, that didn't work." code))))
-         ;; Client error
-         (restagraph:integrity-error (e)
-                                     (return-integrity-error (message e)))))
+         ;; Attempted violation of a DB integrity constraint.
+         ;; Almost certainly an attempt to create a duplicate.
+         (restagraph:integrity-error
+           (e)
+           (return-integrity-error (message e)
+                                   (format nil "Duplicate ~A not permitted" resource-type)))
+         ;; Generic client errors
+         (neo4cl:client-error (e)
+                              (return-client-error (neo4cl:message e)))))
       ;; GET -> Retrieve the resource's details
       ((equal (tbnl:request-method*) :GET)
        (let ((uid (second uri-parts)))
@@ -113,29 +162,31 @@
              "The UID portion of the URI is required"))))
       ;; DELETE -> Delete the resource from the db
       ((equal (tbnl:request-method*) :DELETE)
-       ;; It'll be this type either way; just set it once.
-       (setf (tbnl:content-type*) "text/plain")
        ;; If we don't have the UID, this won't work so well
        (let ((uid (tbnl:post-parameter "uid")))
+         ;; If we _did_ get a UID, proceed and check the outcome
          (if uid
-           (multiple-value-bind (results code message)
-             (delete-resource-by-uid (datastore tbnl:*acceptor*) resource-type uid)
-             (declare (ignore results))
-             (setf (tbnl:return-code*) code)
-             message)
-           (progn
-             (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-             (setf (tbnl:content-type*) "text/plain")
-             "UID is required"))))
+           (handler-case
+             (multiple-value-bind (results code message)
+               (delete-resource-by-uid (datastore tbnl:*acceptor*) resource-type uid)
+               (declare (ignore code)
+                        (ignore results))
+               (if (equal message "OK")
+                 ;; Things went well; be terse
+                 (progn
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-no-content+)
+                   "")
+                 ;; It didn't go quite as planned. Inform the user.
+                 (return-client-error message)))
+             ;; Handle database outage
+             (neo4cl:database-error (e)
+                                    (return-database-error (neo4cl:message e))))
+           ;; Inform the client of the error of their ways
+           (return-client-error "UID is required"))))
       ;; Fallback: anything we don't already know how to handle
       (t
-       (method-not-implemented)))))
-
-(defun return-integrity-error (message)
-  "Report to the client that their request would have violated an integrity constraint"
-  (setf (tbnl:return-code*) tbnl:+http-conflict+)
-  (setf (tbnl:content-type*) "text/plain")
-  message)
+        (method-not-implemented)))))
 
 (defun relationship-dispatcher ()
   "Hunchentoot dispatch function to handle an API request to create, delete or inspect relationships between resources."
@@ -174,21 +225,19 @@
                                   (tbnl:post-parameter "to-type")
                                   (tbnl:post-parameter "to-uid"))
              (declare (ignore result)
-                      (ignore message))
+                      (ignore code))
              ;; Handle the various outcomes
-             (if (equal code 200)
+             (if (equal message "OK")
                ;; It worked!
                (progn
                  (setf (tbnl:return-code*) tbnl:+http-created+)
                  (setf (tbnl:content-type*) "text/plain")
-                 "201 CREATED")
+                 "CREATED")
                ;; It didn't work
-               (progn
-                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-                 (setf (tbnl:content-type*) "text/plain")
-                 "Nope. Try again.")))
+               (return-client-error "That didn't go so well.")))
+           ;; Attempted violation of db integrity
            (restagraph:integrity-error (e)
-           (return-integrity-error (message e))))))
+                                       (return-integrity-error (message e))))))
       ;;; GET -> Retrieve a summary of resources with a given relationship to this one
       ((equal (tbnl:request-method*) :GET)
        (log-message :debug "Attempting to dispatch a GET request")
@@ -230,19 +279,16 @@
                                 (tbnl:post-parameter "to-type")
                                 (tbnl:post-parameter "to-uid"))
            (declare (ignore result)
-                    (ignore message))
+                    (ignore code))
            ;; Handle the various outcomes
-           (if (equal code 200)
+           (if (equal message "OK")
              ;; It worked!
              (progn
-               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               (setf (tbnl:return-code*) tbnl:+http-no-content+)
                (setf (tbnl:content-type*) "text/plain")
-               "201 CREATED")
+               "")
              ;; It didn't work
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-               (setf (tbnl:content-type*) "text/plain")
-               "Nope. Try again.")))))
+             (return-client-error "That didn't go entirely as planned. Please review your plan and try something else.")))))
       (t
         (method-not-implemented)))))
 
