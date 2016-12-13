@@ -76,9 +76,9 @@
   (setf (tbnl:content-type*) "text/plain")
   ;; If we were handed a specific message, use that
   (if client-message
-  client-message
-  ;; Otherwise, just return a default message.
-  "Integrity violation error."))
+    client-message
+    ;; Otherwise, just return a default message.
+    "Integrity violation error."))
 
 (defun return-database-error (message)
   "There was a database problem. Log it and report something generic to the user, not to keep them in the dark but to reduce the potential for data leakage."
@@ -152,8 +152,8 @@
                    (setf (tbnl:return-code*) tbnl:+http-ok+)
                    (setf (tbnl:content-type*) "application/json")
                    result)))
-         ;; Generic client errors
-         (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
+             ;; Generic client errors
+             (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
              ;; Transient error
              (neo4cl:transient-error (e) (return-transient-error e))
              ;; Database error
@@ -175,8 +175,8 @@
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-no-content+)
                "")
-         ;; Generic client errors
-         (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
+             ;; Generic client errors
+             (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
              ;; Transient error
              (neo4cl:transient-error (e) (return-transient-error e))
              ;; Database error

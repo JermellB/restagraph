@@ -40,11 +40,11 @@
     resources))
 
 (defmethod get-resource-relationships-from-db ((db neo4cl:neo4j-rest-server))
-          (neo4cl::extract-rows-from-get-request
-            (neo4cl:neo4j-transaction
-              db
-              `((:STATEMENTS
-                  ((:STATEMENT . "MATCH (c:rgResource)-[r]->(t:rgResource) RETURN c.name, type(r), t.name")))))))
+  (neo4cl::extract-rows-from-get-request
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS
+          ((:STATEMENT . "MATCH (c:rgResource)-[r]->(t:rgResource) RETURN c.name, type(r), t.name")))))))
 
 ;;; This currently has to be done one query at a time.
 ;;; This approach will not scale well.
@@ -106,7 +106,7 @@
         `((:STATEMENTS
             ((:STATEMENT . ,(format nil "CREATE (:~A { properties })" resourcetype))
              (:PARAMETERS .
-              ((:PROPERTIES . ,attributes)))))))
+                          ((:PROPERTIES . ,attributes)))))))
       ;; Catch selected errors as they come up
       (neo4cl::client-error
         (e)
@@ -147,8 +147,8 @@
       db
       `((:STATEMENTS
           ((:STATEMENT .
-            ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) CREATE (a)-[:~A]->(b)"
-                     source-type source-uid dest-type dest-uid reltype))))))
+                       ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) CREATE (a)-[:~A]->(b)"
+                                source-type source-uid dest-type dest-uid reltype))))))
     (error 'integrity-error
            :message (format nil "Relationship ~A is not permitted from ~A to ~A"
                             reltype source-type dest-type))))
@@ -164,8 +164,8 @@
               db
               `((:STATEMENTS
                   ((:STATEMENT .
-                    ,(format nil "MATCH (a:~A {uid: '~A' })-[:~A]->(b) RETURN labels(b), b.uid"
-                             resourcetype uid relationship)))))))))
+                               ,(format nil "MATCH (a:~A {uid: '~A' })-[:~A]->(b) RETURN labels(b), b.uid"
+                                        resourcetype uid relationship)))))))))
 
 (defmethod delete-relationship ((db neo4cl:neo4j-rest-server)
                                 (source-type string)
