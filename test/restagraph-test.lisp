@@ -102,3 +102,58 @@
       (restagraph::delete-resource-by-uid *server* "interfaces" interfacename)
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))))
+
+(fiveam:test
+  relationships-integrity
+  "Basic operations on relationships between resources"
+  (let ((routername "amchitka")
+        (routercomment "Test-router number 1")
+        (interfacename "ge-0/0/0")
+        (macaddress "01:23:45:67:89:ab"))
+    ;; Store the router
+    (multiple-value-bind (results code message)
+      (restagraph::store-resource *server* "routers" `(("uid" . ,routername) ("comment" . ,routercomment)))
+      (declare (ignore results) (ignore message))
+      (fiveam:is (equal 200 code)))
+    ;; Create the interface
+    (multiple-value-bind (results code message)
+      (restagraph::store-resource
+        *server*
+        "interfaces"
+        `(("uid" . ,interfacename) ("mac-address" . ,macaddress)))
+      (declare (ignore results)
+               (ignore message))
+      (fiveam:is (equal 200 code)))
+    ;; Create a relationship between them
+    (multiple-value-bind (result code message)
+      (restagraph::create-relationship *server* "routers" routername "Interfaces" "interfaces" interfacename)
+      (declare (ignore result) (ignore message))
+      (fiveam:is (equal 200 code)))
+    ;; Confirm the relationship is there
+    (fiveam:is (equal
+                 `((("resource-type" . "interfaces") ("uid" . ,interfacename)))
+                 (restagraph::get-resources-with-relationship *server* "routers" routername "Interfaces")))
+    ;; Attempt to create a duplicate relationship between them
+    (multiple-value-bind (result code message)
+      (restagraph::create-relationship *server* "routers" routername "Interfaces" "interfaces" interfacename)
+      (declare (ignore result) (ignore message))
+      (fiveam:is (equal 200 code)))
+    ;; Confirm we still only have one relationship between them
+    (fiveam:is (equal
+                 `((("resource-type" . "interfaces") ("uid" . ,interfacename)))
+                 (restagraph::get-resources-with-relationship *server* "routers" routername "Interfaces")))
+    ;; Delete the relationship
+    (multiple-value-bind (result code message)
+      (restagraph::delete-relationship *server* "routers" routername "Interfaces" "interfaces" interfacename)
+      (declare (ignore result) (ignore message))
+      (fiveam:is (equal 200 code)))
+    ;; Delete the router
+    (multiple-value-bind (result code message)
+      (restagraph::delete-resource-by-uid *server* "routers" routername)
+      (declare (ignore result) (ignore message))
+      (fiveam:is (equal 200 code)))
+    ;; Delete the interface
+    (multiple-value-bind (result code message)
+      (restagraph::delete-resource-by-uid *server* "interfaces" interfacename)
+      (declare (ignore result) (ignore message))
+      (fiveam:is (equal 200 code)))))

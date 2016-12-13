@@ -147,7 +147,7 @@
       db
       `((:STATEMENTS
           ((:STATEMENT .
-                       ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) CREATE (a)-[:~A]->(b)"
+                       ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) MERGE (a)-[:~A]->(b)"
                                 source-type source-uid dest-type dest-uid reltype))))))
     (error 'integrity-error
            :message (format nil "Relationship ~A is not permitted from ~A to ~A"
