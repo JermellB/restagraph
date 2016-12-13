@@ -130,6 +130,8 @@
                                    (format nil "Duplicate ~A not permitted" resource-type)))
          ;; Generic client errors
          (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
+         ;; Transient error
+         (neo4cl:transient-error (e) (return-transient-error e))
          ;; Database error
          (neo4cl:database-error (e) (return-database-error e))))
       ;; GET -> Retrieve the resource's details
@@ -150,6 +152,8 @@
                  (setf (tbnl:return-code*) tbnl:+http-ok+)
                  (setf (tbnl:content-type*) "application/json")
                  result)))
+         ;; Transient error
+         (neo4cl:transient-error (e) (return-transient-error e))
            ;; Database error
            (neo4cl:database-error (e) (return-database-error e)))
            ;; No UID, no service
@@ -169,7 +173,9 @@
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-no-content+)
                "")
-             ;; Handle database outage
+             ;; Transient error
+             (neo4cl:transient-error (e) (return-transient-error e))
+             ;; Database error
              (neo4cl:database-error (e) (return-database-error (neo4cl:message e))))
            ;; Inform the client of the error of their ways
            (return-client-error "UID is required"))))
@@ -218,6 +224,8 @@
              "CREATED")
            ;; Attempted violation of db integrity
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Transient error
+           (neo4cl:transient-error (e) (return-transient-error e))
            ;; Database error
            (neo4cl:database-error (e) (return-database-error (neo4cl:message e))))))
       ;;; GET -> Retrieve a summary of resources with a given relationship to this one
@@ -245,6 +253,8 @@
                (setf (tbnl:return-code*) tbnl:+http-not-found+)
                (setf (tbnl:content-type*) "text/plain")
                (format nil "No ~A found for ~A ~A" relationship resource-type uid))))
+         ;; Transient error
+         (neo4cl:transient-error (e) (return-transient-error e))
          ;; Database error
          (neo4cl:database-error (e) (return-database-error (neo4cl:message e)))))
       ;;; DELETE -> Remove a relationship
@@ -267,6 +277,8 @@
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              (setf (tbnl:content-type*) "text/plain")
              "")
+           ;; Transient error
+           (neo4cl:transient-error (e) (return-transient-error e))
            ;; Database error
            (neo4cl:database-error (e) (return-database-error (neo4cl:message e))))))
       (t
