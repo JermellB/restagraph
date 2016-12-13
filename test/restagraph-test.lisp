@@ -85,7 +85,7 @@
       (fiveam:is (equal 200 code)))
     ;; Confirm the relationship is there
     (fiveam:is (equal
-                 `(("interfaces" ,interfacename))
+                 `((("resource-type" . "interfaces") ("uid" . ,interfacename)))
                  (restagraph::get-resources-with-relationship *server* "routers" routername "Interfaces")))
     ;; Delete the relationship
     (multiple-value-bind (result code message)
