@@ -129,13 +129,15 @@
            (return-integrity-error (message e)
                                    (format nil "Duplicate ~A not permitted" resource-type)))
          ;; Generic client errors
-         (neo4cl:client-error (e)
-                              (return-client-error (neo4cl:message e)))))
+         (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
+         ;; Database error
+         (neo4cl:database-error (e) (return-database-error e))))
       ;; GET -> Retrieve the resource's details
       ((equal (tbnl:request-method*) :GET)
        (let ((uid (second uri-parts)))
          ;; We have a UID; carry on
          (if uid
+           (handler-case
            (let ((result (get-resource-by-uid (datastore tbnl:*acceptor*) resource-type uid)))
              ;; If nothing was returned, that's a 404
              (if (equal result "{}")
@@ -148,6 +150,8 @@
                  (setf (tbnl:return-code*) tbnl:+http-ok+)
                  (setf (tbnl:content-type*) "application/json")
                  result)))
+           ;; Database error
+           (neo4cl:database-error (e) (return-database-error e)))
            ;; No UID, no service
            (progn
              (setf (tbnl:content-type*) "text/plain")
@@ -166,13 +170,12 @@
                (setf (tbnl:return-code*) tbnl:+http-no-content+)
                "")
              ;; Handle database outage
-             (neo4cl:database-error (e)
-                                    (return-database-error (neo4cl:message e))))
+             (neo4cl:database-error (e) (return-database-error (neo4cl:message e))))
            ;; Inform the client of the error of their ways
            (return-client-error "UID is required"))))
       ;; Fallback: anything we don't already know how to handle
       (t
-        (method-not-implemented)))))
+        (method-not-allowed)))))
 
 (defun relationship-dispatcher ()
   "Hunchentoot dispatch function to handle an API request to create, delete or inspect relationships between resources."
@@ -214,32 +217,36 @@
              (setf (tbnl:content-type*) "text/plain")
              "CREATED")
            ;; Attempted violation of db integrity
-           (restagraph:integrity-error (e)
-                                       (return-integrity-error (message e))))))
+           (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Database error
+           (neo4cl:database-error (e) (return-database-error (neo4cl:message e))))))
       ;;; GET -> Retrieve a summary of resources with a given relationship to this one
       ((equal (tbnl:request-method*) :GET)
        (log-message :debug "Attempting to dispatch a GET request")
        (log-message :debug (format nil "Retrieving ~A relationships from ~A ~A"
                                    relationship resource-type uid))
-       (let ((result
-               (get-resources-with-relationship
-                 (datastore tbnl:*acceptor*)
-                 resource-type
-                 uid
-                 relationship)))
-         ;; Check what came back
-         (if result
-           ;; If it was actual content, return that
-           (progn
-             (setf (tbnl:return-code*) tbnl:+http-ok+)
-             (setf (tbnl:content-type*) "application/json")
-             (log-message :debug (format nil "Returning result '~A'" result))
-             (cl-json:encode-json-to-string result))
-           ;; If it was empty, report that instead
-           (progn
-             (setf (tbnl:return-code*) tbnl:+http-not-found+)
-             (setf (tbnl:content-type*) "text/plain")
-             (format nil "No ~A found for ~A ~A" relationship resource-type uid)))))
+       (handler-case
+         (let ((result
+                 (get-resources-with-relationship
+                   (datastore tbnl:*acceptor*)
+                   resource-type
+                   uid
+                   relationship)))
+           ;; Check what came back
+           (if result
+             ;; If it was actual content, return that
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               (setf (tbnl:content-type*) "application/json")
+               (log-message :debug (format nil "Returning result '~A'" result))
+               (cl-json:encode-json-to-string result))
+             ;; If it was empty, report that instead
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-not-found+)
+               (setf (tbnl:content-type*) "text/plain")
+               (format nil "No ~A found for ~A ~A" relationship resource-type uid))))
+         ;; Database error
+         (neo4cl:database-error (e) (return-database-error (neo4cl:message e)))))
       ;;; DELETE -> Remove a relationship
       ((equal (tbnl:request-method*) :DELETE)
        ;; Sanity-check of parameters
@@ -249,18 +256,21 @@
                    (tbnl:post-parameter "to-uid"))
            (error "All parameters are required: to-type and to-uid"))
          ;; Attempt to create it
-         (progn
-           (delete-relationship (datastore tbnl:*acceptor*)
-                                resource-type
-                                uid
-                                relationship
-                                (tbnl:post-parameter "to-type")
-                                (tbnl:post-parameter "to-uid"))
-           (setf (tbnl:return-code*) tbnl:+http-no-content+)
-           (setf (tbnl:content-type*) "text/plain")
-           "")))
+         (handler-case
+           (progn
+             (delete-relationship (datastore tbnl:*acceptor*)
+                                  resource-type
+                                  uid
+                                  relationship
+                                  (tbnl:post-parameter "to-type")
+                                  (tbnl:post-parameter "to-uid"))
+             (setf (tbnl:return-code*) tbnl:+http-no-content+)
+             (setf (tbnl:content-type*) "text/plain")
+             "")
+           ;; Database error
+           (neo4cl:database-error (e) (return-database-error (neo4cl:message e))))))
       (t
-        (method-not-implemented)))))
+        (method-not-allowed)))))
 
 (defmethod generate-dispatch-table ((schema hash-table))
   (let ((dispatch-table (list
