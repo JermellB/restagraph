@@ -140,22 +140,24 @@
          ;; We have a UID; carry on
          (if uid
            (handler-case
-           (let ((result (get-resource-by-uid (datastore tbnl:*acceptor*) resource-type uid)))
-             ;; If nothing was returned, that's a 404
-             (if (equal result "{}")
-               (progn
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-not-found+)
-                 (format nil "No ~A found with a UID of ~A." resource-type uid))
-               ;; If we got this far, assume it worked and return whatever we received
-               (progn
-                 (setf (tbnl:return-code*) tbnl:+http-ok+)
-                 (setf (tbnl:content-type*) "application/json")
-                 result)))
-         ;; Transient error
-         (neo4cl:transient-error (e) (return-transient-error e))
-           ;; Database error
-           (neo4cl:database-error (e) (return-database-error e)))
+             (let ((result (get-resource-by-uid (datastore tbnl:*acceptor*) resource-type uid)))
+               ;; If nothing was returned, that's a 404
+               (if (equal result "{}")
+                 (progn
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-not-found+)
+                   (format nil "No ~A found with a UID of ~A." resource-type uid))
+                 ;; If we got this far, assume it worked and return whatever we received
+                 (progn
+                   (setf (tbnl:return-code*) tbnl:+http-ok+)
+                   (setf (tbnl:content-type*) "application/json")
+                   result)))
+         ;; Generic client errors
+         (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
+             ;; Transient error
+             (neo4cl:transient-error (e) (return-transient-error e))
+             ;; Database error
+             (neo4cl:database-error (e) (return-database-error e)))
            ;; No UID, no service
            (progn
              (setf (tbnl:content-type*) "text/plain")
@@ -173,6 +175,8 @@
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-no-content+)
                "")
+         ;; Generic client errors
+         (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
              ;; Transient error
              (neo4cl:transient-error (e) (return-transient-error e))
              ;; Database error
@@ -224,6 +228,8 @@
              "CREATED")
            ;; Attempted violation of db integrity
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Generic client errors
+           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
            ;; Transient error
            (neo4cl:transient-error (e) (return-transient-error e))
            ;; Database error
@@ -253,6 +259,8 @@
                (setf (tbnl:return-code*) tbnl:+http-not-found+)
                (setf (tbnl:content-type*) "text/plain")
                (format nil "No ~A found for ~A ~A" relationship resource-type uid))))
+         ;; Generic client errors
+         (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
          ;; Transient error
          (neo4cl:transient-error (e) (return-transient-error e))
          ;; Database error
@@ -277,6 +285,8 @@
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              (setf (tbnl:content-type*) "text/plain")
              "")
+           ;; Generic client errors
+           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
            ;; Transient error
            (neo4cl:transient-error (e) (return-transient-error e))
            ;; Database error
