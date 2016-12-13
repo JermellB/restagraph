@@ -118,17 +118,10 @@
       ((equal (tbnl:request-method*) :POST)
        (setf (tbnl:content-type*) "text/plain")
        (handler-case
-         (multiple-value-bind (results code message)
+         (progn
            (store-resource (datastore tbnl:*acceptor*) resource-type (tbnl:post-parameters*))
-           (declare (ignore results)
-                    (ignore message))
-           (if (equal code 200)
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               "201 CREATED")
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
-               (format nil "~A Well, that didn't work." code))))
+           (setf (tbnl:return-code*) tbnl:+http-created+)
+           "201 CREATED")
          ;; Attempted violation of a DB integrity constraint.
          ;; Almost certainly an attempt to create a duplicate.
          (restagraph:integrity-error
@@ -167,18 +160,11 @@
          ;; If we _did_ get a UID, proceed and check the outcome
          (if uid
            (handler-case
-             (multiple-value-bind (results code message)
+             (progn
                (delete-resource-by-uid (datastore tbnl:*acceptor*) resource-type uid)
-               (declare (ignore code)
-                        (ignore results))
-               (if (equal message "OK")
-                 ;; Things went well; be terse
-                 (progn
-                   (setf (tbnl:content-type*) "text/plain")
-                   (setf (tbnl:return-code*) tbnl:+http-no-content+)
-                   "")
-                 ;; It didn't go quite as planned. Inform the user.
-                 (return-client-error message)))
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-no-content+)
+               "")
              ;; Handle database outage
              (neo4cl:database-error (e)
                                     (return-database-error (neo4cl:message e))))
@@ -217,24 +203,16 @@
                       (tbnl:post-parameter "to-type")
                       (tbnl:post-parameter "to-uid"))
          (handler-case
-           (multiple-value-bind (result code message)
+           (progn
              (create-relationship (datastore tbnl:*acceptor*)
                                   resource-type
                                   uid
                                   relationship
                                   (tbnl:post-parameter "to-type")
                                   (tbnl:post-parameter "to-uid"))
-             (declare (ignore result)
-                      (ignore code))
-             ;; Handle the various outcomes
-             (if (equal message "OK")
-               ;; It worked!
-               (progn
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 (setf (tbnl:content-type*) "text/plain")
-                 "CREATED")
-               ;; It didn't work
-               (return-client-error "That didn't go so well.")))
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             (setf (tbnl:content-type*) "text/plain")
+             "CREATED")
            ;; Attempted violation of db integrity
            (restagraph:integrity-error (e)
                                        (return-integrity-error (message e))))))
@@ -271,24 +249,16 @@
                    (tbnl:post-parameter "to-uid"))
            (error "All parameters are required: to-type and to-uid"))
          ;; Attempt to create it
-         (multiple-value-bind (result code message)
+         (progn
            (delete-relationship (datastore tbnl:*acceptor*)
                                 resource-type
                                 uid
                                 relationship
                                 (tbnl:post-parameter "to-type")
                                 (tbnl:post-parameter "to-uid"))
-           (declare (ignore result)
-                    (ignore code))
-           ;; Handle the various outcomes
-           (if (equal message "OK")
-             ;; It worked!
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-no-content+)
-               (setf (tbnl:content-type*) "text/plain")
-               "")
-             ;; It didn't work
-             (return-client-error "That didn't go entirely as planned. Please review your plan and try something else.")))))
+           (setf (tbnl:return-code*) tbnl:+http-no-content+)
+           (setf (tbnl:content-type*) "text/plain")
+           "")))
       (t
         (method-not-implemented)))))
 
