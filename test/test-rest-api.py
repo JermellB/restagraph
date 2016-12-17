@@ -137,6 +137,23 @@ class TestDbSchema(unittest.TestCase):
         self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
                 204)
 
+class TestBasicResourceErrors(unittest.TestCase):
+    '''
+    Confirm what happens when we make basic errors in resource-creation requests.
+    '''
+    invalid_resourcetype='IjustMadeThisUp'
+    valid_resourcetype='routers'
+    def test_basic_resource_errors(self):
+        # Invalid resource-type
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.invalid_resourcetype), data={'foo': 'bar'}).status_code,
+        404)
+        # Missing UID
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.valid_resourcetype), data={'foo': 'bar'}).status_code,
+        400)
+        # Invalid non-UID parameters
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.valid_resourcetype), data={'uid': 'amchitka', 'foo': 'bar'}).status_code,
+        400)
+
 # Make it happen
 if __name__ == '__main__':
     unittest.main()

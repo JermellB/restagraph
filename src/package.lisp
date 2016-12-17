@@ -8,4 +8,5 @@
     populate-schema
     ;; Conditions
     integrity-error
+    client-error
     ))

@@ -157,3 +157,25 @@
       (restagraph::delete-resource-by-uid *server* "interfaces" interfacename)
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))))
+
+(fiveam:test
+  errors-basic
+  "Errors that can be triggered just by making a bad request"
+  (let ((invalid-resourcetype "IjustMadeThisUpNow")
+        (valid-resourcetype "routers")
+        (invalid-attributes '(foo))
+        (valid-attributes '("comment")))
+    ;; Create a resource of an invalid type
+    (fiveam:signals (restagraph:client-error
+                      (format nil "The resource type ~A is not present in the schema." invalid-resourcetype))
+      (restagraph::store-resource *server* invalid-resourcetype '((:foo . "bar"))))
+    ;; Create a resource of a valid type, but without a UID
+    (fiveam:signals (restagraph:client-error "UID must be supplied")
+      (restagraph::store-resource *server* valid-resourcetype '(("foo" . "bar"))))
+    ;; Create a resource with a UID and a valid type, but another invalid attribute
+    (fiveam:signals (restagraph:client-error
+                      (format nil "These requested attributes are invalid for the resource-type ~A: ~{~A~^, ~}. Valid attributes are: ~{~A~^, ~}."
+                              valid-resourcetype
+                              invalid-attributes
+                              valid-attributes))
+      (restagraph::store-resource *server* valid-resourcetype '(("uid" . "amchitka") (:foo . "bar"))))))

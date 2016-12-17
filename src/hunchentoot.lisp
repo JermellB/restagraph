@@ -122,6 +122,10 @@
            (store-resource (datastore tbnl:*acceptor*) resource-type (tbnl:post-parameters*))
            (setf (tbnl:return-code*) tbnl:+http-created+)
            "201 CREATED")
+         ;; Client error, caught before even trying to talk to the database
+         (restagraph:client-error
+           (e)
+           (return-client-error (message e)))
          ;; Attempted violation of a DB integrity constraint.
          ;; Almost certainly an attempt to create a duplicate.
          (restagraph:integrity-error

@@ -64,23 +64,29 @@
 
 (defmethod store-resource ((db neo4cl:neo4j-rest-server) (resourcetype string) (post-params list))
   (let* (;; Local cache of the schema for the requested resource-type
-         (typedata (get-resourcetype-from-schema-by-name (getf *config-vars* :schema) resourcetype))
+         (typedata
+             (get-resourcetype-from-schema-by-name (getf *config-vars* :schema) resourcetype))
          ;; Attributes that are valid for this resource type
          (valid-attributes
-           (loop for key being the hash-keys in (gethash "attributes" typedata)
+           (loop for key being the hash-keys in
+                 (handler-case
+                   (gethash "attributes" typedata)
+                   ;; Type error means the client requested a resource we don't have
+                   (type-error (e)
+                               (declare (ignore e))
+                               (error 'restagraph:client-error
+                                      :message
+                                      (format nil "The resource type ~A is not present in the schema."
+                                              resourcetype))))
                  collect key))
          ;; Attributes with which to create the resource
          (attributes ())
          ;; Attributes that were specified but aren't valid for this resource-type
          (invalid-attributes ()))
-    ;; Check whether the requested classname is valid
-    (log-message :debug (format nil "Checking validity of resource type '~A'." resourcetype))
-    (unless typedata
-      (error (format nil "The resource type ~A is not present in the schema." resourcetype)))
     ;; Check whether a UID has been specified
     (unless (assoc "uid" post-params :test 'equal)
       (log-message :debug "No UID found in the request parameters")
-      (error "UID must be supplied"))
+      (error 'restagraph:client-error :message "UID must be supplied"))
     ;; Check for invalid attributes in the request
     (log-message :debug (format nil "Checking validity of supplied parameters ~A." post-params))
     (loop for (name . value) in post-params
@@ -97,7 +103,7 @@
                              invalid-attributes
                              valid-attributes)))
         (log-message :debug message)
-        (error message)))
+        (error 'restagraph:client-error :message message)))
     ;; If we got this far, we have a valid resource type and valid attribute names.
     ;; Make it happen
     (handler-case
