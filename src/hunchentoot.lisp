@@ -110,7 +110,7 @@
   (let* ((uri-parts (ppcre:split "/" (cl-ppcre:regex-replace *uri-base* (tbnl:request-uri*) "")))
          (resource-type (first uri-parts)))
     (unless resource-type
-      (error (format nil "No resource-type identified from URI '~A'" (tbnl:request-uri*))))
+      (return-client-error (format nil "No resource-type identified from URI '~A'" (tbnl:request-uri*))))
     (log-message :debug (format nil "Dispatching a ~A request for resource-type '~A'"
                                 (tbnl:request-method*) resource-type))
     (cond
@@ -276,7 +276,7 @@
          (unless (and
                    (tbnl:post-parameter "to-type")
                    (tbnl:post-parameter "to-uid"))
-           (error "All parameters are required: to-type and to-uid"))
+           (return-client-error "All parameters are required: to-type and to-uid"))
          ;; Attempt to create it
          (handler-case
            (progn
