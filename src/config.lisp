@@ -8,4 +8,5 @@
     :dbhostname "localhost"
     :dbport 7474
     :dbusername "neo4j"
-    :dbpasswd "wallaby"))
+    :dbpasswd "wallaby"
+    :uri-base "/api/v1"))

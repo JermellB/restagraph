@@ -8,29 +8,8 @@
 (defparameter *server*
   (restagraph::datastore restagraph::*restagraph-acceptor*))
 
-(setf (getf restagraph::*config-vars* :schema)
-        (restagraph::populate-schema *server*))
-
 (fiveam:def-suite main)
 (fiveam:in-suite main)
-
-(fiveam:test
-  rg-schema
-  "Check the core schema operations"
-  (let ((schema (make-hash-table :test 'equal)))
-    ;; Add a class to the schema
-    (fiveam:is (hash-table-p (restagraph::add-resourcetype-to-schema schema "foo" (make-hash-table :test 'equal))))
-    ;; Confirm the class' presence in the schema
-    (fiveam:is (hash-table-p (restagraph::get-resourcetype-from-schema-by-name schema "foo")))
-    ;; Add another class
-    (fiveam:is (hash-table-p (restagraph::add-resourcetype-to-schema schema "bar" (make-hash-table))))
-    ;; Confirm that we now have exactly the two classes in the schema that we expected
-    (fiveam:is (hash-table-p (restagraph::get-resourcetype-from-schema-by-name schema "foo")))
-    (fiveam:is (hash-table-p (restagraph::get-resourcetype-from-schema-by-name schema "bar")))
-    ;; Add a relationship between the classes
-    (fiveam:is (listp (restagraph::add-resource-relationship-to-schema schema "foo" "is-a" "bar")))
-    ;; Confirm that the relationship is present
-    ))
 
 (fiveam:test
   resources-basic
@@ -166,8 +145,8 @@
         (invalid-attributes '(foo))
         (valid-attributes '("comment")))
     ;; Create a resource of an invalid type
-    (fiveam:signals (restagraph:client-error
-                      (format nil "The resource type ~A is not present in the schema." invalid-resourcetype))
+    (fiveam:signals (restagraph:integrity-error
+                      (format nil "Requested resource type ~A is not valid." invalid-resourcetype))
       (restagraph::store-resource *server* invalid-resourcetype '((:foo . "bar"))))
     ;; Create a resource of a valid type, but without a UID
     (fiveam:signals (restagraph:client-error "UID must be supplied")

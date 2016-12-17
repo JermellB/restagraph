@@ -3,39 +3,22 @@
 
 ;;;; Schema
 
-(defgeneric get-resources-from-db (db)
-  (:documentation "Extract the resource definitions from the database.
-Returns a hashtable:
-- <resource-type> -> hash-table
--- <attribute-name> -> hash-table
---- <attribute-attributes> -> alist"))
-
 (defgeneric get-resource-names-from-db (db)
   (:documentation "Extract the names of resource definitions from the database"))
 
-(defgeneric get-resource-attributes-from-db (db)
+(defgeneric get-resource-attributes-from-db (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database"))
 
-(defgeneric get-resource-relationships-from-db (db)
-  (:documentation "Extract the relationships between the resource types, from the database"))
-
-(defgeneric add-resourcetype-to-schema (schema resourcetype attributes)
-  (:documentation "Add a resource-type to a schema, ensuring the internal structure is ready to receive new attributes and relationships."))
-
-(defgeneric get-resourcetype-from-schema-by-name (schema resourcename)
-  (:documentation "Extract a resource' definition from the schema, by name."))
-
-(defgeneric add-resource-relationship-to-schema (schema from-resource relationship to-resource)
-  (:documentation "Update the schema with a directional relationship between two resource types, returning an error if either of the resource types doesn't exist."))
-
-(defgeneric relationship-valid-p (schema from-resource relationship to-resource)
+(defgeneric relationship-valid-p (db from-resource relationship to-resource)
   (:documentation "Checks whether this type of relationship is permitted between these types of resources. Returns a boolean."))
 
-(defgeneric create-db-schema (db schema)
+(defgeneric create-db-schema (db)
   (:documentation "Creates whatever schema is most appropriate to the DB engine in use"))
 
-(defgeneric generate-dispatch-table (schema)
-  (:documentation "Create a Hunchentoot dispatch table based on the contents of the schema"))
+(defgeneric validate-resource-before-creating (db resourcetype params)
+  (:documentation "Confirm whether the provided data is valid, before attempting to use it to create a resource.
+  If the data is valid, return a list of attributes suitable for feeding to Neo4J.
+  If not, raise a restagraph:integrity-error"))
 
 
 ;;;; Resource instances

@@ -30,7 +30,7 @@ For each `rgResource` object, the following patterns are recognised by the appli
 
 ### Create a resource
 ```
-POST /api/v1/<resource-type>
+POST /api/v1/<resource-type>/
 ```
 
 With payload of `'uid=<uid>'`, plus optionally `'<attribute>=attribute'` pairs for any subset of the attributes defined for this resource type.
@@ -56,9 +56,15 @@ Requires a payload of `'uid=<uid>'`, and any other parameters are ignored.
 Returns 200 if it succeeded.
 
 
-### Create/delete a relationship to another object
+### Create/retrieve a relationship to another object
 ```
-POST|GET|DELETE /api/v1/<resource-name>/<unique ID>/<relationship>
+POST|GET /api/v1/<resource-name>/<unique ID>/<relationship>
+```
+
+
+### Delete a relationship to another object
+```
+DELETE /api/v1/<resource-name>/<unique ID>/<relationship>/<unique ID>
 ```
 
 
