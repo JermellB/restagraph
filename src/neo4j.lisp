@@ -75,7 +75,7 @@
          (invalid-attributes ()))
     ;; Check whether the requested classname is valid
     (log-message :debug (format nil "Checking validity of resource type '~A'." resourcetype))
-    (unless resourcetype
+    (unless typedata
       (error (format nil "The resource type ~A is not present in the schema." resourcetype)))
     ;; Check whether a UID has been specified
     (unless (assoc "uid" post-params :test 'equal)
