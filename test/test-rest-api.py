@@ -70,9 +70,10 @@ class TestValidRelationships(unittest.TestCase):
     routertype = 'routers'
     routername = 'bikini'
     routercomment = 'Test router 2'
-    interfacetype = 'interfaces'
-    interfacename = 'ge-0/0/0'
     rel_router_interface = 'Interfaces'
+    interfacetype = 'interfaces'
+    interfacename = 'ge-0_0_0'
+    interfaceattributes = '{"enabled": "True", "mac-address": "12:34:56:ab:cd:ef"}'
     def test_basic_relationship(self):
         # Create two new resources
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
@@ -87,6 +88,41 @@ class TestValidRelationships(unittest.TestCase):
                 200)
         self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).json(),
                 [{"resource-type": self.interfacetype, "uid": self.interfacename}])
+        # Delete the relationship
+        self.assertEqual(requests.delete('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
+                204)
+        # Confirm the relationship is gone
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code, 404)
+        # Delete the destination resource
+        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
+                204)
+        # Create the relationship and the destination resource
+        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
+                201)
+        # Confirm the relationship is there again
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code,
+                200)
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).json(),
+                [{"resource-type": self.interfacetype, "uid": self.interfacename}])
+        # Delete the relationship
+        self.assertEqual(requests.delete('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
+                204)
+        # Confirm the relationship is gone
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code, 404)
+        # Delete the destination resource
+        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
+                204)
+        # Create the relationship and the destination resource, but with attributes this time
+        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename, 'attributes': self.interfaceattributes}).status_code,
+                201)
+        # Confirm the relationship is there again
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code,
+                200)
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).json(),
+                [{"resource-type": self.interfacetype, "uid": self.interfacename}])
+        # Confirm the attributes are present in the destination resource
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.interfacetype, self.interfacename)).json(),
+                { 'uid': self.interfacename, 'enabled': 'True', 'macAddress': '12:34:56:ab:cd:ef' })
         # Delete the relationship
         self.assertEqual(requests.delete('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
                 204)

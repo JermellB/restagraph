@@ -38,7 +38,7 @@
 (defun format-post-params-as-properties (params)
   "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map that Neo4J expects in the :PROPERTIES section of a query."
   (mapcar #'(lambda (param)
-              (cons (intern (car param) :keyword)
+              (cons (intern (string-downcase (car param)) :keyword)
                     (cdr param)))
           params))
 
@@ -75,8 +75,11 @@
                    (invalid-attributes
                      (remove-if #'null
                                 (mapcar #'(lambda (par)
-                                            (unless (member (car par) valid-attributes :test 'equal)
-                                              (car par)))
+                                            (unless (member
+                                                      (string-downcase (car par))
+                                                      valid-attributes
+                                                      :test 'equal)
+                                              (string-downcase (car par))))
                                         requested-attributes))))
               ;; Record the valid ones, if we're debugging
               (if valid-attributes
@@ -184,17 +187,68 @@
                                 (source-uid string)
                                 (reltype string)
                                 (dest-type string)
-                                (dest-uid string))
-  (if (relationship-valid-p db source-type reltype dest-type)
-    (neo4cl:neo4j-transaction
-      db
-      `((:STATEMENTS
-          ((:STATEMENT .
-            ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A { uid: '~A' }) MERGE (a)-[:~A]->(b)"
-                     source-type source-uid dest-type dest-uid reltype))))))
-    (error 'integrity-error
-           :message (format nil "Relationship ~A is not permitted from ~A to ~A"
-                            reltype source-type dest-type))))
+                                (dest-uid string)
+                                (attributes list))
+  (log-message :debug "Attempting to create a relationship")
+  (cond
+    ;; Is this even a valid relationship between these types?
+    ((not (relationship-valid-p db source-type reltype dest-type))
+     (error 'integrity-error
+            :message
+            (format nil "~A is not a valid relationship from ~A to ~A"
+                    reltype source-type dest-type)))
+    ;; Does the source resource exist?
+    ((equal (get-resource-by-uid db source-type source-uid) "{}")
+     (error 'integrity-error
+            :message (format nil "Source resource ~A ~A does not exist"
+                             source-type source-uid)))
+    ;; Is this relationship already there?
+    ((member
+       `(("resource-type" . ,dest-type) ("uid" . ,dest-uid))
+       (restagraph::get-resources-with-relationship db source-type source-uid reltype)
+       :test 'equal)
+     (error 'integrity-error
+            :message
+            (format nil
+                    "Relationship ~A already exists from ~A ~A to ~A ~A"
+                    reltype source-type source-uid dest-type dest-uid)))
+    ;; Destination resource does exist,
+    ;; but we've been given attributes with which to create one
+    ((and attributes
+          (not (equal (get-resource-by-uid db dest-type dest-uid)
+                      "{}")))
+     (error 'integrity-error
+            :message
+            (format
+              nil
+              "Destination resource ~A ~A already exists, but the client has supplied attributes to create a new one with"
+              dest-type dest-uid)))
+    ;; Destination resource doesn't exist, so we need to create it first.
+    ((equal (get-resource-by-uid db dest-type dest-uid) "{}")
+     (log-message
+       :debug
+       (format nil "Creating destination resource ~A ~A" dest-type dest-uid))
+     ;; Create the destination resource
+     (store-resource db dest-type (cons (cons "uid" dest-uid) attributes))
+     ;; Now create the relationship between them
+     (neo4cl:neo4j-transaction
+       db
+       `((:STATEMENTS
+           ((:STATEMENT .
+             ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A {uid: '~A'}) MERGE (a)-[:~A]->(b)"
+                      source-type source-uid dest-type dest-uid reltype)))))))
+    ;; Everything's already there, so just create the relationship
+    (t
+      (log-message
+        :debug
+        (format nil "Ensuring ~A ~A has a relationship ~A to ~A ~A"
+                source-type source-uid reltype dest-type dest-uid))
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT .
+              ,(format nil "MATCH (a:~A { uid: '~A' }), (b:~A {uid: '~A'}) MERGE (a)-[:~A]->(b)"
+                       source-type source-uid dest-type dest-uid reltype)))))))))
 
 (defmethod get-resources-with-relationship ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string)

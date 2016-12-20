@@ -37,8 +37,8 @@ Return an error if
 
 ;;;; Relationships
 
-(defgeneric create-relationship (db source-type source-uid reltype dest-type dest-uid)
-  (:documentation "Create a relationship between two resources"))
+(defgeneric create-relationship (db source-type source-uid reltype dest-type dest-uid attributes)
+  (:documentation "Create a relationship between two resources, creating the destination resource if necessary."))
 
 (defgeneric get-resources-with-relationship (db resourcetype uid reltype)
   (:documentation "Retrieve a summary of all resources with a given relationship to this one.

@@ -36,7 +36,7 @@ With payload of `'uid=<uid>'`, plus optionally `'<attribute>=attribute'` pairs f
 
 Returns 201 CREATED if it succeeded.
 
-The UID must be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
+The UID must actually be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
 
 ### Retrieve a resource
@@ -56,21 +56,33 @@ Requires a payload of `'uid=<uid>'`, and any other parameters are ignored.
 Returns `204 (NO CONTENT)` on success.
 
 
-### Create/retrieve a relationship to another object
+### Create a relationship from one resource to another
+Note that, due to the way Neo4J works, these are always directional.
+
 ```
-POST|GET /api/v1/<resource-name>/<unique ID>/<relationship>
+POST /api/v1/<resource-type>/<Unique ID>/<relationship>
+```
+
+Parameter _must_ include `type` and `uid`, and _may_ also include `attributes`.
+
+If the destination resource doesn't already exist, it will be automatically created first. This has to be done as a separate transaction; beware race-conditions where two clients try to create the same thing at the same time.
+
+
+### Retrieve the type and UID of all resources to which this one has a specific relationship
+```
+GET /api/v1/<resource-type>/<Unique ID>/<relationship>
 ```
 
 
 ### Delete a relationship to another object
 ```
-DELETE /api/v1/<resource-name>/<unique ID>/<relationship>/<unique ID>
+DELETE /api/v1/<resource-type>/<Unique ID>/<relationship>/<Unique ID>
 ```
 
 
 ### Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs
 ```
-GET /api/v1/<resource-name>/<unique ID>/<relationship>/?<attribute-name>=<value>
+GET /api/v1/<resource-type>/<Unique ID>/<relationship>/?<attribute-name>=<value>
 ```
 
 ## Working example

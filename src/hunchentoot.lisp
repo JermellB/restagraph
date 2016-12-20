@@ -69,7 +69,7 @@
 (defun return-integrity-error (logmessage &optional client-message)
   "Report to the client that their request would have violated an integrity constraint.
   The optional client-message "
-  (log-message :warn (format nil "A client triggered an integrity error: ~A" logmessage))
+  (log-message :warn (format nil "Client triggered integrity error: ~A" logmessage))
   (setf (tbnl:return-code*) tbnl:+http-conflict+)
   (setf (tbnl:content-type*) "text/plain")
   ;; If we were handed a specific message, use that.
@@ -200,29 +200,38 @@
            (equal (length uri-parts) 3))
          ;; Grab these once, as we'll be referring to them a few times
          (let ((uid (second uri-parts))
-               (relationship (third uri-parts)))
-           (log-message :debug (format nil "Attempting to dispatch a POST request for resource type ~A and relationship type ~A"
-                                       resourcetype relationship))
+               (relationship (third uri-parts))
+               (dest-type (tbnl:post-parameter "type"))
+               (dest-uid (tbnl:post-parameter "uid")))
+           (log-message
+             :debug
+             (format nil "Attempting to dispatch a POST request for resource type ~A and relationship type ~A"
+                     resourcetype relationship))
            ;; Basic sanity check
-           (if (and (tbnl:post-parameter "type")
-                    (tbnl:post-parameter "uid"))
-             (handler-case
-               (progn
-                 (create-relationship (datastore tbnl:*acceptor*)
-                                      resourcetype
-                                      uid
-                                      relationship
-                                      (tbnl:post-parameter "type")
-                                      (tbnl:post-parameter "uid"))
-                 ;; Report success to the client
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 (setf (tbnl:content-type*) "text/plain")
-                 ;; FIXME: find a good JSON representation of what was just created
-                 "CREATED")
-               ;; Attempted violation of db integrity
-               (restagraph:integrity-error (e) (return-integrity-error (message e)))
-               ;; Generic client errors
-               (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))
+           (if (and dest-type
+                    dest-uid)
+             (progn
+               (log-message :debug "Creating ~A ~A, plus ~A relationship to it from ~A ~A, with candidate attributes '~A'"
+                            dest-type dest-uid relationship resourcetype uid (tbnl:post-parameter "attributes"))
+               (handler-case
+                 (progn
+                   (create-relationship
+                     (datastore tbnl:*acceptor*)
+                     resourcetype uid relationship dest-type dest-uid
+                     (if (tbnl:post-parameter "attributes")
+                       (cl-json:decode-json-from-string (tbnl:post-parameter "attributes"))
+                       nil))
+                   ;; Report success to the client
+                   (setf (tbnl:return-code*) tbnl:+http-created+)
+                   (setf (tbnl:content-type*) "text/plain")
+                   ;; FIXME: find a good JSON representation of what was just created
+                   "CREATED")
+                 ;; No attributes; just create the relationship
+
+                 ;; Attempted violation of db integrity
+                 (restagraph:integrity-error (e) (return-integrity-error (message e)))
+                 ;; Generic client errors
+                 (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
              ;; Sanity check failed
              (progn
                (log-message :debug "Client failed to supply both the 'type' and 'uid' parameters when creating a relationship")
