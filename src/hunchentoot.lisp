@@ -118,7 +118,16 @@
         ;;
         ;; GET -> Retrieve something
         ;;
-        ;; Resource
+        ;; All resources of a given type
+        ((and
+           (equal (tbnl:request-method*) :GET)
+           (equal (length uri-parts) 1))
+         (log-message :debug (format nil "Retrieving all ~A" resourcetype))
+         (setf (tbnl:content-type*) "application/json")
+         (setf (tbnl:return-code*) tbnl:+http-ok+)
+         (cl-json:encode-json-to-string
+           (search-for-resources (datastore tbnl:*acceptor*) resourcetype)))
+        ;; One resource, identified by UID
         ((and
            (equal (tbnl:request-method*) :GET)
            (equal (length uri-parts) 2))
@@ -133,7 +142,7 @@
            ;; Handle the null result
            (if (equal result "{}")
              (progn
-               (setf (tbnl:content-type*) "application/json")
+               (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-not-found+)
                (format nil "No ~A found with UID ~A" resourcetype (second uri-parts)))
              ;; It worked; return what we found

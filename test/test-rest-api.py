@@ -63,6 +63,44 @@ class TestResources(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).status_code,
                 404)
 
+class TestMultipleResources(unittest.TestCase):
+    '''
+    Retrieve details of all resources of a given type.
+    '''
+    resourcetype='routers'
+    resource1uid='amchitka'
+    resource1attrname='comment'
+    resource1attrval='Test router'
+    resource2uid='bikini'
+    resource3uid='mururoa'
+    def test_create_and_retrieve_multiple_resources(self):
+        # Confirm we're starting with an empty set
+        self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).status_code, 200)
+        self.assertFalse(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).json())
+        # Add the first resource
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource1uid, self.resource1attrname: self.resource1attrval}).status_code, 201)
+        # Check that we now get a list containing exactly that resource
+        self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).json(),
+                [[{'uid': self.resource1uid, self.resource1attrname: self.resource1attrval}]])
+        # Add the second resource
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource2uid}).status_code, 201)
+        # Check that we now get a list containing exactly both resources
+        self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).json(),
+                [[{'uid': self.resource1uid, self.resource1attrname: self.resource1attrval}],
+                    [{'uid': self.resource2uid}]])
+        # Add the third resource
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource3uid}).status_code, 201)
+        # Check that we now get a list containing exactly both resources
+        self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).json(),
+                [[{'uid': self.resource1uid, self.resource1attrname: self.resource1attrval}],
+                    [{'uid': self.resource2uid}],
+                    [{'uid': self.resource3uid}]])
+        # Delete the resources
+        self.assertEqual( requests.delete('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource1uid}).status_code, 204)
+        self.assertEqual( requests.delete('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource2uid}).status_code, 204)
+        self.assertEqual( requests.delete('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource3uid}).status_code, 204)
+
+
 class TestValidRelationships(unittest.TestCase):
     '''
     Basic CRD functions for relationships

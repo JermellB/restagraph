@@ -161,6 +161,13 @@
         `((:STATEMENTS
             ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) RETURN n" resourcetype uid)))))))))
 
+(defmethod search-for-resources ((db neo4cl:neo4j-rest-server) (resourcetype string))
+  (neo4cl:extract-rows-from-get-request
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS
+          ((:STATEMENT . ,(format nil "MATCH (n:~A) RETURN n" resourcetype))))))))
+
 (defmethod delete-resource-by-uid ((db neo4cl:neo4j-rest-server) (resourcetype string) (uid string))
   (neo4cl:neo4j-transaction
     db

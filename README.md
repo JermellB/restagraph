@@ -47,6 +47,14 @@ GET /api/v1/<resource-type>/<uid>
 Returns a JSON representation of the resource.
 
 
+### Retrieve all resources of a given type
+```
+GET /api/v1/<resource-type>/
+```
+
+Returns a JSON representation of all resources of that type.
+
+
 ### Delete a resource
 ```
 DELETE /api/v1/<resource-type>

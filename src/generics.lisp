@@ -32,6 +32,9 @@ Return an error if
 (defgeneric get-resource-by-uid (db resourcetype uid)
   (:documentation "Retrieve a representation of a resource from the database."))
 
+(defgeneric search-for-resources (db resourcetype)
+  (:documentation "Search for all resources of a given type."))
+
 (defgeneric delete-resource-by-uid (db resourcetype uid)
   (:documentation "Delete a resource from the database. Automatically remove all relationships to other nodes."))
 

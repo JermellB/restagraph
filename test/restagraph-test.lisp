@@ -37,6 +37,43 @@
     (fiveam:is (equal "{}" (restagraph::get-resource-by-uid *server* restype uid)))))
 
 (fiveam:test
+  resources-multiple
+  "Confirm we can retrieve all resources of a given type"
+  (let ((resourcetype "routers")
+        (res1uid "amchitka")
+        (res1attrname "comment")
+        (res1attrval "Test router")
+        (res2uid "bikini")
+        (res3uid "mururoa"))
+    ;; Confirm we have no instances of that resource in place now
+    (fiveam:is (null (restagraph::search-for-resources *server* resourcetype)))
+    ;; Add one of that kind of resource
+    (restagraph::store-resource *server* resourcetype `(("uid" . ,res1uid) (,res1attrname . ,res1attrval)))
+    ;; Confirm we now get a list containing exactly that resource
+    (fiveam:is (equal
+                 `((((:UID . ,res1uid) (,(intern (string-upcase res1attrname) :keyword) . ,res1attrval))))
+                 (restagraph::search-for-resources *server* resourcetype)))
+    ;; Add a second of that kind of resource
+    (restagraph::store-resource *server* resourcetype `(("uid" . ,res2uid)))
+    ;; Confirm we now get a list containing both resources
+    (fiveam:is (equal
+                 `((((:UID . ,res1uid) (,(intern (string-upcase res1attrname) :keyword) . ,res1attrval)))
+                   (((:UID . ,res2uid))))
+                 (restagraph::search-for-resources *server* resourcetype)))
+    ;; Add a third of that kind of resource
+    (restagraph::store-resource *server* resourcetype `(("uid" . ,res3uid)))
+    ;; Confirm we now get a list containing both resources
+    (fiveam:is (equal
+                 `((((:UID . ,res1uid) (,(intern (string-upcase res1attrname) :keyword) . ,res1attrval)))
+                   (((:UID . ,res2uid)))
+                   (((:UID . ,res3uid))))
+                 (restagraph::search-for-resources *server* resourcetype)))
+    ;; Delete all the resources we added
+    (restagraph::delete-resource-by-uid *server* resourcetype res1uid)
+    (restagraph::delete-resource-by-uid *server* resourcetype res2uid)
+    (restagraph::delete-resource-by-uid *server* resourcetype res3uid)))
+
+(fiveam:test
   relationships
   "Basic operations on relationships between resources"
   (let ((routername "bikini")
