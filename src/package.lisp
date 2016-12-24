@@ -9,4 +9,5 @@
     ;; Conditions
     integrity-error
     client-error
+    message
     ))

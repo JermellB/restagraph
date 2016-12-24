@@ -29,38 +29,39 @@ class TestResources(unittest.TestCase):
     '''
     Basic CRD functions for resources
     '''
-    routertype = 'routers'
-    routername = 'amchitka'
-    routercomment = 'Test router 1'
+    restype = 'routers'
+    resuid = 'amchitka'
+    resattrname = 'comment'
+    resattrval = 'Test router 1'
     def test_create_and_delete_single_resource(self):
         # Ensure it's not already present
-        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).status_code,
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.restype, self.resuid)).status_code,
                 404)
         # Create it without attributes
-        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.restype), data={'uid': self.resuid}).status_code,
                 201)
         # Confirm that it's now there
-        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).json(),
-                { 'uid': self.routername })
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.restype, self.resuid)).json(),
+                {'uid': self.resuid})
         # Delete it
         self.assertEqual(
-                requests.delete('%s/%s/' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
+                requests.delete('%s/%s/%s' % (BASE_URL, self.restype, self.resuid)).status_code,
                 204)
         # Confirm it's gone
-        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).status_code,
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.restype, self.resuid)).status_code,
                 404)
         # Create it again, this time with a comment
-        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.restype), data={'uid': self.resuid, self.resattrname: self.resattrval}).status_code,
                 201)
         # Confirm that it's there, complete with comment
-        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).json(),
-                { 'uid': self.routername, 'comment': self.routercomment })
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.restype, self.resuid)).json(),
+                {'uid': self.resuid, self.resattrname: self.resattrval})
         # Delete it again
         self.assertEqual(
-                requests.delete('%s/%s/' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
+                requests.delete('%s/%s/%s' % (BASE_URL, self.restype, self.resuid)).status_code,
                 204)
         # Confirm it's gone again
-        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.routertype, self.routername)).status_code,
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.restype, self.resuid)).status_code,
                 404)
 
 class TestMultipleResources(unittest.TestCase):
@@ -75,8 +76,8 @@ class TestMultipleResources(unittest.TestCase):
     resource3uid='mururoa'
     def test_create_and_retrieve_multiple_resources(self):
         # Confirm we're starting with an empty set
-        self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).status_code, 200)
-        self.assertFalse(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).json())
+        self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).status_code, 404)
+        self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).text, 'No resources found for /routers')
         # Add the first resource
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource1uid, self.resource1attrname: self.resource1attrval}).status_code, 201)
         # Check that we now get a list containing exactly that resource
@@ -96,131 +97,180 @@ class TestMultipleResources(unittest.TestCase):
                     [{'uid': self.resource2uid}],
                     [{'uid': self.resource3uid}]])
         # Delete the resources
-        self.assertEqual( requests.delete('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource1uid}).status_code, 204)
-        self.assertEqual( requests.delete('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource2uid}).status_code, 204)
-        self.assertEqual( requests.delete('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resource3uid}).status_code, 204)
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.resourcetype, self.resource1uid)).status_code, 204)
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.resourcetype, self.resource2uid)).status_code, 204)
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.resourcetype, self.resource3uid)).status_code, 204)
 
+class TestDependentResources(unittest.TestCase):
+    res1type='routers'
+    res1uid='whitesands'
+    relationship1='Interfaces'
+    depres1type='interfaces'
+    depres1uid='ethernet0'
+    def test_create_and_delete_a_single_dependent_resource(self):
+        # Create the parent resource
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid}).status_code,
+                201)
+        # Screw up creation of the dependent resource, to check error-handling
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid, self.relationship1),
+            data={'type': self.depres1type, 'uid': self.depres1uid}).status_code,
+            400)
+        # Now get it right
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1), data={'type': self.depres1type, 'uid': self.depres1uid}).status_code,
+                201)
+        # Confirm it's there
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1, self.depres1type, self.depres1uid)).status_code,
+                200)
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid)).status_code,
+                200)
+        # Delete the dependent resource
+        # First, fail by skipping the delete-dependent parameter
+        self.assertEqual( requests.delete('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1, self.depres1type, self.depres1uid)).status_code,
+                400)
+        # Now get it right
+        self.assertEqual( requests.delete('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1, self.depres1type, self.depres1uid), data={'delete-dependent': 'true'}).status_code,
+                204)
+        # Delete the parent resource
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
+                204)
+    def test_recursively_delete_the_parent(self):
+        # Create the parent resource
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid}).status_code,
+                201)
+        # Create a dependent resource
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1), data={'type': self.depres1type, 'uid': self.depres1uid}).status_code,
+                201)
+        # Confirm it's there
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1, self.depres1type, self.depres1uid)).status_code,
+                200)
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid)).status_code,
+                200)
+        # Delete the parent resource
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
+                204)
+        # Ensure the dependent resource is gone
+        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid)).status_code,
+                404)
 
 class TestValidRelationships(unittest.TestCase):
     '''
     Basic CRD functions for relationships
     '''
-    routertype = 'routers'
-    routername = 'bikini'
-    routercomment = 'Test router 2'
-    rel_router_interface = 'Interfaces'
-    interfacetype = 'interfaces'
-    interfacename = 'ge-0_0_0'
-    interfaceattributes = '{"enabled": "True", "mac-address": "12:34:56:ab:cd:ef"}'
+    res1type = 'routers'
+    res1uid = 'bikini'
+    res1attrname = 'comment'
+    res1attrval = 'Test router 2'
+    relationship = 'Asn'
+    res2type = 'asn'
+    res2name = '64512'
+    res3type = 'make'
+    res3uid = 'NetBoxes'
+    depres1type = 'model'
+    depres1uid = 'Packetshuffler3000'
+    depres1deprel = 'HasModel'
+    res1todepres1rel = 'Model'
     def test_basic_relationship(self):
         # Create two new resources
-        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid, self.res1attrname: self.res1attrval}).status_code,
                 201)
-        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res2type), data={'uid': self.res2name}).status_code,
                 201)
         # Create a valid relationship between them
-        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
-                201)
+        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.res1type, self.res1uid, self.relationship),
+            data={'target': '/%s/%s' % (self.res2type, self.res2name)}).status_code,
+            201)
         # Confirm that the relationship is there
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code,
-                200)
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).json(),
-                [{"resource-type": self.interfacetype, "uid": self.interfacename}])
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship)).status_code,
+            200)
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship)).json(),
+            [{"resource-type": self.res2type, "uid": self.res2name}])
         # Delete the relationship
-        self.assertEqual(requests.delete('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
-                204)
+        self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s'%
+            (BASE_URL, self.res1type, self.res1uid, self.relationship, self.res2type, self.res2name)).status_code,
+            204)
         # Confirm the relationship is gone
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code, 404)
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship)).status_code, 404)
         # Delete the destination resource
-        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res2type, self.res2name)).status_code,
                 204)
-        # Create the relationship and the destination resource
-        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
-                201)
-        # Confirm the relationship is there again
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code,
-                200)
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).json(),
-                [{"resource-type": self.interfacetype, "uid": self.interfacename}])
-        # Delete the relationship
-        self.assertEqual(requests.delete('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
-                204)
-        # Confirm the relationship is gone
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code, 404)
-        # Delete the destination resource
-        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
-                204)
-        # Create the relationship and the destination resource, but with attributes this time
-        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename, 'attributes': self.interfaceattributes}).status_code,
-                201)
-        # Confirm the relationship is there again
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code,
-                200)
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).json(),
-                [{"resource-type": self.interfacetype, "uid": self.interfacename}])
-        # Confirm the attributes are present in the destination resource
-        self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.interfacetype, self.interfacename)).json(),
-                { 'uid': self.interfacename, 'enabled': 'True', 'macAddress': '12:34:56:ab:cd:ef' })
-        # Delete the relationship
-        self.assertEqual(requests.delete('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.interfacetype, 'uid': self.interfacename}).status_code,
-                204)
-        # Confirm the relationship is gone
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.routertype, self.routername, self.rel_router_interface)).status_code, 404)
         # Delete the resources
-        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
                 204)
-        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.interfacetype), data={'uid': self.interfacename}).status_code,
+    def test_rels_between_primary_and_secondary_resources(self):
+        # Create two first-class resources, with a third dependent on the first
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid}).status_code,
+                201)
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res3type), data={'uid': self.res3uid}).status_code,
+                201)
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.res3type, self.res3uid, self.depres1deprel),
+            data={'type': self.depres1type, 'uid': self.depres1uid}).status_code,
+            201)
+        # Link from the dependent to the other first-class
+        # Confirm that the linked first-class resource is at the end of that path
+        # Link from the first-class to the dependent
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.res1todepres1rel), data={'target': '/%s/%s/%s/%s/%s' % (self.res3type, self.res3uid, self.depres1deprel, self.depres1type, self.depres1uid)}).status_code, 201)
+        # Confirm that the linked dependent resource is at the end of that path
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.res1todepres1rel, self.depres1type, self.depres1uid)).status_code,
+                200)
+        # Delete both first-class resources
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
+                204)
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res3type, self.res3uid)).status_code,
                 204)
 
 class TestInvalidRelationships(unittest.TestCase):
     '''
     Basic CRD functions for relationships
     '''
-    routertype = 'routers'
-    routername = 'bikini'
-    routercomment = 'Test router 2'
-    addresstype = 'ipv4Addresses'
-    address = '127.0.0.1'
-    rel_router_interface = 'Interfaces'
-    rel_invalid = 'dysfunctionalRelationship'
+    res1type = 'routers'
+    res1uid = 'bikini'
+    res1comment = 'Test router 2'
+    res2type = 'asn'
+    res2uid = '64512'
+    relationship_valid = 'Asn'
+    relationship_invalid = 'dysfunctionalRelationship'
     def test_basic_relationship(self):
         # Create two new resources
-        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
-                201)
-        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.addresstype), data={'uid': self.address}).status_code,
-                201)
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.res1type),
+            data={'uid': self.res1uid, 'comment': self.res1comment}).status_code,
+            201)
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.res2type),
+            data={'uid': self.res2uid}).status_code,
+            201)
         # Attempt to create a relationship between them, of a type that doesn't exist for the source resource-type
-        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_invalid), data={'type': self.addresstype, 'uid': self.address}).status_code,
-                409)
-        # Attempt to create an invalid relationship between them
-        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.routertype, self.routername, self.rel_router_interface), data={'type': self.addresstype, 'uid': self.address}).status_code,
-                409)
+        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.res1type, self.res1uid, self.relationship_invalid),
+            data={'target': '/%s/%s' % (self.res2type, self.res2uid)}).status_code,
+            409)
+        # Attempt to create a valid relationship between them
+        self.assertEqual(requests.post('%s/%s/%s/%s'% (BASE_URL, self.res1type, self.res1uid, self.relationship_valid),
+            data={'target': '/%s/%s' % (self.res2type, self.res2uid)}).status_code,
+            201)
         # Delete the resources
-        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
-                204)
-        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.addresstype), data={'uid': self.address}).status_code,
-                204)
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
+            204)
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res2type, self.res2uid)).status_code,
+            204)
 
 class TestDbSchema(unittest.TestCase):
     '''
     Check that the DB schema is being enforced.
     Principally, make sure we can't create duplicates.
     '''
-    routertype = 'routers'
-    routername = 'whitesands'
-    routercomment = 'Test router 3'
+    resourcetype = 'routers'
+    resourcename = 'whitesands'
+    resourcecomment = 'Test router 3'
     def test_unique_resources(self):
         # Create a new resource
-        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resourcename, 'comment': self.resourcecomment}).status_code,
                 201)
         # Confirm that it's now there
-        self.assertEqual(requests.get('%s/%s/%s/' % (BASE_URL, self.routertype, self.routername)).json(),
-                { 'uid': self.routername, 'comment': self.routercomment })
+        self.assertEqual(requests.get('%s/%s/%s/' % (BASE_URL, self.resourcetype, self.resourcename)).json(),
+                {'uid': self.resourcename, 'comment': self.resourcecomment})
         # Attempt to create a duplicate.
-        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.routertype), data={'uid': self.routername, 'comment': self.routercomment}).status_code,
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resourcename, 'comment': self.resourcecomment}).status_code,
                 409)
         # Delete the resource
-        self.assertEqual(requests.delete('%s/%s' % (BASE_URL, self.routertype), data={'uid': self.routername}).status_code,
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.resourcetype, self.resourcename)).status_code,
                 204)
 
 class TestBasicResourceErrors(unittest.TestCase):
@@ -229,6 +279,7 @@ class TestBasicResourceErrors(unittest.TestCase):
     '''
     invalid_resourcetype='IjustMadeThisUp'
     valid_resourcetype='routers'
+    valid_uid='amchitka'
     def test_basic_resource_errors(self):
         # Invalid resource-type
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.invalid_resourcetype), data={'foo': 'bar'}).status_code,
@@ -237,7 +288,7 @@ class TestBasicResourceErrors(unittest.TestCase):
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.valid_resourcetype), data={'foo': 'bar'}).status_code,
         400)
         # Invalid non-UID parameters
-        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.valid_resourcetype), data={'uid': 'amchitka', 'foo': 'bar'}).status_code,
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.valid_resourcetype), data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
         400)
 
 # Make it happen

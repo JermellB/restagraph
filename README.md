@@ -6,10 +6,8 @@ A framework of sorts for producing a REST API for a Neo4J graph database, from a
 
 The aim is a black box that automagically converts a schema into an API, without any _need_ for a regular user to know about its internals.
 
-### Current state
+There is explicit support for dependent resources, i.e. resources that only make sense in the context of another.
 
-Proof-of-concept: it works for simple resources and relationships, and has reasonable error-handling.
-Currently adding dependent resources, which only exist in the context of other resources.
 
 ## What goes in the database
 
@@ -34,7 +32,7 @@ POST /api/v1/<resource-type>/
 
 With payload of `'uid=<uid>'`, plus optionally `'<attribute>=attribute'` pairs for any subset of the attributes defined for this resource type.
 
-Returns 201 CREATED if it succeeded.
+On success, returns a code of 201 and a JSON representation of the newly-created resource.
 
 The UID must actually be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
@@ -52,7 +50,7 @@ Returns a JSON representation of the resource.
 GET /api/v1/<resource-type>/
 ```
 
-Returns a JSON representation of all resources of that type.
+Returns a JSON representation of all resources of that type, or 404 if there aren't any.
 
 
 ### Delete a resource
@@ -69,6 +67,7 @@ Note that, due to the way Neo4J works, these are always directional.
 
 ```
 POST /api/v1/<resource-type>/<Unique ID>/<relationship>
+with parameter: 'target' = '/type/uid'
 ```
 
 Parameter _must_ include `type` and `uid`, and _may_ also include `attributes`.
@@ -90,7 +89,7 @@ DELETE /api/v1/<resource-type>/<Unique ID>/<relationship>/<Unique ID>
 
 ### Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs
 ```
-GET /api/v1/<resource-type>/<Unique ID>/<relationship>/?<attribute-name>=<value>
+GET /api/v1/<resource-type>/<Unique ID>/<relationship>/
 ```
 
 ## Working example

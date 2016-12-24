@@ -46,6 +46,34 @@
 (pushnew :DELETE tbnl:*methods-for-post-parameters*)
 
 
+;;; Utility functions
+
+(defun get-uri-parts (uri)
+  "Break the URI into parts for processing by uri-node-helper"
+  (cdr
+    (ppcre:split "/"
+                 (cl-ppcre:regex-replace (getf *config-vars* :uri-base) uri ""))))
+
+(defun uri-node-helper (uri-parts &optional (path "") (marker "n"))
+  (cond
+    ((null uri-parts)
+     (format nil "~A(~A)" path marker))
+    ((equal (length uri-parts) 1)
+     (format nil "~A(~A:~A)" path marker (first uri-parts)))
+    ((equal (length uri-parts) 2)
+     (format nil "~A(~A:~A { uid: '~A' })"
+             path marker (first uri-parts) (second uri-parts)))
+    ((equal (length uri-parts) 3)
+     (format nil "~A(:~A { uid: '~A' })-[:~A]->(~A)"
+             path (first uri-parts) (second uri-parts) (third uri-parts) marker))
+    (t
+     (uri-node-helper
+       (cdddr uri-parts)
+       (format nil "~A(:~A { uid: '~A' })-[:~A]->"
+               path (first uri-parts) (second uri-parts) (third uri-parts))
+       marker))))
+
+
 ;; Error response functions
 
 (defun four-oh-four ()
@@ -70,8 +98,8 @@
   "Report to the client that their request would have violated an integrity constraint.
   The optional client-message "
   (log-message :warn (format nil "Client triggered integrity error: ~A" logmessage))
-  (setf (tbnl:return-code*) tbnl:+http-conflict+)
   (setf (tbnl:content-type*) "text/plain")
+  (setf (tbnl:return-code*) tbnl:+http-conflict+)
   ;; If we were handed a specific message, use that.
   ;; Otherwise, just pass on the logmessage.
   (if client-message client-message logmessage))
@@ -79,22 +107,22 @@
 (defun return-database-error (message)
   "There was a database problem. Log it and report something generic to the user, not to keep them in the dark but to reduce the potential for data leakage."
   (log-message :error (format nil "Database error: ~A" message))
-  (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
   (setf (tbnl:content-type*) "text/plain")
+  (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
   "An error occurred with the database. This has been logged, and will be fixed.")
 
 (defun return-transient-error (message)
   "Transient problem, which may already have self-resolved.. Log it and report something generic to the user, not to keep them in the dark but to reduce the potential for data leakage."
   (log-message :error (format nil "Database error: ~A" message))
-  (setf (tbnl:return-code*) tbnl:+http-service-unavailable+)
   (setf (tbnl:content-type*) "text/plain")
+  (setf (tbnl:return-code*) tbnl:+http-service-unavailable+)
   "A transient error occurred, and has been logged for us to work on. Please try your request again.")
 
 (defun return-client-error (logmessage &optional message)
   "The client made a bad request. Return this information to them, that they may learn from their mistakes."
   (log-message :info (format nil "Client error: ~A" logmessage))
-  (setf (tbnl:return-code*) tbnl:+http-bad-request+)
   (setf (tbnl:content-type*) "text/plain")
+  (setf (tbnl:return-code*) tbnl:+http-bad-request+)
   ;; If we were handed a specific message, use that.
   ;; Otherwise, just pass on the logmessage.
   (if message message logmessage))
@@ -105,82 +133,32 @@
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
   (handler-case
-    (let* ((uri-parts (cdr (ppcre:split "/"
-                                        (cl-ppcre:regex-replace
-                                          (getf *config-vars* :uri-base)
-                                          (tbnl:request-uri*) ""))))
+    (let* ((uri-parts (get-uri-parts (tbnl:request-uri*)))
            (resourcetype (first uri-parts)))
       (cond
-        ;; Methods we don't support.
-        ;; Take the whitelist approach
-        ((not (member (tbnl:request-method*) '(:POST :GET :PUT :DELETE)))
-         (method-not-allowed))
-        ;;
         ;; GET -> Retrieve something
-        ;;
-        ;; All resources of a given type
-        ((and
-           (equal (tbnl:request-method*) :GET)
-           (equal (length uri-parts) 1))
-         (log-message :debug (format nil "Retrieving all ~A" resourcetype))
-         (setf (tbnl:content-type*) "application/json")
-         (setf (tbnl:return-code*) tbnl:+http-ok+)
-         (cl-json:encode-json-to-string
-           (search-for-resources (datastore tbnl:*acceptor*) resourcetype)))
-        ;; One resource, identified by UID
-        ((and
-           (equal (tbnl:request-method*) :GET)
-           (equal (length uri-parts) 2))
+        ((equal (tbnl:request-method*) :GET)
          (log-message :debug
-                      (format nil "Dispatching GET request for ~A with UID ~A"
-                              resourcetype
-                              (second uri-parts)))
-         (let ((result
-                 (get-resource-by-uid (datastore tbnl:*acceptor*)
-                                      resourcetype
-                                      (second uri-parts))))
+                      (format nil "Dispatching GET request for URI ~A"
+                              (tbnl:request-uri*)))
+         (let* ((sub-uri (cl-ppcre:regex-replace
+                           (getf *config-vars* :uri-base) (tbnl:request-uri*) ""))
+                (result
+                  (get-resources (datastore tbnl:*acceptor*) sub-uri)))
            ;; Handle the null result
-           (if (equal result "{}")
+           (if (or (null result)
+                   (equal result "")
+                   (equal result "{}"))
              (progn
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-not-found+)
-               (format nil "No ~A found with UID ~A" resourcetype (second uri-parts)))
+               (format nil "No resources found for ~A" sub-uri))
              ;; It worked; return what we found
              (progn
                (setf (tbnl:content-type*) "application/json")
                (setf (tbnl:return-code*) tbnl:+http-ok+)
                result))))
-        ;; Resources with a given relationship to this one
-        ((and (equal (tbnl:request-method*) :GET)
-              (equal (length uri-parts) 3))
-         (let ((uid (second uri-parts))
-               (relationship (third uri-parts)))
-           (log-message :debug "Attempting to retrieve resources with relationship ~A to the ~A resource ~A"
-                        relationship resourcetype uid)
-           ;; Set the headers
-           (setf (tbnl:content-type*) "application/json")
-           (setf (tbnl:return-code*) tbnl:+http-ok+)
-           ;; Make the request and return the result
-           (let ((result
-                   (get-resources-with-relationship (datastore tbnl:*acceptor*)
-                                                    resourcetype
-                                                    uid
-                                                    relationship)))
-             (if result
-               ;; If it was actual content, return that
-               (progn
-                 (setf (tbnl:return-code*) tbnl:+http-ok+)
-                 (setf (tbnl:content-type*) "application/json")
-                 (log-message :debug (format nil "Returning result '~A'" result))
-                 (cl-json:encode-json-to-string result))
-               ;; If it was empty, report that instead
-               (progn
-                 (setf (tbnl:return-code*) tbnl:+http-not-found+)
-                 (setf (tbnl:content-type*) "text/plain")
-                 (format nil "No ~A found for ~A ~A" relationship resourcetype uid))))))
-        ;;
         ;; POST -> Store something
-        ;;
         ;; Resource
         ((and
            (equal (tbnl:request-method*) :POST)
@@ -196,6 +174,7 @@
              (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
              (setf (tbnl:content-type*) "application/json")
              (setf (tbnl:return-code*) tbnl:+http-created+)
+             ;; FIXME: do we need to encode this as JSON at this point?
              (get-resource-by-uid (datastore tbnl:*acceptor*)
                                   resourcetype
                                   (tbnl:post-parameter "uid")))
@@ -206,88 +185,94 @@
         ;; Relationship
         ((and
            (equal (tbnl:request-method*) :POST)
-           (equal (length uri-parts) 3))
+           (equal (mod (length uri-parts) 3) 0)
+           (tbnl:post-parameter "target"))
          ;; Grab these once, as we'll be referring to them a few times
-         (let ((uid (second uri-parts))
-               (relationship (third uri-parts))
-               (dest-type (tbnl:post-parameter "type"))
-               (dest-uid (tbnl:post-parameter "uid")))
-           (log-message
-             :debug
-             (format nil "Attempting to dispatch a POST request for resource type ~A and relationship type ~A"
-                     resourcetype relationship))
+         (let ((dest-path (tbnl:post-parameter "target")))
            ;; Basic sanity check
-           (if (and dest-type
-                    dest-uid)
+           (log-message :debug (format nil
+                                       "Creating a relationship from ~A to ~A"
+                                       (tbnl:request-uri*) dest-path))
+           (handler-case
              (progn
-               (log-message :debug "Creating ~A ~A, plus ~A relationship to it from ~A ~A, with candidate attributes '~A'"
-                            dest-type dest-uid relationship resourcetype uid (tbnl:post-parameter "attributes"))
-               (handler-case
-                 (progn
-                   (create-relationship
-                     (datastore tbnl:*acceptor*)
-                     resourcetype uid relationship dest-type dest-uid
-                     (if (tbnl:post-parameter "attributes")
-                       (cl-json:decode-json-from-string (tbnl:post-parameter "attributes"))
-                       nil))
-                   ;; Report success to the client
-                   (setf (tbnl:return-code*) tbnl:+http-created+)
-                   (setf (tbnl:content-type*) "text/plain")
-                   ;; FIXME: find a good JSON representation of what was just created
-                   "CREATED")
-                 ;; No attributes; just create the relationship
-
-                 ;; Attempted violation of db integrity
-                 (restagraph:integrity-error (e) (return-integrity-error (message e)))
-                 ;; Generic client errors
-                 (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
-             ;; Sanity check failed
-             (progn
-               (log-message :debug "Client failed to supply both the 'type' and 'uid' parameters when creating a relationship")
-               (return-client-error "Both the 'type' and 'uid' parameters are required")))))
-        ;;
-        ;; DELETE -> Delete something
-        ;;
-        ;; Resource
+               (create-relationship-by-path
+                 (datastore tbnl:*acceptor*) (tbnl:request-uri*) dest-path)
+               ;; Report success to the client
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               ;; FIXME: find a good JSON representation of what was just created
+               "CREATED")
+             ;; Attempted violation of db integrity
+             (restagraph:integrity-error (e) (return-integrity-error (message e)))
+             ;; Generic client errors
+             (restagraph:client-error (e) (return-client-error (message e)))
+             (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))
+        ;; Dependent resource
         ((and
-           (equal (tbnl:request-method*) :DELETE)
-           (equal (length uri-parts) 1))
-         (log-message :debug (format nil "Attempting to dispatch a DELETE request for resource type ~A" resourcetype))
-         ;; Basic sanity check
-         (if (tbnl:post-parameter "uid")
-           ;; Delete the resource, and inform the client we have nothing
-           ;; more to say on the subject.
-           (progn
-             (delete-resource-by-uid (datastore tbnl:*acceptor*)
-                                     resourcetype
-                                     (tbnl:post-parameter "uid"))
+           (equal (tbnl:request-method*) :POST)
+           (equal (mod (length uri-parts) 3) 0)
+           (tbnl:post-parameter "type")
+           (tbnl:post-parameter "uid"))
+         (handler-case
+           (let ((sub-uri (cl-ppcre:regex-replace
+                            (getf *config-vars* :uri-base) (tbnl:request-uri*) ""))
+                 (newtype (tbnl:post-parameter "type"))
+                 (uid (tbnl:post-parameter "uid")))
+             (log-message :debug (format nil "Attempting to create dependent resource ~A:~A on ~A"
+                                         newtype uid sub-uri))
+             (store-dependent-resource
+               (datastore tbnl:*acceptor*) sub-uri (tbnl:post-parameters*))
              (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-no-content+)
-             "")
-           ;; Sanity check failed. Inform the client they're insane.
-           (return-client-error "UID is a required parameter")))
-        ;; Relationship
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             ;; FIXME: find a good JSON representation of what was just created
+             "CREATED")
+           ;; Attempted violation of db integrity
+           (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Generic client errors
+           (restagraph:client-error (e) (return-client-error (message e)))
+           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
+        ;; DELETE -> Delete something
+        ;; Resource
         ((and (equal (tbnl:request-method*) :DELETE)
-              (equal (length uri-parts) 3))
-         (log-message :debug "Attempting to delete a relationship")
-         ;; Basic sanity-check
-         (if (and
-               (tbnl:post-parameter "type")
-               (tbnl:post-parameter "uid"))
-           ;; Attempt to delete it
-           (progn
-             (delete-relationship (datastore tbnl:*acceptor*)
-                                  (first uri-parts)
-                                  (second uri-parts)
-                                  (third uri-parts)
-                                  (tbnl:post-parameter "type")
-                                  (tbnl:post-parameter "uid"))
-             (setf (tbnl:return-code*) tbnl:+http-no-content+)
+              (equal (mod (length uri-parts) 3) 2))
+         (handler-case
+           (let ((sub-uri (cl-ppcre:regex-replace
+                            (getf *config-vars* :uri-base) (tbnl:request-uri*) "")))
+             (log-message :debug "Attempting to delete a resource on an arbitrary path")
+             (delete-resource-by-path
+               (datastore tbnl:*acceptor*)
+               sub-uri
+               :delete-dependent (when (tbnl:post-parameter "delete-dependent")
+                                   (tbnl:post-parameter "delete-dependent")))
              (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
-           ;; Sanity-check failed; relay the sad news to the client
-           (return-client-error "Both 'type' and 'uid' parameters are required")))
-        ;; Fallback: anything we don't already know how to handle
+           ;; Attempted violation of db integrity
+           (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Generic client errors
+           (restagraph:client-error (e) (return-client-error (message e)))))
+        ;; Delete a relationship on an arbitrary path
+        ((and (equal (tbnl:request-method*) :DELETE)
+              (tbnl:post-parameter "resource")
+              (> (length uri-parts) 3)
+              (equal (mod (length uri-parts) 3) 0))
+         (handler-case
+           (progn
+             (log-message :debug "Attempting to delete a relationship on an arbitrary path")
+             (delete-relationship-by-path (datastore tbnl:*acceptor*)
+                                          uri-parts
+                                          (tbnl:post-parameter "resource"))
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-no-content+)
+             "")
+           ;; Attempted violation of db integrity
+           (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Generic client errors
+           (restagraph:client-error (e) (return-client-error (message e)))))
+        ;; Methods we don't support.
+        ;; Take the whitelist approach
+        ((not (member (tbnl:request-method*) '(:POST :GET :PUT :DELETE)))
+         (method-not-allowed))
         (t
           (return-client-error "This wasn't a valid request"))))
     ;; Handle general errors
@@ -301,6 +286,9 @@
 
 (defun startup ()
   (log-message :info "Starting up the restagraph application server")
+  ;; Enforce the schema
+  (enforce-db-schema (datastore *restagraph-acceptor*))
+  ;; Set the dispatch table
   (setf tbnl:*dispatch-table*
         (list
           (tbnl:create-prefix-dispatcher (getf *config-vars* :uri-base) 'api-dispatcher-v1)
