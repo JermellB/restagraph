@@ -175,9 +175,10 @@
              (setf (tbnl:content-type*) "application/json")
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; FIXME: do we need to encode this as JSON at this point?
-             (get-resource-by-uid (datastore tbnl:*acceptor*)
-                                  resourcetype
-                                  (tbnl:post-parameter "uid")))
+             (get-resources (datastore tbnl:*acceptor*)
+                            (format nil "/~A/~A"
+                                    resourcetype
+                                    (tbnl:post-parameter "uid"))))
            ;; Handle integrity errors
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
            ;; Handle general client errors
