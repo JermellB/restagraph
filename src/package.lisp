@@ -6,6 +6,7 @@
     startup
     shutdown
     populate-schema
+    log-message
     ;; Conditions
     integrity-error
     client-error
