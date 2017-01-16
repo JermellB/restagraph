@@ -211,6 +211,7 @@
         ;; Dependent resource
         ((and
            (equal (tbnl:request-method*) :POST)
+           (> (length uri-parts) 0)
            (equal (mod (length uri-parts) 3) 0)
            (tbnl:post-parameter "type")
            (tbnl:post-parameter "uid"))
