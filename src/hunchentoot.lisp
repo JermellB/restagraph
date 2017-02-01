@@ -275,6 +275,7 @@
         ;; Take the whitelist approach
         ((not (member (tbnl:request-method*) '(:POST :GET :PUT :DELETE)))
          (method-not-allowed))
+        ;; Handle all other cases
         (t
           (return-client-error "This wasn't a valid request"))))
     ;; Handle general errors
