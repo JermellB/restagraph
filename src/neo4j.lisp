@@ -133,7 +133,10 @@
                        (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}"
                                resourcetype invalid-attributes))
                 ;; Return the valid attributes to the caller
-                (format-post-params-as-properties params))))
+                (format-post-params-as-properties
+                  (acons "uid" (sanitise-uid (cdr (assoc "uid" params :test #'string=)))
+                         (acons "original_uid" (cdr (assoc "uid" params :test #'string=))
+                                (remove-if #'(lambda (param) (equal (car param) "uid")) params)))))))
           ;; If we got this far, it's valid.
           ;; Return positive confirmation to the caller.
           (progn

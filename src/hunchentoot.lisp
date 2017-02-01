@@ -130,6 +130,10 @@
 
 ;; Functions for dispatching requests
 
+(defun sanitise-uid (uid)
+  "Replace UID-unfriendly characters in UIDs with something safe"
+  (cl-ppcre:regex-replace-all "[/]" uid "_"))
+
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
   (handler-case
