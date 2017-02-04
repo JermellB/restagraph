@@ -43,9 +43,6 @@ Return an error if
 (defgeneric get-resources (db uri)
   (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI."))
 
-(defgeneric delete-resource-by-path (db pathlist)
-  (:documentation "Delete a resource at the end of an arbitrary-length path."))
-
 (defgeneric get-dependent-resources (db sourcepath)
   (:documentation "Return a list of the resources that depend on this one, where the list contains 3-element lists of relationship, type and UID."))
 
