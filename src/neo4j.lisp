@@ -85,9 +85,9 @@
               db
               `((:STATEMENTS
                   ((:STATEMENT .
-                    ,(format nil
-                             "MATCH (n:rgResource { name: '~A' }) RETURN n"
-                             resourcetype)))))))))
+                               ,(format nil
+                                        "MATCH (n:rgResource { name: '~A' }) RETURN n"
+                                        resourcetype)))))))))
     (if resource-exists-p
       ;; Were attributes specified and, if so, are they all valid for this resource-type?
       (let
@@ -98,7 +98,7 @@
         ;; If any attributes were requested, check each one for relevance to this
         ;; resource-type.
         ;; Add invalid ones to the invalid-attributes list
-        (if requested-attributes
+        (when requested-attributes
           (progn
             (log-message :debug "Checking the supplied attributes.")
             (let* ((valid-attributes
@@ -122,26 +122,23 @@
                                             resourcetype)))
               ;; Record the state of the invalid ones
               (if invalid-attributes
-                (log-message :debug (format nil "Identified invalid attributes: ~{~A~^, ~}"
-                                            invalid-attributes))
+                (progn
+                  (log-message :debug (format nil "Identified invalid attributes: ~{~A~^, ~}"
+                                              invalid-attributes))
+                  (error 'restagraph:client-error :message
+                         (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}"
+                                 resourcetype invalid-attributes)))
                 (log-message :debug "No invalid attributes identified."))
-              ;; If the invalid-attributes list is non-empty,
-              ;; inform the client of the error.
-              (if
-                invalid-attributes
-                (error 'restagraph:client-error :message
-                       (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}"
-                               resourcetype invalid-attributes))
-                ;; Return the valid attributes to the caller
-                (format-post-params-as-properties
-                  (acons "uid" (sanitise-uid (cdr (assoc "uid" params :test #'string=)))
-                         (acons "original_uid" (cdr (assoc "uid" params :test #'string=))
-                                (remove-if #'(lambda (param) (equal (car param) "uid")) params)))))))
-          ;; If we got this far, it's valid.
-          ;; Return positive confirmation to the caller.
-          (progn
-            (log-message :debug "No attributes supplied. Looks OK.")
-            (format-post-params-as-properties params))))
+              ;; Return the valid attributes to the caller
+              (format-post-params-as-properties
+                params))))
+        ;; If we got this far, it's valid.
+        ;; Return positive confirmation to the caller.
+        (format-post-params-as-properties
+          (acons "uid" (sanitise-uid (cdr (assoc "uid" params :test #'string=)))
+                 (acons "original_uid" (cdr (assoc "uid" params :test #'string=))
+                        (remove-if #'(lambda (param) (equal (car param) "uid"))
+                                   params)))))
       ;; The first test failed; inform the user
       (progn
         (log-message :debug
@@ -325,31 +322,37 @@
          (dest-type (cdr (assoc "type" attributes :test 'equal)))
          (dest-uid (cdr (assoc "uid" attributes :test 'equal))))
     (cond
+      ;; Sanity check: required parameters
       ((not (and dest-type dest-uid))
        (error 'client-error :message "Both the 'type' and 'uid' parameters must be supplied"))
+      ;; Sanity check: is this a dependent resource type?
+      ((not (dependent-resource-p db dest-type))
+       (error 'client-error :message "This is not a dependent resource type"))
+      ;; Sanity check: existence of parent resource
       ((equal (get-resources db (format nil "/~{~A~^/~}" parent-parts)) "{}")
        (error 'client-error :message "Parent resource does not exist"))
+      ;; Sanity check: dependency between parent and child resource types
       ((not (dependent-relationship-p db parent-type relationship dest-type))
        (error 'client-error
               :message (format nil "Target resource-type ~A doesn't depend on the parent type ~A"
-              dest-type parent-type)))
+                               dest-type parent-type)))
+      ;; Passed the sanity-checks. Create it.
       (t
-       (if (dependent-resource-p db dest-type)
-         (let ((attributes (validate-resource-before-creating
-                             db
-                             dest-type
-                             (remove-if #'(lambda (param) (equal (car param) "type"))
-                                        attributes))))
-           (neo4cl:neo4j-transaction
-             db
-             `((:STATEMENTS
-                 ((:STATEMENT .
-                   ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A { properties })"
-                            (uri-node-helper parent-parts)
-                            relationship
-                            dest-type))
-                  (:PARAMETERS . ((:PROPERTIES . ,attributes))))))))
-         (error 'client-error :message "This is not a dependent resource type"))))))
+        ;; Validate the supplied attributes
+        (neo4cl:neo4j-transaction
+          db
+          `((:STATEMENTS
+              ((:STATEMENT .
+                           ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A { properties })"
+                                    (uri-node-helper parent-parts)
+                                    relationship
+                                    dest-type))
+               (:PARAMETERS . ((:PROPERTIES .
+                                            ,(validate-resource-before-creating
+                                               db
+                                               dest-type
+                                               (remove-if #'(lambda (param) (equal (car param) "type"))
+                                                          attributes)))))))))))))
 
 (defmethod get-resources-with-relationship ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string)
