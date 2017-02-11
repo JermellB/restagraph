@@ -79,28 +79,22 @@
                                               (resourcetype string)
                                               (params list))
   ;; Does this resource-type exist?
-  (let ((resource-exists-p
-          (neo4cl:extract-data-from-get-request
-            (neo4cl:neo4j-transaction
-              db
-              `((:STATEMENTS
-                  ((:STATEMENT .
-                               ,(format nil
-                                        "MATCH (n:rgResource { name: '~A' }) RETURN n"
-                                        resourcetype)))))))))
-    (if resource-exists-p
-      ;; Were attributes specified and, if so, are they all valid for this resource-type?
-      (let
-        ((requested-attributes
-           (remove-if #'(lambda (param) (equal (car param) "uid")) params)))
-        ;; Note that the resource was found to be valid
-        (log-message :debug (format nil "Resource type ~A is valid." resourcetype))
-        ;; If any attributes were requested, check each one for relevance to this
-        ;; resource-type.
-        ;; Add invalid ones to the invalid-attributes list
-        (when requested-attributes
-          (progn
-            (log-message :debug "Checking the supplied attributes.")
+  (if (neo4cl:extract-data-from-get-request
+        (neo4cl:neo4j-transaction
+          db
+          `((:STATEMENTS
+              ((:STATEMENT .
+                           ,(format nil
+                                    "MATCH (n:rgResource { name: '~A' }) RETURN n"
+                                    resourcetype)))))))
+    ;; Were attributes specified and, if so, are they all valid for this resource-type?
+    (let
+      ((requested-attributes
+         (remove-if #'(lambda (param) (equal (car param) "uid")) params)))
+      (if (or
+            ;; If no attributes were specified other than "uid", we're good
+            (not requested-attributes)
+            ;; If other attributes were specified, check them all for validity
             (let* ((valid-attributes
                      (mapcar #'(lambda (row)
                                  (cdr (assoc :name (car row))))
@@ -114,13 +108,14 @@
                                                       :test 'equal)
                                               (string-downcase (car par))))
                                         requested-attributes))))
+              (log-message :debug "Checking the supplied attributes.")
               ;; Record the valid ones, if we're debugging
               (if valid-attributes
                 (log-message :debug (format nil "Valid attributes for resource-type ~A: ~{~A~^, ~}."
                                             resourcetype valid-attributes))
                 (log-message :debug (format nil "Resource-type ~A has no valid attributes to set."
                                             resourcetype)))
-              ;; Record the state of the invalid ones
+              ;; If any invalid attributes were requested, log this and signal an error
               (if invalid-attributes
                 (progn
                   (log-message :debug (format nil "Identified invalid attributes: ~{~A~^, ~}"
@@ -129,22 +124,14 @@
                          (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}"
                                  resourcetype invalid-attributes)))
                 (log-message :debug "No invalid attributes identified."))
-              ;; Return the valid attributes to the caller
-              (format-post-params-as-properties
-                params))))
-        ;; If we got this far, it's valid.
-        ;; Return positive confirmation to the caller.
+              ;; We were given attributes other than "uid" and all of them checked out OK.
+              ;; Return the supplied attributes to the caller
+              t))
         (format-post-params-as-properties
           (acons "uid" (sanitise-uid (cdr (assoc "uid" params :test #'string=)))
                  (acons "original_uid" (cdr (assoc "uid" params :test #'string=))
                         (remove-if #'(lambda (param) (equal (car param) "uid"))
-                                   params)))))
-      ;; The first test failed; inform the user
-      (progn
-        (log-message :debug
-                     (format nil "Requested resource-type ~A is not valid."
-                             resourcetype))
-        (error 'restagraph:integrity-error :message "No such resource type")))))
+                                   params))))))))
 
 
 ;;;; Resources
@@ -217,6 +204,7 @@
     (cond
       ;; All resources of a given type
       ((equal (mod (length uri-parts) 3) 1)
+       (log-message :debug (format nil "Fetching all resources of type ~A" uri))
        (let ((result
                (neo4cl:extract-rows-from-get-request
                  (neo4cl:neo4j-transaction
@@ -228,6 +216,7 @@
            (cl-json:encode-json-to-string result))))
       ;; One specific resource
       ((equal (mod (length uri-parts) 3) 2)
+       (log-message :debug (format nil "Fetching the resource matching the path ~A" uri))
        (cl-json:encode-json-alist-to-string
          (neo4cl:extract-data-from-get-request
            (neo4cl:neo4j-transaction
@@ -237,24 +226,22 @@
                                          (uri-node-helper uri-parts))))))))))
       ;; All resources with a particular relationship to this one
       (t
-       (let ((result (neo4cl:extract-rows-from-get-request
-                       (neo4cl:neo4j-transaction
-                         db
-                         `((:STATEMENTS
-                             ((:STATEMENT .
-                               ,(format nil "MATCH ~A RETURN labels(n), n.uid"
-                                        (uri-node-helper uri-parts))))))))))
-         (when result
-           (cl-json:encode-json-to-string
-             (mapcar #'(lambda (row)
-                         `(("resource-type" . ,(caar row)) ("uid" . ,(second row))))
-                     result))))))))
-
-(defmethod delete-resource-by-uid ((db neo4cl:neo4j-rest-server) (resourcetype string) (uid string))
-  (neo4cl:neo4j-transaction
-    db
-    `((:STATEMENTS
-        ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n" resourcetype uid)))))))
+        (log-message :debug
+                     (format nil "Fetching all resources with relationship ~A to resource ~{~A~^/~}"
+                             (last uri-parts)
+                             (butlast uri-parts)))
+        (let ((result (neo4cl:extract-rows-from-get-request
+                        (neo4cl:neo4j-transaction
+                          db
+                          `((:STATEMENTS
+                              ((:STATEMENT .
+                                           ,(format nil "MATCH ~A RETURN labels(n), n.uid"
+                                                    (uri-node-helper uri-parts))))))))))
+          (when result
+            (cl-json:encode-json-to-string
+              (mapcar #'(lambda (row)
+                          `(("resource-type" . ,(caar row)) ("uid" . ,(second row))))
+                      result))))))))
 
 
 ;;;; Relationships
@@ -336,23 +323,34 @@
        (error 'client-error
               :message (format nil "Target resource-type ~A doesn't depend on the parent type ~A"
                                dest-type parent-type)))
-      ;; Passed the sanity-checks. Create it.
+      ;; Passed the initial sanity-checks; try to create it.
       (t
         ;; Validate the supplied attributes
-        (neo4cl:neo4j-transaction
-          db
-          `((:STATEMENTS
-              ((:STATEMENT .
-                           ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A { properties })"
-                                    (uri-node-helper parent-parts)
-                                    relationship
-                                    dest-type))
-               (:PARAMETERS . ((:PROPERTIES .
-                                            ,(validate-resource-before-creating
-                                               db
-                                               dest-type
-                                               (remove-if #'(lambda (param) (equal (car param) "type"))
-                                                          attributes)))))))))))))
+        (let* ((validated-attributes (validate-resource-before-creating
+                                      db
+                                      dest-type
+                                      (remove-if #'(lambda (param) (equal (car param) "type"))
+                                                 attributes)))
+              (resource-path (format nil "/~{~A~^/~}/~A/~A/~A"
+                                     parent-parts
+                                     relationship
+                                     dest-type
+                                     (cdr (assoc "uid" validated-attributes :test #'string=)))))
+          (log-message :debug (format nil "Validated attributes: ~A" validated-attributes))
+          ;; One last sanity-check: does it already exist?
+          (if (equal (get-resources db resource-path) "{}")
+            ;; Doesn't already exist; carry on.
+            (neo4cl:neo4j-transaction
+              db
+              `((:STATEMENTS
+                  ((:STATEMENT .
+                               ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A { properties })"
+                                        (uri-node-helper parent-parts)
+                                        relationship
+                                        dest-type))
+                   (:PARAMETERS . ((:PROPERTIES . ,validated-attributes)))))))
+            ;; We already have one of these
+            (error 'integrity-error :message (format nil "Resource ~A already exists" resource-path))))))))
 
 (defmethod get-resources-with-relationship ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string)
@@ -370,16 +368,27 @@
 
 (defmethod get-dependent-resources ((db neo4cl:neo4j-rest-server)
                                     (sourcepath list))
-  (mapcar #'(lambda (row)
-              ;; labels(n) returns a list, hence the (car)
-              (list (first row) (car (second row)) (third row)))
-  (neo4cl:extract-rows-from-get-request
-    (neo4cl:neo4j-transaction
-      db
-      `((:STATEMENTS
-          ((:STATEMENT .
-            ,(format nil "MATCH ~A-[r]->(b) RETURN type(r), labels(b), b.uid"
-                     (uri-node-helper sourcepath))))))))))
+  (let ((parent-type (car (butlast sourcepath)))
+        ;; Get all nodes to which this node has outbound relationships
+        (candidates
+          (mapcar #'(lambda (row)
+                      ;; labels(n) returns a list, hence the (car)
+                      ;; List elements: relationship, target type, target UID
+                      (list (first row) (car (second row)) (third row)))
+                  (neo4cl:extract-rows-from-get-request
+                    (neo4cl:neo4j-transaction
+                      db
+                      `((:STATEMENTS
+                          ((:STATEMENT .
+                                       ,(format nil "MATCH ~A-[r]->(b) RETURN type(r), labels(b), b.uid"
+                                                (uri-node-helper sourcepath)))))))))))
+    ;; Filter out any candidate nodes that do not have a _dependent_ relationship on the parent
+    (remove-if
+      #'null
+      (mapcar #'(lambda (c)
+                  (when (dependent-relationship-p db parent-type (first c) (second c))
+                    c))
+              candidates))))
 
 (defmethod get-dependent-relationships-for-type ((db neo4cl:neo4j-rest-server)
                                                  (resource-type string))

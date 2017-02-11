@@ -1,4 +1,4 @@
-;;;; Test suite for all of syscat
+;;;; Test suite for all of restagraph
 ;;;;
 ;;;; Beware: it currently only tests _expected_ cases,
 ;;;; and does not test edge-cases or wrong input.
@@ -29,7 +29,8 @@
       (fiveam:is (equal 200 code)))
     ;; Confirm it's there
     (fiveam:is (equal
-                 (format nil "{\"uid\":\"~A\",\"comment\":\"~A\"}" uid comment)
+                 (format nil "{\"uid\":\"~A\",\"original_uid\":\"~A\",\"comment\":\"~A\"}"
+                         uid (restagraph::sanitise-uid uid) comment)
                  (restagraph::get-resources
                    *server* (format nil "/~A/~A" restype uid))))
     ;; Delete it
@@ -57,7 +58,7 @@
         (invalid-child-uid "whitesands"))
     ;; Check underlying mechanisms
     (fiveam:is (equal
-                 '("SubInterfaces" "Interfaces" "Addresses")
+                 '("SubInterfaces" "HasModel" "Interfaces" "Addresses")
                  (restagraph::get-dependent-relationships-for-type *server* child-type)))
     ;; Create the parent resource
     (restagraph::store-resource *server* parent-type `(("uid" . ,parent-uid)))
@@ -123,27 +124,30 @@
         (res2uid "bikini")
         (res3uid "mururoa"))
     ;; Confirm we have no instances of that resource in place now
-    (fiveam:is (null (restagraph::search-for-resources *server* resourcetype)))
+    (fiveam:is (null (restagraph::get-resources *server* (format nil "/~A" resourcetype))))
     ;; Add one of that kind of resource
     (restagraph::store-resource *server* resourcetype `(("uid" . ,res1uid) (,res1attrname . ,res1attrval)))
     ;; Confirm we now get a list containing exactly that resource
     (fiveam:is (equal
-                 (format nil "[[{\"uid\":\"~A\",\"~A\":\"~A\"}]]"
-                         res1uid res1attrname res1attrval)
+                 (format nil "[[{\"uid\":\"~A\",\"original_uid\":\"~A\",\"~A\":\"~A\"}]]"
+                         res1uid (restagraph::sanitise-uid res1uid) res1attrname res1attrval)
                  (restagraph::get-resources *server* (format nil "/~A" resourcetype))))
     ;; Add a second of that kind of resource
     (restagraph::store-resource *server* resourcetype `(("uid" . ,res2uid)))
     ;; Confirm we now get a list containing both resources
     (fiveam:is (equal
-                 (format nil "[[{\"uid\":\"~A\",\"~A\":\"~A\"}],[{\"uid\":\"~A\"}]]"
-                         res1uid res1attrname res1attrval res2uid)
+                 (format nil "[[{\"uid\":\"~A\",\"original_uid\":\"~A\",\"~A\":\"~A\"}],[{\"uid\":\"~A\",\"original_uid\":\"~A\"}]]"
+                         res1uid (restagraph::sanitise-uid res1uid) res1attrname res1attrval
+                         res2uid (restagraph::sanitise-uid res2uid))
                  (restagraph::get-resources *server* (format nil "/~A" resourcetype))))
     ;; Add a third of that kind of resource
     (restagraph::store-resource *server* resourcetype `(("uid" . ,res3uid)))
     ;; Confirm we now get a list containing both resources
     (fiveam:is (equal
-                 (format nil "[[{\"uid\":\"~A\",\"~A\":\"~A\"}],[{\"uid\":\"~A\"}],[{\"uid\":\"~A\"}]]"
-                         res1uid res1attrname res1attrval res2uid res3uid)
+                 (format nil "[[{\"uid\":\"~A\",\"original_uid\":\"~A\",\"~A\":\"~A\"}],[{\"uid\":\"~A\",\"original_uid\":\"~A\"}],[{\"uid\":\"~A\",\"original_uid\":\"~A\"}]]"
+                         res1uid (restagraph::sanitise-uid res1uid) res1attrname res1attrval
+                         res2uid (restagraph::sanitise-uid res2uid)
+                         res3uid (restagraph::sanitise-uid res3uid))
                  (restagraph::get-resources *server* (format nil "/~A" resourcetype))))
     ;; Delete all the resources we added
     (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res1uid))
@@ -209,7 +213,10 @@
     (restagraph::store-resource *server* to-type `(("uid" . ,to-uid)))
     ;; Create a relationship between them
     (multiple-value-bind (result code message)
-      (restagraph::create-relationship *server* from-type from-uid relationship to-type to-uid nil)
+      (restagraph::create-relationship-by-path
+        *server*
+        (format nil "/~A/~A/~A" from-type from-uid relationship)
+        (format nil "/~A/~A" to-type to-uid))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm the relationship is there
@@ -220,14 +227,21 @@
     (fiveam:signals (restagraph:integrity-error
                       (format nil "Relationship ~A already exists from ~A ~A to ~A ~A"
                               relationship from-type from-uid to-type to-uid))
-      (restagraph::create-relationship *server* from-type from-uid relationship to-type to-uid nil))
+                    (restagraph::create-relationship-by-path
+                      *server*
+                      (format nil "/~A/~A/~A" from-type from-uid relationship)
+                      (format nil "/~A/~A" to-type to-uid)))
     ;; Confirm we still only have one relationship between them
     (fiveam:is (equal
                  `((("resource-type" . ,to-type) ("uid" . ,to-uid)))
                  (restagraph::get-resources-with-relationship *server* from-type from-uid relationship)))
     ;; Delete the relationship
     (multiple-value-bind (result code message)
-      (restagraph::delete-relationship *server* from-type from-uid relationship to-type to-uid)
+      (restagraph::delete-relationship-by-path
+        *server*
+        (format nil "/~A/~A/~A/"
+                from-type from-uid relationship)
+        (format nil "/~A/~A/" to-type to-uid))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Clean-up: delete the resources

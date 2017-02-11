@@ -132,7 +132,7 @@
 
 (defun sanitise-uid (uid)
   "Replace UID-unfriendly characters in UIDs with something safe"
-  (cl-ppcre:regex-replace-all "[/]" uid "_"))
+  (cl-ppcre:regex-replace-all "[/ ]" uid "_"))
 
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
@@ -166,7 +166,8 @@
         ;; Resource
         ((and
            (equal (tbnl:request-method*) :POST)
-           (equal (length uri-parts) 1))
+           (equal (length uri-parts) 1)
+           (tbnl:post-parameter "uid"))
          (log-message :debug (format nil "Attempting to dispatch a POST request for resource type ~A" resourcetype))
          ;; Store it
          (handler-case
