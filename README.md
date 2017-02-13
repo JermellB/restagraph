@@ -22,6 +22,8 @@ The third element is relationships between `rgResource` objects. These are imple
 
 HTTP return codes are used to indicate success or error, and the Content-type header is set according to whether text or JSON is being returned. As a rule, JSON will be returned on success, and plain text for anything else. The one salient exception is when deleting a resource or relationship, where the MIME-type is "text/plain" and the return code is `NO CONTENT`.
 
+The definitive API reference is in `test/test-rest-api.py`
+
 For each `rgResource` object, the following patterns are recognised by the application server:
 
 
@@ -30,7 +32,7 @@ For each `rgResource` object, the following patterns are recognised by the appli
 POST /api/v1/<resource-type>/
 ```
 
-With payload of `'uid=<uid>'`, plus optionally `'<attribute>=attribute'` pairs for any subset of the attributes defined for this resource type.
+With payload of `uid=<uid>`, plus optionally `<attribute-name>=<value>` pairs for any subset of the attributes defined for this resource type.
 
 On success, returns a code of 201 and a JSON representation of the newly-created resource.
 
@@ -90,6 +92,25 @@ DELETE /api/v1/<resource-type>/<Unique ID>/<relationship>/<Unique ID>
 ### Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs
 ```
 GET /api/v1/<resource-type>/<Unique ID>/<relationship>/
+```
+
+### Create a resource that depends on another for its context
+This is defined in the schema by adding the attribute `dependent=true` to the dependent `rgResource` definition, and by then adding the same attribute to the relationships to that resource-type from resource-types that are valid parents.
+It's valid to create resources that depend on other dependent resources, with no limit to the depth of these chains.
+```
+POST /api/v1/<parent-type>/<parent-uid>/<relationship-type>
+with parameters: 'type=<child-type>' and 'uid=<child-uid>' (both are required)
+```
+
+### Delete a dependent resource
+Either use the `DELETE` method on the full path to the resource in question to remove it specifically, or pass the `delete-dependent=true` parameter to the API call to one of its parents further up the chain.
+The `delete-dependent` parameter acts recursively downward from whatever resource is being deleted.
+
+### Move a dependent resource from one parent to another
+Note that the new parent must be a valid parent for the child resource, and the new relationship must also be a valid dependent relationship.
+```
+POST /api/v1/path/to/dependent/resource
+with parameter: 'target=/uri/path/to/new/parent/and/relationship'
 ```
 
 ## Working example
