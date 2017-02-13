@@ -40,6 +40,9 @@ Return an error if
 (defgeneric store-dependent-resource (db uri attributes)
   (:documentation "Create a dependent resource, at the end of the path given by URI. Its parent resource must exist, and the relationship must be a valid dependent relationship."))
 
+(defgeneric move-dependent-resource (db uri newparent)
+  (:documentation "Take an existing dependent resource, and give it a new parent, where both are identified by their URI paths."))
+
 (defgeneric get-resources (db uri)
   (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI."))
 

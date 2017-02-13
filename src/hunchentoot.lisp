@@ -237,7 +237,7 @@
              ;; Generic client errors
              (restagraph:client-error (e) (return-client-error (message e)))
              (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))
-        ;; Dependent resource
+        ;; Create dependent resource
         ((and
            (equal (tbnl:request-method*) :POST)
            (> (length uri-parts) 0)
@@ -253,6 +253,28 @@
                                          newtype uid sub-uri))
              (store-dependent-resource
                (datastore tbnl:*acceptor*) sub-uri (tbnl:post-parameters*))
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             ;; FIXME: find a good JSON representation of what was just created
+             "CREATED")
+           ;; Attempted violation of db integrity
+           (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Generic client errors
+           (restagraph:client-error (e) (return-client-error (message e)))
+           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
+        ;; Re-home dependent resource
+        ((and
+           (equal (tbnl:request-method*) :POST)
+           (> (length uri-parts) 0)
+           (equal (mod (length uri-parts) 3) 0)
+           (tbnl:post-parameter "target"))
+         (handler-case
+           (let ((sub-uri (cl-ppcre:regex-replace
+                            (getf *config-vars* :uri-base) (tbnl:request-uri*) "")))
+             (log-message :debug (format nil "Attempting to move dependent resource ~A to ~A"
+                                         sub-uri (tbnl:post-parameter "target")))
+             (move-dependent-resource
+               (datastore tbnl:*acceptor*) sub-uri (tbnl:post-parameter "target"))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; FIXME: find a good JSON representation of what was just created
@@ -291,7 +313,7 @@
            (progn
              (log-message :debug "Attempting to delete a relationship on an arbitrary path")
              (delete-relationship-by-path (datastore tbnl:*acceptor*)
-                                          uri-parts
+                                          (tbnl:request-uri*)
                                           (tbnl:post-parameter "resource"))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)

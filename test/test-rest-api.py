@@ -161,6 +161,33 @@ class TestDependentResources(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid)).status_code,
                 404)
 
+class TestMoveDependentResources(unittest.TestCase):
+    p1type='routers'
+    p1uid='woomera'
+    p1targetrel='Addresses'
+    p2type='interfaces'
+    p2uid='eth1'
+    p1p2rel='Interfaces'
+    p2targetrel='Addresses'
+    targettype='ipv4Addresses'
+    targetuid='172.20.0.1'
+    def test_move_dependent_resource(self):
+        # Create the initial parent resource
+        self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.p1type), data={'uid': self.p1uid}).status_code, 201)
+        # Create the second parent resource, as a dependent to the first
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1p2rel), data={'type': self.p2type, 'uid': self.p2uid}).status_code, 201)
+        # Create the dependent resource
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1targetrel), data={'type': self.targettype, 'uid': self.targetuid}).status_code, 201)
+        # Move the dependent resource to its new parent
+        self.assertEqual(requests.post('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1targetrel, self.targettype, self.targetuid), data={'target': '/%s/%s/%s/%s/%s/%s' % (self.p1type, self.p1uid, self.p1p2rel, self.p2type, self.p2uid, self.p2targetrel)}).status_code, 201)
+        # Confirm it's where it should be
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1p2rel, self.p2type, self.p2uid, self.p2targetrel, self.targettype, self.targetuid)).status_code, 200)
+        # Confirm it's no longer attached to the initial parent
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1targetrel, self.targettype, self.targetuid)).status_code, 404)
+        # Delete the parent resource, which should take the rest with it
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid)).status_code, 204)
+
+
 class TestValidRelationships(unittest.TestCase):
     '''
     Basic CRD functions for relationships

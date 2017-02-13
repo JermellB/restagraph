@@ -118,6 +118,93 @@
     (restagraph::log-message :info "TEST resources-dependent is complete")))
 
 (fiveam:test
+  resources-dependent-compound
+  "Basic operations on 2-layered dependent resources"
+  (let ((parent-type "routers")
+        (parent-uid "bikini")
+        (relationship "Interfaces")
+        (child-type "interfaces")
+        (child-uid "eth0")
+        (child-relationship "Addresses")
+        (grandchild-type "ipv4Addresses")
+        (grandchild-uid "192.168.24.1"))
+    ;; Create the parent resource
+    (restagraph::store-resource *server* parent-type `(("uid" . ,parent-uid)))
+    ;; Create the child resource
+    (restagraph::store-dependent-resource
+      *server*
+      (format nil "/~A/~A/~A" parent-type parent-uid relationship)
+      `(("type" . ,child-type) ("uid" . ,child-uid)))
+    ;; Create the grandchild resource
+    (restagraph::store-dependent-resource
+      *server*
+      (format nil "/~A/~A/~A/~A/~A/~A"
+              parent-type parent-uid relationship child-type child-uid child-relationship)
+      `(("type" . ,grandchild-type) ("uid" . ,grandchild-uid)))
+    ;; Delete the parent resource
+    (restagraph::log-message :info "TEST Recursively deleting the parent resource")
+    (restagraph::delete-resource-by-path
+    *server*
+    (format nil "/~A/~A" parent-type parent-uid)
+    :delete-dependent t)
+    ;; Confirm the dependent resources were recursively deleted with it
+    (restagraph::log-message :info "TEST Confirm the dependent resource is gone")
+    (fiveam:is (equal "{}" (restagraph::get-resources
+                             *server*
+                             (format nil "/~A/~A/~A/~A/~A"
+                                     parent-type parent-uid relationship child-type child-uid))))
+    (restagraph::log-message :info "TEST Confirm the grandchild resource is gone")
+    (fiveam:is (equal "{}"
+    (restagraph::get-resources
+                             *server*
+                             (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
+                                     parent-type parent-uid relationship
+                                     child-type child-uid child-relationship
+                                     grandchild-type grandchild-uid))))
+    (restagraph::log-message :info "TEST resources-dependent is complete")))
+
+(fiveam:test
+  resources-dependent-moving
+  "Moving a dependent resource to a new parent"
+  (let ((p1-type "routers")
+        (p1-uid "woomera")
+        (p1-target-rel "Addresses")
+        (p2-type "interfaces")
+        (p2-uid "eth1")
+        (p1-p2-rel "Interfaces")
+        (p2-target-rel "Addresses")
+        (target-type "ipv4Addresses")
+        (target-uid "172.20.0.1"))
+    ;; Create initial parent
+    (restagraph::store-resource *server* p1-type `(("uid" . ,p1-uid)))
+    ;; Create second parent as dependent on the initial
+    (restagraph::store-dependent-resource
+      *server*
+      (format nil "/~A/~A/~A" p1-type p1-uid p1-p2-rel)
+      `(("type" . ,p2-type) ("uid" . ,p2-uid)))
+    ;; Create the dependent resource to be moved
+    (restagraph::store-dependent-resource
+      *server*
+      (format nil "/~A/~A/~A" p1-type p1-uid p1-target-rel)
+      `(("type" . ,target-type) ("uid" . ,target-uid)))
+    ;; Move the resource
+    (restagraph::move-dependent-resource
+      *server*
+      (format nil "/~A/~A/~A/~A/~A" p1-type p1-uid p1-target-rel target-type target-uid)
+      (format nil "/~A/~A/~A/~A/~A/~A/"
+              p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel))
+    ;; Confirm the target resource is now at the new target path
+    ;; Confirm the target resource is no longer present at the original path
+    ;; Delete the parent resource
+    (restagraph::delete-resource-by-path
+      *server*
+      (format nil "/~A/~A" p1-type p1-uid)
+      :delete-dependent t)
+    ;; Confirm stuff is gone
+    (fiveam:is (equal "{}" (restagraph::get-resources
+                             *server* (format nil "/~A/~A" p1-type p1-uid))))))
+
+(fiveam:test
   resources-multiple
   "Confirm we can retrieve all resources of a given type"
   (let ((resourcetype "routers")
