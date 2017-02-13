@@ -47,7 +47,7 @@
       (restagraph::store-resource *server* invalid-type `(("uid" . ,invalid-uid))))))
 
 (fiveam:test
-  resources-dependent
+  resources-dependent-simple
   "Basic operations on dependent resources"
   (let ((parent-type "routers")
         (parent-uid "bikini")
@@ -107,7 +107,10 @@
       `(("type" . ,child-type) ("uid" . ,child-uid)))
     ;; Delete the parent resource
     (restagraph::log-message :info "TEST Recursively deleting the parent resource")
-    (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" parent-type parent-uid))
+    (restagraph::delete-resource-by-path
+      *server*
+      (format nil "/~A/~A" parent-type parent-uid)
+      :delete-dependent t)
     ;; Confirm the dependent resource was recursively deleted with it
     (restagraph::log-message :info "TEST Confirm the dependent resource is gone")
     (fiveam:is (equal "{}" (restagraph::get-resources
