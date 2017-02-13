@@ -55,6 +55,8 @@
                  (cl-ppcre:regex-replace (getf *config-vars* :uri-base) uri ""))))
 
 (defun uri-node-helper (uri-parts &optional (path "") (marker "n"))
+  "Build a Cypher path ending in a node variable, which defaults to 'n'.
+  Accepts a list of strings and returns a single string."
   (cond
     ((null uri-parts)
      (format nil "~A(~A)" path marker))
@@ -72,6 +74,28 @@
        (format nil "~A(:~A { uid: '~A' })-[:~A]->"
                path (first uri-parts) (second uri-parts) (third uri-parts))
        marker))))
+
+(defun build-cypher-path (uri-parts &optional (path "") (marker "m"))
+  "Build a Cypher path from the list of strings supplied.
+  Attach a marker variable to the last node in the list, defaulting to 'm'."
+  ;; sep == separator
+  (let ((sep (if (equal path "") "" "->")))
+    (cond
+      ((null uri-parts)
+       path)
+      ((equal (length uri-parts) 1)
+       (format nil "~A~A(~A:~A)" path sep marker (first uri-parts)))
+      ((equal (length uri-parts) 2)
+       (format nil "~A~A(~A:~A { uid: '~A' })"
+               path sep marker (first uri-parts) (second uri-parts)))
+      ((equal (length uri-parts) 3)
+       (format nil "~A~A(~A:~A { uid: '~A' })-[:~A]"
+               path sep marker (first uri-parts) (second uri-parts) (third uri-parts)))
+      (t
+       (build-cypher-path
+         (cdddr uri-parts)
+         (format nil "~A~A(:~A { uid: '~A' })-[:~A]"
+                 path sep (first uri-parts) (second uri-parts) (third uri-parts)))))))
 
 
 ;; Error response functions
