@@ -421,11 +421,11 @@
                      (uri-node-helper (get-uri-parts destpath) "" "b")))))))))
 
 (defmethod delete-relationship-by-path ((db neo4cl:neo4j-rest-server)
-                                        (relpath list)
-                                        (targetpath list))
+                                        (relpath string)
+                                        (targetpath string))
   (let* ((parts (get-uri-parts relpath))
         (rel-path (butlast parts))
-        (relationship (last parts))
+        (relationship (car (last parts)))
         (target-parts (get-uri-parts targetpath)))
     (cond
       ((not (equal (mod (length parts) 3) 0))
