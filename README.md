@@ -8,6 +8,22 @@ The aim is a black box that automagically converts a schema into an API, without
 
 There is explicit support for dependent resources, i.e. resources that only make sense in the context of another.
 
+### Where it came from
+
+Impetus 1: I wanted something that would enforce a schema for Neo4j, which I gather a few other people would also like. It would also be nice to have a REST API whose shape matches that of the schema, to make it easier to think in terms of the problem domain, and to save application users having to learn Cypher before being able to do anything with it.
+
+Impetus 2: I needed to prototype schemas for [Syscat](https://github.com/equill/syscat), and writing everything by hand was just tedious.
+
+it certainly doesn't solve all cases, but it's working nicely for its niche.
+
+Note that I'm still primarily focused on Syscat, so development of Restagraph will be driven by that project's needs until it has matured enough that I can divide my attention again. Or unless I find out somebody's using this and needs me to fix/add something.
+
+### Current state
+
+The good: it does its primary job well enough for Syscat development to be ticking along. It's usable _if_ you're familar with running Common Lisp applications that are based on Hunchentoot. If that sentence made no sense to you, you want to wait until I've Dockerised this, which is ticket #18.
+
+The less good: it still needs a lot of polish, hardening, documentation, and general stuff to make it operations-ready.
+
 
 ## What goes in the database
 
