@@ -336,6 +336,42 @@ class TestBasicResourceErrors(unittest.TestCase):
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.valid_resourcetype), data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
         400)
 
+class TestAnyType(unittest.TestCase):
+    '''
+    Confirm handling of the 'any' type
+    '''
+    p1type='routers'
+    p1uid='Enewetak'
+    p1rel='Tags'
+    invalidrel='invalid'
+    t1type='tags'
+    t1uid='Tagged'
+    def test_rejection(self):
+        print('Test: test_any_type')
+        self.assertEqual(requests.get('%s/any/foo' % BASE_URL).status_code, 404)
+    def test_create_valid_any_rel(self):
+        print('Test: test_create_valid_any_rel')
+        # Create the resources
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.p1type), data={'uid': self.p1uid}).status_code, 201)
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.t1type), data={'uid': self.t1uid}).status_code, 201)
+        # Create the relationship between them
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1rel), data={'target': '/%s/%s' % (self.t1type, self.t1uid)}).status_code, 201)
+        # Delete the relationship
+        self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1rel, self.t1type, self.t1uid)).status_code, 204)
+        # Delete the resources
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid)).status_code, 204)
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.t1type, self.t1uid)).status_code, 204)
+    def test_create_invalid_any_rel(self):
+        print('Test: test_create_valid_any_rel')
+        # Create the resources
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.p1type), data={'uid': self.p1uid}).status_code, 201)
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.t1type), data={'uid': self.t1uid}).status_code, 201)
+        # Create the relationship between them
+        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.invalidrel), data={'target': '/%s/%s' % (self.t1type, self.t1uid)}).status_code, 409)
+        # Delete the resources
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid)).status_code, 204)
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.t1type, self.t1uid)).status_code, 204)
+
 # Make it happen
 if __name__ == '__main__':
     unittest.main()

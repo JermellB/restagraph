@@ -14,6 +14,8 @@ MATCH (n:rgResource) DELETE n;
 CREATE (r:rgResource {name: 'routers'}), (r)-[:rgHasAttribute]->(:rgAttribute {name: 'comment', required: 'false'});
 CREATE (r:rgResource {name: 'make'});
 CREATE (a:rgResource {name: 'asn'}), (a)-[:rgHasAttribute]->(:rgAttribute {name: 'comment'});
+CREATE (:rgResource {name: 'any', notes: 'Represents any type of resource'});
+CREATE (t:rgResource {name: 'tags', notes: 'For categorising any kind of resource'});
 //
 // Dependent
 // I.e, exist only in the context of other resources,
@@ -24,6 +26,7 @@ CREATE (r:rgResource {name: 'model', dependent: 'true'});
 
 // Relationships between resources
 //
+MATCH (a:rgResource {name: 'any'}), (t:rgResource {name: 'tags'}) MERGE (a)-[:Tags]->(t);
 MATCH (m:rgResource {name: 'make'}), (d:rgResource {name: 'model'}) CREATE (m)-[:HasModel {dependent: 'true'}]->(d);
 MATCH (r:rgResource {name: 'routers'}), (d:rgResource {name: 'model'}) CREATE (r)-[:Model]->(d);
 MATCH (r:rgResource {name: 'routers'}), (a:rgResource {name: 'asn'}) CREATE (r)-[:Asn]->(a);

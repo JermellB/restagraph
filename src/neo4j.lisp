@@ -255,8 +255,9 @@
       db
       `((:STATEMENTS
           ((:STATEMENT .
-            ,(format nil "MATCH (a:rgResource {name: '~A'})-[r:~A]->(b:rgResource {name: '~A'}) RETURN a, type(r), b"
-                     source-type reltype dest-type))))))))
+            ,(format nil "MATCH (a:rgResource)-[r:~A]->(b:rgResource {name: '~A'}) WHERE a.name IN ['~A', 'any'] RETURN a, type(r), b"
+                     reltype dest-type source-type)
+            )))))))
 
 (defmethod create-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (sourcepath string)

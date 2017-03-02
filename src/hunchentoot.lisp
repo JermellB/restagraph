@@ -164,6 +164,12 @@
     (let* ((uri-parts (get-uri-parts (tbnl:request-uri*)))
            (resourcetype (first uri-parts)))
       (cond
+        ;; Intercept and reject attempts to interact with the "any" resource-type
+        ((equal (third uri-parts) "any")
+         (progn
+           (setf (tbnl:content-type*) "text/plain")
+           (setf (tbnl:return-code*) tbnl:+http-not-found+)
+           (format nil "No resources found for ~A" uri-parts)))
         ;; GET -> Retrieve something
         ((equal (tbnl:request-method*) :GET)
          (log-message :debug
