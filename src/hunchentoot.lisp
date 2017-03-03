@@ -266,7 +266,7 @@
         ((and
            (equal (tbnl:request-method*) :POST)
            (> (length uri-parts) 0)
-           (equal (mod (length uri-parts) 3) 0)
+           (equal (mod (length uri-parts) 3) 2)
            (tbnl:post-parameter "target"))
          (handler-case
            (let ((sub-uri (cl-ppcre:regex-replace
@@ -274,7 +274,7 @@
              (log-message :debug (format nil "Attempting to move dependent resource ~A to ~A"
                                          sub-uri (tbnl:post-parameter "target")))
              (move-dependent-resource
-               (datastore tbnl:*acceptor*) sub-uri (tbnl:post-parameter "target"))
+               (datastore tbnl:*acceptor*) uri-parts (tbnl:post-parameter "target"))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; FIXME: find a good JSON representation of what was just created
