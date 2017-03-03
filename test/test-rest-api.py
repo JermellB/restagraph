@@ -43,6 +43,7 @@ class TestResources(unittest.TestCase):
     resattrname = 'comment'
     resattrval = 'Test router 1'
     def test_create_and_delete_single_resource(self):
+        print('Test: test_create_and_delete_single_resource')
         # Ensure it's not already present
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.restype, self.resuid)).status_code,
                 404)
@@ -84,6 +85,7 @@ class TestMultipleResources(unittest.TestCase):
     resource2uid='bikini'
     resource3uid='mururoa'
     def test_create_and_retrieve_multiple_resources(self):
+        print('Test: test_create_and_retrieve_multiple_resources')
         # Confirm we're starting with an empty set
         self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).status_code, 404)
         self.assertEqual(requests.get('%s/%s' % (BASE_URL, self.resourcetype)).text, 'No resources found for /routers')
@@ -117,6 +119,7 @@ class TestDependentResources(unittest.TestCase):
     depres1type='interfaces'
     depres1uid='ethernet0'
     def test_create_and_delete_a_single_dependent_resource(self):
+        print('Test: test_create_and_delete_a_single_dependent_resource')
         # Create the parent resource
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid}).status_code,
                 201)
@@ -172,6 +175,7 @@ class TestMoveDependentResources(unittest.TestCase):
     targettype='ipv4Addresses'
     targetuid='172.20.0.1'
     def test_move_dependent_resource(self):
+        print('Test: test_move_dependent_resource')
         # Create the initial parent resource
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.p1type), data={'uid': self.p1uid}).status_code, 201)
         # Create the second parent resource, as a dependent to the first
@@ -206,6 +210,7 @@ class TestValidRelationships(unittest.TestCase):
     depres1deprel = 'HasModel'
     res1todepres1rel = 'Model'
     def test_basic_relationship(self):
+        print('Test: test_basic_relationship')
         # Create two new resources
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid, self.res1attrname: self.res1attrval}).status_code,
                 201)
@@ -233,6 +238,7 @@ class TestValidRelationships(unittest.TestCase):
         self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
                 204)
     def test_rels_between_primary_and_secondary_resources(self):
+        print('Test: test_rels_between_primary_and_secondary_resources')
         # Create two first-class resources, with a third dependent on the first
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid}).status_code,
                 201)
@@ -266,6 +272,7 @@ class TestInvalidRelationships(unittest.TestCase):
     relationship_valid = 'Asn'
     relationship_invalid = 'dysfunctionalRelationship'
     def test_basic_relationship(self):
+        print('Test: test_basic_relationship')
         # Create two new resources
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.res1type),
             data={'uid': self.res1uid, 'comment': self.res1comment}).status_code,
@@ -296,6 +303,7 @@ class TestDbSchema(unittest.TestCase):
     resourcename = 'whitesands'
     resourcecomment = 'Test router 3'
     def test_unique_resources(self):
+        print('Test: test_unique_resources')
         # Create a new resource
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.resourcetype), data={'uid': self.resourcename, 'comment': self.resourcecomment}).status_code,
                 201)
@@ -317,6 +325,7 @@ class TestBasicResourceErrors(unittest.TestCase):
     valid_resourcetype='routers'
     valid_uid='amchitka'
     def test_basic_resource_errors(self):
+        print('Test: test_basic_resource_errors')
         # Invalid resource-type
         self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.invalid_resourcetype), data={'foo': 'bar'}).status_code,
         400)
