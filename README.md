@@ -31,6 +31,8 @@ Objects/resources are defined with the label `rgResource`; their name becomes th
 
 Their attributes are defined as objects with the label `rgAttribute`, linked to the `rgResource` node via the `hasAttribute` relationship. This is partly because it's the best fit with the graph model, and partly because it enables me to add attributes to the attributes later, such as `MIMEtype` or `mandatory`.
 
+*Note:* attribute names must be in lowercase, due to the way this system handles them. I hope to lift this restriction in future.
+
 The third element is relationships between `rgResource` objects. These are implemented as regular Neo4J relationships, and define the relationships that can be created from one resource instance to another.
 
 
