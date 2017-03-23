@@ -58,7 +58,7 @@
         (invalid-child-uid "whitesands"))
     ;; Check underlying mechanisms
     (fiveam:is (equal
-                 '("SubInterfaces" "HasModel" "Interfaces" "Addresses")
+                 '("SubInterfaces" "Produces" "Interfaces" "Addresses")
                  (restagraph::get-dependent-relationships-for-type *server* child-type)))
     ;; Create the parent resource
     (restagraph::store-resource *server* parent-type `(("uid" . ,parent-uid)))
@@ -188,13 +188,34 @@
       (format nil "/~A/~A/~A" p1-type p1-uid p1-target-rel)
       `(("type" . ,target-type) ("uid" . ,target-uid)))
     ;; Move the resource
-    (restagraph::move-dependent-resource
-      *server*
-      (format nil "/~A/~A/~A/~A/~A" p1-type p1-uid p1-target-rel target-type target-uid)
-      (format nil "/~A/~A/~A/~A/~A/~A/"
-              p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel))
+    (fiveam:is
+      (null
+        (neo4cl:extract-data-from-get-request
+          (restagraph::move-dependent-resource
+            *server*
+            ;; URI
+            (list p1-type p1-uid p1-target-rel target-type target-uid)
+            ;; New parent
+            (format nil "/~A/~A/~A/~A/~A/~A/"
+                    p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel)))))
     ;; Confirm the target resource is now at the new target path
+    (fiveam:is
+      (equal
+        (restagraph::get-resources
+          *server*
+          (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
+                  p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel target-type target-uid))
+        (format nil
+                "{\"uid\":\"~A\",\"original_uid\":\"~A\"}"
+                target-uid target-uid)))
     ;; Confirm the target resource is no longer present at the original path
+    (fiveam:is
+      (equal
+        (restagraph::get-resources
+          *server*
+          (format nil "/~A/~A/~A/~A/~A"
+                  p1-type p1-uid p1-target-rel target-type target-uid))
+        "{}"))
     ;; Delete the parent resource
     (restagraph::delete-resource-by-path
       *server*
@@ -259,7 +280,6 @@
     (restagraph::store-resource *server* to-type `(("uid" . ,to-uid)))
     ;; Create a relationship between them
     (restagraph::log-message :info "TEST Create the relationship")
-    ;(handler-case
       (multiple-value-bind (result code message)
         (restagraph::create-relationship-by-path
           *server*
@@ -267,7 +287,6 @@
           (format nil "/~A/~A" to-type to-uid))
         (declare (ignore result) (ignore message))
         (fiveam:is (equal 200 code)))
-      ;(restagraph:client-error (e) (format t "~A" (restagraph:message e))))
     ;; Confirm the relationship is there
     (restagraph::log-message :info "TEST Confirm the relationship")
     (fiveam:is (equal

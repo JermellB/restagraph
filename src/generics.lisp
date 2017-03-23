@@ -1,10 +1,5 @@
 (in-package #:restagraph)
 
-;;;; Utility methods
-
-(defgeneric load-cypher-file (db filepath)
-  (:documentation "Read a file and execute each non-comment, non-blank line in turn"))
-
 
 ;;;; Schema
 
@@ -70,6 +65,9 @@ Return an error if
 
 (defgeneric delete-relationship-by-path (db relpath targetpath)
   (:documentation "Delete a relationship based on its path, and that of its target. More precise than delete-path, especially when a node has the same relationship to 2+ identical dependent resources."))
+
+(defgeneric get-relationship-attrs (db source-type relationship dest-type)
+  (:documentation "Extract the attributes of interest for a given relationship. Fields currently returned as the elements of a list are 'dependent' and 'cardinality'"))
 
 
 ;;;; Both

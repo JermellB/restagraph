@@ -3,22 +3,6 @@
 (in-package #:restagraph)
 
 
-;;;; Utility functions
-
-
-;; Shamelessly swiped from http://www.gigamonkeys.com/book/files-and-file-io.html
-;; and adapted - thanks, Mr Seibel!
-(defmethod load-cypher-file ((db neo4cl:neo4j-rest-server) filepath)
-  (let ((in (open filepath :if-does-not-exist nil)))
-    (when in
-      (loop for line = (read-line in nil)
-            while line do (when (not (cl-ppcre:all-matches "^//|^$" line))
-                            (neo4cl:neo4j-transaction
-                              db
-                              `((:STATEMENTS ((:STATEMENT .  ,line)))))))
-      (close in))))
-
-
 ;;;; Schema methods and functions
 
 (defmethod get-resource-defs-from-db ((db neo4cl:neo4j-rest-server))
@@ -254,50 +238,110 @@
     (neo4cl:neo4j-transaction
       db
       `((:STATEMENTS
-          ((:STATEMENT .
-            ,(format nil "MATCH (a:rgResource)-[r:~A]->(b:rgResource {name: '~A'}) WHERE a.name IN ['~A', 'any'] RETURN a, type(r), b"
-                     reltype dest-type source-type)
-            )))))))
+          ((:STATEMENT
+             . ,(format nil "MATCH (a:rgResource)-[r:~A]->(b:rgResource {name: '~A'}) WHERE a.name IN ['~A', 'any'] RETURN a, type(r), b"
+                        reltype dest-type source-type))))))))
+
+;;;; FIXME Move to a more appropriate location
+;;;; and create a defgeneric.
+(defmethod get-relationship-attrs ((db neo4cl:neo4j-rest-server)
+                                   (source-type string)
+                                   (relationship string)
+                                   (dest-type string))
+  (car
+    (neo4cl:extract-rows-from-get-request
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT
+               .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r.dependent, r.cardinality"
+                           source-type relationship dest-type)))))))))
 
 (defmethod create-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (sourcepath string)
                                         (destpath string))
   (log-message :debug (format nil "Attempting to create a relationship from ~A to ~A"
                               sourcepath destpath))
-  (let* ((source-part-list (get-uri-parts sourcepath))
-         (relationship (car (last source-part-list)))
-         (source-parts (butlast source-part-list))
-         (source-type (nth (- (length source-parts) 2) source-parts))
-         (dest-parts (get-uri-parts destpath))
-         (dest-type (nth (- (length dest-parts) 2) dest-parts)))
+  ;; Initial sanity-checks
+  (let ((source-part-list (get-uri-parts sourcepath))
+        (dest-parts (get-uri-parts destpath)))
     (cond
       ((not (equal (mod (length source-part-list) 3) 0))
-       (error 'client-error :message "This is not a valid path to a relationship"))
+       (let ((message "This is not a valid path to a relationship"))
+         (log-message :debug message)
+         (error 'client-error :message message)))
       ((not (equal (mod (length dest-parts) 3) 2))
-       (error 'client-error
-              :message (format nil "/~{~A~^/~} is not a valid path to a resource"
-                               dest-parts)))
-      ((dependent-relationship-p db source-type relationship dest-type)
-       (error 'client-error :message "Dependent resources must only have one parent."))
-      ((not (relationship-valid-p db source-type relationship dest-type))
-       (error 'integrity-error :message "This is not a valid relationship between these resource types"))
-      ((equal (get-resources db (format nil "/~{~A~^/~}" source-parts)) "{}")
-       (error 'client-error
-              :message (format nil "The source resource /~{~A~^/~} does not exist\n" source-parts)))
-      ((equal (get-resources db destpath) "{}")
-       (error 'client-error :message "The destination resource does not exist"))
-      ((check-relationship-by-path
-         db (format nil "/~{~A~^/~}" source-parts) relationship destpath)
-       (error 'integrity-error :message "Relationship already exists"))
+       (let ((message (format nil "/~{~A~^/~} is not a valid path to a resource"
+                              dest-parts)))
+         (log-message :debug message)
+         (error 'client-error :message message)))
+      ;; Having made it that far, make checks that call to the database
       (t
-       (neo4cl:neo4j-transaction
-         db
-         `((:STATEMENTS
-             ((:STATEMENT .
-               ,(format nil "MATCH ~A, ~A MERGE (a)-[:~A]->(b)"
-                        (uri-node-helper source-parts "" "a")
-                        (uri-node-helper dest-parts "" "b")
-                        relationship))))))))))
+        (let* ((relationship (car (last source-part-list)))
+               (source-parts (butlast source-part-list))
+               (source-type (nth (- (length source-parts) 2) source-parts))
+               (dest-type (nth (- (length dest-parts) 2) dest-parts))
+               (relationship-attrs (get-relationship-attrs db source-type relationship dest-type)))
+          (cond
+            ;; No such relationship
+            ((not relationship-attrs)
+             (let ((message "This is not a valid relationship between these resource types"))
+               (log-message :debug message)
+               (error 'integrity-error :message message)))
+            ;; 1:1 dependent relationship
+            ((and
+               (first relationship-attrs)
+               (or
+                 (equal (second relationship-attrs) "1:1")
+                 (equal (second relationship-attrs) "1:many")))
+             (let ((message (format nil "~A dependency. Either move the relationship or create a new dependent resource."
+                                    (second relationship-attrs))))
+               (log-message :debug message)
+               (error 'integrity-error :message message)))
+            ;; Are we trying to create a duplicate?
+            ((check-relationship-by-path
+               db (format nil "/~{~A~^/~}" source-parts) relationship destpath)
+             (let ((message "Relationship already exists"))
+               (log-message :debug message)
+               (error 'integrity-error :message message)))
+            ;; Do both the source and destination resources actually exist?
+            ((equal (get-resources db (format nil "/~{~A~^/~}" source-parts)) "{}")
+             (let ((message (format nil "The source resource /~{~A~^/~} does not exist\n" source-parts)))
+               (log-message :debug message)
+               (error 'client-error :message message)))
+            ((equal (get-resources db destpath) "{}")
+             (let ((message "The destination resource does not exist"))
+               (log-message :debug message)
+               (error 'client-error :message message)))
+            ;; Many-to-one, and the source already has this relationship with another such target?
+            ((and
+               (equal (second relationship-attrs) "many:1")
+               (>
+                 (neo4cl:extract-data-from-get-request
+                   (neo4cl:neo4j-transaction
+                     db
+                     `((:STATEMENTS
+                         ((:STATEMENT
+                            .  ,(format nil "MATCH ~A-[:~A]->(b:~A) RETURN count(b)"
+                                        (uri-node-helper source-parts "" "a")
+                                        relationship
+                                        dest-type)))))))
+                 0))
+             (let ((message (format nil"~{~A~^/~} already has a many:1 ~A relationship with a resource of type ~A"
+                                    source-parts relationship dest-type)))
+               (log-message :debug message)
+               (error 'integrity-error :message message)))
+            ;; Go ahead and create the relationship
+            (t
+              (neo4cl:neo4j-transaction
+                db
+                `((:STATEMENTS
+                    ((:STATEMENT .
+                                 ,(format nil "MATCH ~A, ~A MERGE (a)-[:~A]->(b)"
+                                          (uri-node-helper source-parts "" "a")
+                                          (uri-node-helper dest-parts "" "b")
+                                          relationship)))))))))))))
+
 
 (defmethod move-dependent-resource ((db neo4cl:neo4j-rest-server)
                                     (uri list)
@@ -380,48 +424,80 @@
          (parent-parts (butlast uri-parts))
          (parent-type (nth (- (length parent-parts) 2) parent-parts))
          (dest-type (cdr (assoc "type" attributes :test 'equal)))
-         (dest-uid (cdr (assoc "uid" attributes :test 'equal))))
+         (dest-uid (cdr (assoc "uid" attributes :test 'equal)))
+         (relationship-attrs (get-relationship-attrs db parent-type relationship dest-type)))
     (cond
       ;; Sanity check: required parameters
       ((not (and dest-type dest-uid))
-       (error 'client-error :message "Both the 'type' and 'uid' parameters must be supplied"))
-      ;; Sanity check: is this a dependent resource type?
-      ((not (dependent-resource-p db dest-type))
-       (error 'client-error :message "This is not a dependent resource type"))
+       (let ((message "Both the 'type' and 'uid' parameters must be supplied"))
+         (log-message :debug message)
+         (error 'client-error :message message)))
       ;; Sanity check: existence of parent resource
       ((equal (get-resources db (format nil "/~{~A~^/~}" parent-parts)) "{}")
-       (error 'client-error :message "Parent resource does not exist"))
+       (let ((message "Parent resource does not exist"))
+         (log-message :debug message)
+         (error 'client-error :message message)))
       ;; Sanity check: dependency between parent and child resource types
-      ((not (dependent-relationship-p db parent-type relationship dest-type))
-       (error 'client-error
-              :message (format nil "Target resource-type ~A doesn't depend on the parent type ~A"
-                               dest-type parent-type)))
+      ((null (first relationship-attrs))
+       (let ((message
+               (format nil "Target resource-type ~A doesn't depend on the parent type ~A"
+                       dest-type parent-type)))
+         (log-message :debug message)
+         (error 'client-error :message message)))
+      ;; Sanity check: is this a dependent resource type?
+      ((not (dependent-resource-p db dest-type))
+       (let ((message "This is not a dependent resource type"))
+         (log-message :debug message)
+         (error 'client-error :message message)))
       ;; Passed the initial sanity-checks; try to create it.
       (t
         ;; Validate the supplied attributes
         (let* ((validated-attributes (validate-resource-before-creating
-                                      db
+                                       db
+                                       dest-type
+                                       (remove-if #'(lambda (param) (equal (car param) "type"))
+                                                  attributes)))
+               (resource-path (format nil "/~{~A~^/~}/~A/~A/~A"
+                                      parent-parts
+                                      relationship
                                       dest-type
-                                      (remove-if #'(lambda (param) (equal (car param) "type"))
-                                                 attributes)))
-              (resource-path (format nil "/~{~A~^/~}/~A/~A/~A"
-                                     parent-parts
-                                     relationship
-                                     dest-type
-                                     (cdr (assoc "uid" validated-attributes :test #'string=)))))
+                                      (cdr (assoc "uid" validated-attributes :test #'string=)))))
+          ;; Report on the attributes for debugging
           (log-message :debug (format nil "Validated attributes: ~A" validated-attributes))
-          ;; One last sanity-check: does it already exist?
+          ;; One more sanity-check: does it already exist?
           (if (equal (get-resources db resource-path) "{}")
-            ;; Doesn't already exist; carry on.
-            (neo4cl:neo4j-transaction
-              db
-              `((:STATEMENTS
-                  ((:STATEMENT .
-                               ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A { properties })"
-                                        (uri-node-helper parent-parts)
-                                        relationship
-                                        dest-type))
-                   (:PARAMETERS . ((:PROPERTIES . ,validated-attributes)))))))
+            ;; Cardinality checks: would this violate 1:1 or many:1 constraints?
+            (if
+              (and
+                (or
+                  (equal (second relationship-attrs) "1:1")
+                  (equal (second relationship-attrs) "many:1"))
+                ;; Look for this parent having this relationship with any other dependent resource
+                (>
+                  (neo4cl:extract-data-from-get-request
+                    (neo4cl:neo4j-transaction
+                      db
+                      `((:STATEMENTS
+                          ((:STATEMENT .
+                                       ,(format nil "MATCH ~A<-[r {dependent: 'true'}]-() RETURN count(r)"
+                                                (uri-node-helper parent-parts))))))))
+                  0))
+              (error 'integrity-error :message
+                     (format nil"~{~A~^/~} already has a ~A ~A relationship with a resource of type ~A"
+                             parent-parts
+                             (second relationship-attrs)
+                             relationship
+                             dest-type))
+              ;; Constraints are fine; create it
+              (neo4cl:neo4j-transaction
+                db
+                `((:STATEMENTS
+                    ((:STATEMENT .
+                                 ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A { properties })"
+                                          (uri-node-helper parent-parts)
+                                          relationship
+                                          dest-type))
+                     (:PARAMETERS . ((:PROPERTIES . ,validated-attributes))))))))
             ;; We already have one of these
             (error 'integrity-error :message (format nil "Resource ~A already exists" resource-path))))))))
 
@@ -497,23 +573,56 @@
                                         (relpath string)
                                         (targetpath string))
   (let* ((parts (get-uri-parts relpath))
-        (rel-path (butlast parts))
-        (relationship (car (last parts)))
-        (target-parts (get-uri-parts targetpath)))
+         (rel-path (butlast parts))
+         (relationship (car (last parts)))
+         (target-parts (get-uri-parts targetpath)))
+    ;; Initial sanity checks
     (cond
       ((not (equal (mod (length parts) 3) 0))
        (error 'client-error :message "Relationship path does not specify a relationship"))
       ((not (equal (mod (length target-parts) 3) 2))
        (error 'client-error :message "Target path does not specify a relationship"))
       (t
-       (neo4cl:neo4j-transaction
-         db
-         `((:STATEMENTS
-             ((:STATEMENT .
-               ,(format nil "MATCH ~A-[r:~A]->~A DELETE r"
-                        (uri-node-helper rel-path)
-                        relationship
-                        (uri-node-helper target-parts)))))))))))
+       ;; Check also for dependent relationships
+       (let ((relationship-attrs
+               (get-relationship-attrs
+                 db
+                 (nth (- (length parts) 2) parts) ; source-type
+                 relationship
+                 (nth (- (length target-parts) 1) target-parts))))    ; dest-type
+         (cond
+           ;; 1-parent dependent resource; bounce the client back to delete-resource
+           ((and (first relationship-attrs)
+                 (or (equal (second relationship-attrs) "1:1")
+                     (equal (second relationship-attrs) "1:many")))
+            (error 'restagraph:integrity-error
+                   :message "This would leave an orphan dependent resource. Delete the dependent resource instead."))
+           ;; Multi-parent dependent resource, and this would be the last parent; bounce to delete-resource.
+           ((and
+              (first relationship-attrs)
+              (or (equal (second relationship-attrs) "many:1")
+                  (equal (second relationship-attrs) "many:many"))
+              ;; Would this be the last parent?
+              (> (neo4cl:extract-data-from-get-request
+                   (neo4cl:neo4j-transaction
+                     db
+                     `((:STATEMENTS
+                         ((:STATEMENT .
+                           ,(format nil "MATCH ~A<-[r {dependent: 'true'}]-() return count(r)"
+                                    (uri-node-helper target-parts ""))))))))
+                 0))
+            (error 'restagraph:integrity-error
+                   :message "Removing the last parent would leave an orphan dependent resource. Delete the dependent resource instead."))
+           ;; All those checks passed; delete the relationship
+           (t
+            (neo4cl:neo4j-transaction
+              db
+              `((:STATEMENTS
+                  ((:STATEMENT .
+                    ,(format nil "MATCH ~A-[r:~A]->~A DELETE r"
+                             (uri-node-helper rel-path)
+                             relationship
+                             (uri-node-helper target-parts))))))))))))))
 
 (defmethod delete-resource-by-path ((db neo4cl:neo4j-rest-server) (targetpath string) &key delete-dependent)
   (log-message :debug (format nil "Attempting to delete resource ~A" targetpath))
