@@ -433,7 +433,7 @@
          (log-message :debug message)
          (error 'client-error :message message)))
       ;; Sanity check: existence of parent resource
-      ((equal (get-resources db (format nil "/~{/~A~}" parent-parts)) "{}")
+      ((equal (get-resources db (format nil "~{/~A~}" parent-parts)) "{}")
        (let ((message "Parent resource does not exist"))
          (log-message :debug message)
          (error 'client-error :message message)))
@@ -457,7 +457,7 @@
                                        dest-type
                                        (remove-if #'(lambda (param) (equal (car param) "type"))
                                                   attributes)))
-               (resource-path (format nil "/~{/~A~}/~A/~A/~A"
+               (resource-path (format nil "~{/~A~}/~A/~A/~A"
                                       parent-parts
                                       relationship
                                       dest-type
