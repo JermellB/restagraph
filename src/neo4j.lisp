@@ -212,7 +212,7 @@
       (t
         (log-message :debug
                      (format nil "Fetching all resources with relationship ~A to resource ~{~A~^/~}"
-                             (last uri-parts)
+                             (car (last uri-parts))
                              (butlast uri-parts)))
         (let ((result (neo4cl:extract-rows-from-get-request
                         (neo4cl:neo4j-transaction
