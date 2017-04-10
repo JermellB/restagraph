@@ -632,19 +632,22 @@
       ((equal (length parts) 2)
        (let ((dependents (get-dependent-resources db parts)))
          (when dependents
-           (progn
-             ;; FIXME: recursively delete any dependent resources
-             (log-message
-               :debug
-               (format nil "Found dependent resources ~{~A~^, ~}. Proceeding to delete them."
+           (if delete-dependent
+             (progn
+               (log-message
+                 :debug
+                 (format nil "Found dependent resources ~{~A~^, ~}. Proceeding to delete them."
+                         dependents))
+               (mapcar #'(lambda (dependent)
+                           (delete-resource-by-path
+                             db
+                             (format nil "~A/~A/~A/~A"
+                                     targetpath (first dependent) (second dependent) (third dependent))
+                             :delete-dependent "true"))
                        dependents))
-             (mapcar #'(lambda (dependent)
-                         (delete-resource-by-path
-                           db
-                           (format nil "~A/~A/~A/~A"
-                                   targetpath (first dependent) (second dependent) (third dependent))
-                           :delete-dependent "true"))
-                     dependents))))
+             (progn
+               (log-message :debug "This resources has dependents, and :delete-dependent was not specified. Bailing out.")
+               (error 'integrity-error :message "This resource has dependents, and :delete-dependent was not specified.")))))
        ;; Now delete the resource
        (neo4cl:neo4j-transaction
          db
