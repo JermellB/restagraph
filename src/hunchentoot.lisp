@@ -177,12 +177,10 @@
                               (tbnl:request-uri*)))
          (let* ((sub-uri (cl-ppcre:regex-replace
                            (getf *config-vars* :uri-base) (tbnl:request-uri*) ""))
-                (result
-                  (get-resources (datastore tbnl:*acceptor*) sub-uri)))
+                (result (get-resources (datastore tbnl:*acceptor*) sub-uri)))
            ;; Handle the null result
            (if (or (null result)
-                   (equal result "")
-                   (equal result "{}"))
+                   (equal result ""))
              (progn
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-not-found+)
@@ -191,7 +189,9 @@
              (progn
                (setf (tbnl:content-type*) "application/json")
                (setf (tbnl:return-code*) tbnl:+http-ok+)
-               result))))
+               (if (= (mod (length uri-parts) 3) 2)
+                 (cl-json:encode-json-alist-to-string result)
+                 (cl-json:encode-json-to-string result))))))
         ;; POST -> Store something
         ;; Resource
         ((and
@@ -209,11 +209,11 @@
              (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
              (setf (tbnl:content-type*) "application/json")
              (setf (tbnl:return-code*) tbnl:+http-created+)
-             ;; FIXME: do we need to encode this as JSON at this point?
-             (get-resources (datastore tbnl:*acceptor*)
-                            (format nil "/~A/~A"
-                                    resourcetype
-                                    (tbnl:post-parameter "uid"))))
+             (cl-json:encode-json-alist-to-string
+               (get-resources (datastore tbnl:*acceptor*)
+                              (format nil "/~A/~A"
+                                      resourcetype
+                                      (tbnl:post-parameter "uid")))))
            ;; Handle integrity errors
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
            ;; Handle general client errors

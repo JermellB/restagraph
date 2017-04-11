@@ -189,43 +189,36 @@
       ;; All resources of a given type
       ((equal (mod (length uri-parts) 3) 1)
        (log-message :debug (format nil "Fetching all resources of type ~A" uri))
-       (let ((result
-               (neo4cl:extract-rows-from-get-request
-                 (neo4cl:neo4j-transaction
-                   db
-                   `((:STATEMENTS
-                       ((:STATEMENT . ,(format nil "MATCH ~A RETURN n"
-                                               (uri-node-helper uri-parts))))))))))
-         (when result
-           (cl-json:encode-json-to-string result))))
+       (neo4cl:extract-rows-from-get-request
+         (neo4cl:neo4j-transaction
+           db
+           `((:STATEMENTS
+               ((:STATEMENT . ,(format nil "MATCH ~A RETURN n"
+                                       (uri-node-helper uri-parts)))))))))
       ;; One specific resource
       ((equal (mod (length uri-parts) 3) 2)
        (log-message :debug (format nil "Fetching the resource matching the path ~A" uri))
-       (cl-json:encode-json-alist-to-string
-         (neo4cl:extract-data-from-get-request
-           (neo4cl:neo4j-transaction
-             db
-             `((:STATEMENTS
-                 ((:STATEMENT . ,(format nil "MATCH ~A RETURN n"
-                                         (uri-node-helper uri-parts))))))))))
+       (neo4cl:extract-data-from-get-request
+         (neo4cl:neo4j-transaction
+           db
+           `((:STATEMENTS
+               ((:STATEMENT . ,(format nil "MATCH ~A RETURN n"
+                                       (uri-node-helper uri-parts)))))))))
       ;; All resources with a particular relationship to this one
       (t
         (log-message :debug
                      (format nil "Fetching all resources with relationship ~A to resource ~{~A~^/~}"
                              (car (last uri-parts))
                              (butlast uri-parts)))
-        (let ((result (neo4cl:extract-rows-from-get-request
-                        (neo4cl:neo4j-transaction
-                          db
-                          `((:STATEMENTS
-                              ((:STATEMENT .
-                                           ,(format nil "MATCH ~A RETURN labels(n), n.uid"
-                                                    (uri-node-helper uri-parts))))))))))
-          (when result
-            (cl-json:encode-json-to-string
-              (mapcar #'(lambda (row)
-                          `(("resource-type" . ,(caar row)) ("uid" . ,(second row))))
-                      result))))))))
+        (mapcar #'(lambda (row)
+                    `(("resource-type" . ,(caar row)) ("uid" . ,(second row))))
+                (neo4cl:extract-rows-from-get-request
+                  (neo4cl:neo4j-transaction
+                    db
+                    `((:STATEMENTS
+                        ((:STATEMENT .
+                                     ,(format nil "MATCH ~A RETURN labels(n), n.uid"
+                                              (uri-node-helper uri-parts)))))))))))))
 
 
 ;;;; Relationships
@@ -305,11 +298,11 @@
                (log-message :debug message)
                (error 'integrity-error :message message)))
             ;; Do both the source and destination resources actually exist?
-            ((equal (get-resources db (format nil "/~{~A~^/~}" source-parts)) "{}")
+            ((null (get-resources db (format nil "/~{~A~^/~}" source-parts)))
              (let ((message (format nil "The source resource /~{~A~^/~} does not exist\n" source-parts)))
                (log-message :debug message)
                (error 'client-error :message message)))
-            ((equal (get-resources db destpath) "{}")
+            ((null (get-resources db destpath))
              (let ((message "The destination resource does not exist"))
                (log-message :debug message)
                (error 'client-error :message message)))
@@ -359,12 +352,12 @@
          (new-parent-type (car (last (butlast dest-parts 2)))))
     (cond
       ;; Sanity-check: does the target resource exist?
-      ((equal (get-resources db (format nil "/~{~A~^/~}" uri)) "{}")
+      ((null (get-resources db (format nil "/~{~A~^/~}" uri)))
        (log-message :debug (format nil "Target resource ~A does not exist"
                                    (format nil "/~{~A~^/~A~}" uri)))
        (error 'client-error :message "Target resource does not exist"))
       ;; Sanity-check: does the new parent exist?
-      ((equal (get-resources db (format nil "/~{~A~^/~}" (butlast dest-parts))) "{}")
+      ((null (get-resources db (format nil "/~{~A~^/~}" (butlast dest-parts))))
        (log-message :debug (format nil "Parent resource ~A does not exist"
                                    (format nil "/~{~A~^/~}" (butlast dest-parts))))
        (error 'client-error :message "Parent resource does not exist"))
@@ -433,7 +426,7 @@
          (log-message :debug message)
          (error 'client-error :message message)))
       ;; Sanity check: existence of parent resource
-      ((equal (get-resources db (format nil "~{/~A~}" parent-parts)) "{}")
+      ((null (get-resources db (format nil "~{/~A~}" parent-parts)))
        (let ((message "Parent resource does not exist"))
          (log-message :debug message)
          (error 'client-error :message message)))
@@ -465,7 +458,7 @@
           ;; Report on the attributes for debugging
           (log-message :debug (format nil "Validated attributes: ~A" validated-attributes))
           ;; One more sanity-check: does it already exist?
-          (if (equal (get-resources db resource-path) "{}")
+          (if (null (get-resources db resource-path))
             ;; Cardinality checks: would this violate 1:1 or many:1 constraints?
             (if
               (and

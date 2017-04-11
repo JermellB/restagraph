@@ -20,7 +20,7 @@
         (invalid-type "interfaces")
         (invalid-uid "eth0"))
     ;; Confirm the resource isn't already present
-    (fiveam:is (equal "{}" (restagraph::get-resources
+    (fiveam:is (null (restagraph::get-resources
                              *server* (format nil "/~A/~A" restype uid))))
     ;; Store the resource
     (multiple-value-bind (result code message)
@@ -29,6 +29,8 @@
       (fiveam:is (equal 200 code)))
     ;; Confirm it's there
     (fiveam:is (equal
+                 `((:uid . ,uid) (:original--uid . ,(restagraph::sanitise-uid uid)) (:comment . ,comment))
+                 #+(or)
                  (format nil "{\"uid\":\"~A\",\"original_uid\":\"~A\",\"comment\":\"~A\"}"
                          uid (restagraph::sanitise-uid uid) comment)
                  (restagraph::get-resources
@@ -39,7 +41,7 @@
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm it's gone again
-    (fiveam:is (equal "{}" (restagraph::get-resources
+    (fiveam:is (null (restagraph::get-resources
                              *server* (format nil "/~A/~A" restype uid))))
     ;; Ensure we can't create a dependent type
     (fiveam:signals
@@ -92,7 +94,7 @@
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm the dependent resource is gone
-    (fiveam:is (equal "{}" (restagraph::get-resources
+    (fiveam:is (null (restagraph::get-resources
                              *server* (format nil "/~A/~A" child-type child-uid))))
     ;; Attempt to create a child resource that isn't of a dependent type
     (fiveam:signals (restagraph:client-error "This is not a dependent resource type")
@@ -113,7 +115,7 @@
       :delete-dependent t)
     ;; Confirm the dependent resource was recursively deleted with it
     (restagraph::log-message :info "TEST Confirm the dependent resource is gone")
-    (fiveam:is (equal "{}" (restagraph::get-resources
+    (fiveam:is (null(restagraph::get-resources
                              *server* (format nil "/~A/~A" child-type child-uid))))
     (restagraph::log-message :info "TEST resources-dependent is complete")))
 
@@ -144,23 +146,23 @@
     ;; Delete the parent resource
     (restagraph::log-message :info "TEST Recursively deleting the parent resource")
     (restagraph::delete-resource-by-path
-    *server*
-    (format nil "/~A/~A" parent-type parent-uid)
-    :delete-dependent t)
+      *server*
+      (format nil "/~A/~A" parent-type parent-uid)
+      :delete-dependent t)
     ;; Confirm the dependent resources were recursively deleted with it
     (restagraph::log-message :info "TEST Confirm the dependent resource is gone")
-    (fiveam:is (equal "{}" (restagraph::get-resources
-                             *server*
-                             (format nil "/~A/~A/~A/~A/~A"
-                                     parent-type parent-uid relationship child-type child-uid))))
+    (fiveam:is (null (restagraph::get-resources
+                       *server*
+                       (format nil "/~A/~A/~A/~A/~A"
+                               parent-type parent-uid relationship child-type child-uid))))
     (restagraph::log-message :info "TEST Confirm the grandchild resource is gone")
-    (fiveam:is (equal "{}"
-    (restagraph::get-resources
-                             *server*
-                             (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
-                                     parent-type parent-uid relationship
-                                     child-type child-uid child-relationship
-                                     grandchild-type grandchild-uid))))
+    (fiveam:is (null
+                 (restagraph::get-resources
+                   *server*
+                   (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
+                           parent-type parent-uid relationship
+                           child-type child-uid child-relationship
+                           grandchild-type grandchild-uid))))
     (restagraph::log-message :info "TEST resources-dependent is complete")))
 
 (fiveam:test
@@ -205,25 +207,22 @@
           *server*
           (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
                   p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel target-type target-uid))
-        (format nil
-                "{\"uid\":\"~A\",\"original_uid\":\"~A\"}"
-                target-uid target-uid)))
+        `((:uid . ,target-uid) (:original--uid . ,target-uid))))
     ;; Confirm the target resource is no longer present at the original path
     (fiveam:is
-      (equal
+      (null
         (restagraph::get-resources
           *server*
           (format nil "/~A/~A/~A/~A/~A"
-                  p1-type p1-uid p1-target-rel target-type target-uid))
-        "{}"))
+                  p1-type p1-uid p1-target-rel target-type target-uid))))
     ;; Delete the parent resource
     (restagraph::delete-resource-by-path
       *server*
       (format nil "/~A/~A" p1-type p1-uid)
       :delete-dependent t)
     ;; Confirm stuff is gone
-    (fiveam:is (equal "{}" (restagraph::get-resources
-                             *server* (format nil "/~A/~A" p1-type p1-uid))))))
+    (fiveam:is (null
+                 (restagraph::get-resources *server* (format nil "/~A/~A" p1-type p1-uid))))))
 
 (fiveam:test
   resources-multiple
