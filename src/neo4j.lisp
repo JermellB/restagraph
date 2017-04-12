@@ -274,7 +274,10 @@
                (source-parts (butlast source-part-list))
                (source-type (nth (- (length source-parts) 2) source-parts))
                (dest-type (nth (- (length dest-parts) 2) dest-parts))
-               (relationship-attrs (get-relationship-attrs db source-type relationship dest-type)))
+               (relationship-attrs
+                 (or
+                   (get-relationship-attrs db source-type relationship dest-type)
+                   (get-relationship-attrs db "any" relationship dest-type))))
           (cond
             ;; No such relationship
             ((not relationship-attrs)
