@@ -239,25 +239,22 @@
     (restagraph::store-resource *server* resourcetype `(("uid" . ,res1uid) (,res1attrname . ,res1attrval)))
     ;; Confirm we now get a list containing exactly that resource
     (fiveam:is (equal
-                 (format nil "[[{\"uid\":\"~A\",\"original_uid\":\"~A\",\"~A\":\"~A\"}]]"
-                         res1uid (restagraph::sanitise-uid res1uid) res1attrname res1attrval)
+                 `((((:uid . ,res1uid) (:original--uid . ,(restagraph::sanitise-uid res1uid)) (,(intern (string-upcase res1attrname) 'keyword) . ,res1attrval))))
                  (restagraph::get-resources *server* (format nil "/~A" resourcetype))))
     ;; Add a second of that kind of resource
     (restagraph::store-resource *server* resourcetype `(("uid" . ,res2uid)))
     ;; Confirm we now get a list containing both resources
     (fiveam:is (equal
-                 (format nil "[[{\"uid\":\"~A\",\"original_uid\":\"~A\",\"~A\":\"~A\"}],[{\"uid\":\"~A\",\"original_uid\":\"~A\"}]]"
-                         res1uid (restagraph::sanitise-uid res1uid) res1attrname res1attrval
-                         res2uid (restagraph::sanitise-uid res2uid))
+                 `((((:uid . ,res1uid) (:original--uid . ,(restagraph::sanitise-uid res1uid)) (,(intern (string-upcase res1attrname) 'keyword) . ,res1attrval)))
+                   (((:uid . ,res2uid) (:original--uid . ,(restagraph::sanitise-uid res2uid)))))
                  (restagraph::get-resources *server* (format nil "/~A" resourcetype))))
     ;; Add a third of that kind of resource
     (restagraph::store-resource *server* resourcetype `(("uid" . ,res3uid)))
     ;; Confirm we now get a list containing both resources
     (fiveam:is (equal
-                 (format nil "[[{\"uid\":\"~A\",\"original_uid\":\"~A\",\"~A\":\"~A\"}],[{\"uid\":\"~A\",\"original_uid\":\"~A\"}],[{\"uid\":\"~A\",\"original_uid\":\"~A\"}]]"
-                         res1uid (restagraph::sanitise-uid res1uid) res1attrname res1attrval
-                         res2uid (restagraph::sanitise-uid res2uid)
-                         res3uid (restagraph::sanitise-uid res3uid))
+                 `((((:uid . ,res1uid) (:original--uid . ,(restagraph::sanitise-uid res1uid)) (,(intern (string-upcase res1attrname) 'keyword) . ,res1attrval)))
+                   (((:uid . ,res2uid) (:original--uid . ,(restagraph::sanitise-uid res2uid))))
+                   (((:uid . ,res3uid) (:original--uid . ,(restagraph::sanitise-uid res3uid)))))
                  (restagraph::get-resources *server* (format nil "/~A" resourcetype))))
     ;; Delete all the resources we added
     (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res1uid))

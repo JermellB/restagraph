@@ -158,7 +158,7 @@ class TestDependentResources(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid)).status_code,
                 200)
         # Delete the parent resource
-        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid), data={'delete-dependent' : 'true'}).status_code,
                 204)
         # Ensure the dependent resource is gone
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid)).status_code,
@@ -189,7 +189,7 @@ class TestMoveDependentResources(unittest.TestCase):
         # Confirm it's no longer attached to the initial parent
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1targetrel, self.targettype, self.targetuid)).status_code, 404)
         # Delete the parent resource, which should take the rest with it
-        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid)).status_code, 204)
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid), data={'delete-dependent': 'true'}).status_code, 204)
 
 
 class TestValidRelationships(unittest.TestCase):
@@ -207,7 +207,7 @@ class TestValidRelationships(unittest.TestCase):
     res3uid = 'NetBoxes'
     depres1type = 'model'
     depres1uid = 'Packetshuffler3000'
-    depres1deprel = 'HasModel'
+    depres1deprel = 'Produces'
     res1todepres1rel = 'Model'
     def test_basic_relationship(self):
         print('Test: test_basic_relationship')
@@ -257,7 +257,7 @@ class TestValidRelationships(unittest.TestCase):
         # Delete both first-class resources
         self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
                 204)
-        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res3type, self.res3uid)).status_code,
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res3type, self.res3uid), data={'delete-dependent': 'true'}).status_code,
                 204)
 
 class TestInvalidRelationships(unittest.TestCase):
