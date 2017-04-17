@@ -62,6 +62,7 @@
     ;; Create the parent resource
     (restagraph::store-resource *server* parent-type `(("uid" . ,parent-uid)))
     ;; Create the dependent resource
+    (restagraph:log-message :debug "TEST: Create the dependent resource")
     (multiple-value-bind (result code message)
       (restagraph::store-dependent-resource
         *server*
@@ -74,6 +75,7 @@
                       (restagraph::get-dependent-resources
                         *server* (list parent-type parent-uid))))
     ;; Fail to delete the dependent resource
+    (restagraph:log-message :debug "TEST: Fail to delete the dependent resource")
     (fiveam:signals
       (restagraph:client-error "This is a dependent resource. If you really want to delete it, try again with the 'delete-dependent=true' parameter.")
       (restagraph::delete-resource-by-path
@@ -81,6 +83,7 @@
         (format nil "/~A/~A/~A/~A/~A"
                 parent-type parent-uid relationship child-type child-uid)))
     ;; Delete the dependent resource
+    (restagraph:log-message :debug "TEST: Successfully delete the dependent resource")
     (multiple-value-bind (result code message)
       (restagraph::delete-resource-by-path
         *server*
@@ -90,15 +93,18 @@
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm the dependent resource is gone
+    (restagraph:log-message :debug "TEST: Confirm the dependent resource is gone.")
     (fiveam:is (null (restagraph::get-resources
                              *server* (format nil "/~A/~A" child-type child-uid))))
     ;; Attempt to create a child resource that isn't of a dependent type
+    (restagraph:log-message :debug "TEST: Fail to create a non-dependent child resource.")
     (fiveam:signals (restagraph:client-error "This is not a dependent resource type")
       (restagraph::store-dependent-resource
         *server*
         (format nil "/~A/~A/~A" parent-type parent-uid relationship)
         `(("type" . ,invalid-child-type) ("uid" . ,invalid-child-uid))))
     ;; Create the dependent resource yet again
+    (restagraph:log-message :debug "TEST: Sucessfully re-create the dependent resource")
     (restagraph::store-dependent-resource
       *server*
       (format nil "/~A/~A/~A" parent-type parent-uid relationship)
