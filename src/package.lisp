@@ -11,6 +11,8 @@
     integrity-error
     client-error
     message
+    ;; Functions
+    sanitise-uid
     ;; Methods
     get-resource-defs-from-db
     get-resource-attributes-from-db
