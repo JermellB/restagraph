@@ -21,7 +21,7 @@
         (invalid-uid "eth0"))
     ;; Confirm the resource isn't already present
     (fiveam:is (null (restagraph::get-resources
-                             *server* (format nil "/~A/~A" restype uid))))
+                       *server* (format nil "/~A/~A" restype uid))))
     ;; Store the resource
     (multiple-value-bind (result code message)
       (restagraph::store-resource *server* restype `(("uid" . ,uid) ("comment" . ,comment)))
@@ -30,9 +30,6 @@
     ;; Confirm it's there
     (fiveam:is (equal
                  `((:uid . ,uid) (:original--uid . ,(restagraph::sanitise-uid uid)) (:comment . ,comment))
-                 #+(or)
-                 (format nil "{\"uid\":\"~A\",\"original_uid\":\"~A\",\"comment\":\"~A\"}"
-                         uid (restagraph::sanitise-uid uid) comment)
                  (restagraph::get-resources
                    *server* (format nil "/~A/~A" restype uid))))
     ;; Delete it
@@ -42,7 +39,7 @@
       (fiveam:is (equal 200 code)))
     ;; Confirm it's gone again
     (fiveam:is (null (restagraph::get-resources
-                             *server* (format nil "/~A/~A" restype uid))))
+                       *server* (format nil "/~A/~A" restype uid))))
     ;; Ensure we can't create a dependent type
     (fiveam:signals
       (restagraph:integrity-error "This is a dependent resource; it must be created as a sub-resource of an existing resource.")
@@ -72,7 +69,6 @@
         `(("type" . ,child-type) ("uid" . ,child-uid)))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
-    ;; Confirm it exists
     ;; Confirm it's the only member of the parent's dependents
     (fiveam:is (equal `((,relationship ,child-type ,child-uid))
                       (restagraph::get-dependent-resources

@@ -42,7 +42,8 @@ Return an error if
   (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI."))
 
 (defgeneric get-dependent-resources (db sourcepath)
-  (:documentation "Return a list of the resources that depend on this one, where the list contains 3-element lists of relationship, type and UID."))
+  (:documentation "Return a list of the resources that depend critically on this one.
+                   The returned list contains 3-element lists of relationship, type and UID."))
 
 (defgeneric get-dependent-relationships-for-type (db resource-type)
   (:documentation "Return a list of relationships for which the given resource is dependent."))
@@ -61,7 +62,8 @@ Return an error if
   Return a list of two-element lists, where the first element is the resource-type and the second is the UID."))
 
 (defgeneric check-relationship-by-path (db sourcepath relationship destpath)
-  (:documentation "Confirm whether this relationship exists between these resources."))
+  (:documentation "Confirm whether this relationship exists between these resources.
+                   A special-case method for avoiding the ambiguity that can catch out get-resources."))
 
 (defgeneric delete-relationship-by-path (db relpath targetpath)
   (:documentation "Delete a relationship based on its path, and that of its target. More precise than delete-path, especially when a node has the same relationship to 2+ identical dependent resources."))

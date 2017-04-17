@@ -235,8 +235,6 @@
              . ,(format nil "MATCH (a:rgResource)-[r:~A]->(b:rgResource {name: '~A'}) WHERE a.name IN ['~A', 'any'] RETURN a, type(r), b"
                         reltype dest-type source-type))))))))
 
-;;;; FIXME Move to a more appropriate location
-;;;; and create a defgeneric.
 (defmethod get-relationship-attrs ((db neo4cl:neo4j-rest-server)
                                    (source-type string)
                                    (relationship string)
