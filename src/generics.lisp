@@ -45,8 +45,9 @@ Return an error if
   (:documentation "Return a list of the resources that depend critically on this one.
                    The returned list contains 3-element lists of relationship, type and UID."))
 
-(defgeneric get-dependent-relationships-for-type (db resource-type)
-  (:documentation "Return a list of relationships for which the given resource is dependent."))
+(defgeneric critical-dependency-p (db path)
+  (:documentation "Determine whether the resource identified by this path depends solely on its relationship to its immediate parent on that path.
+                   Return a boolean."))
 
 
 ;;;; Relationships
@@ -74,5 +75,5 @@ Return an error if
 
 ;;;; Both
 
-(defgeneric delete-resource-by-path (db path &key delete-dependent)
+(defgeneric delete-resource-by-path (db path &key delete-dependent recursive)
   (:documentation "Delete a relationship or resource according to the URI supplied"))

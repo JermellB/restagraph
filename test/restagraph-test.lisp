@@ -57,10 +57,6 @@
         (child-uid "eth0")
         (invalid-child-type "routers")
         (invalid-child-uid "whitesands"))
-    ;; Check underlying mechanisms
-    (fiveam:is (equal
-                 '("SubInterfaces" "Produces" "Interfaces" "Addresses")
-                 (restagraph::get-dependent-relationships-for-type *server* child-type)))
     ;; Create the parent resource
     (restagraph:store-resource *server* parent-type `(("uid" . ,parent-uid)))
     ;; Create the dependent resource
@@ -116,12 +112,17 @@
     (restagraph:delete-resource-by-path
       *server*
       (format nil "/~A/~A" parent-type parent-uid)
-      :delete-dependent t)
+      :recursive t)
     ;; Confirm the dependent resource was recursively deleted with it
-    (restagraph::log-message :info "TEST Confirm the dependent resource is gone")
-    (fiveam:is (null(restagraph::get-resources
-                             *server* (format nil "/~A/~A" child-type child-uid))))
-    (restagraph::log-message :info "TEST resources-dependent is complete")))
+    (restagraph:log-message :info "TEST Confirm the parent resource is gone")
+    (fiveam:is (null (restagraph:get-resources
+                       *server*
+                       (format nil "/~A/~A" parent-type parent-uid))))
+    (restagraph:log-message :info "TEST Confirm the dependent resource is gone")
+    (fiveam:is (null (restagraph:get-resources
+                       *server*
+                       (format nil "/~A/~A" child-type child-uid))))
+    (restagraph:log-message :info "TEST resources-dependent is complete")))
 
 (fiveam:test
   resources-dependent-compound
@@ -152,7 +153,7 @@
     (restagraph:delete-resource-by-path
       *server*
       (format nil "/~A/~A" parent-type parent-uid)
-      :delete-dependent t)
+      :recursive t)
     ;; Confirm the dependent resources were recursively deleted with it
     (restagraph:log-message :info "TEST Confirm the dependent resource is gone")
     (fiveam:is (null (restagraph:get-resources
@@ -223,7 +224,7 @@
     (restagraph:delete-resource-by-path
       *server*
       (format nil "/~A/~A" p1-type p1-uid)
-      :delete-dependent t)
+      :recursive t)
     ;; Confirm stuff is gone
     (fiveam:is (null
                  (restagraph:get-resources *server* (format nil "/~A/~A" p1-type p1-uid))))))

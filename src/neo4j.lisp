@@ -511,43 +511,75 @@
 
 (defmethod get-dependent-resources ((db neo4cl:neo4j-rest-server)
                                     (sourcepath list))
-  (let ((parent-type (car (butlast sourcepath)))
-        ;; Get all nodes to which this node has outbound relationships
-        (candidates
-          (mapcar #'(lambda (row)
-                      ;; labels(n) returns a list, hence the (car)
-                      ;; List elements: relationship, target type, target UID
-                      (list (first row) (car (second row)) (third row)))
+  ;; Filter out any candidate nodes that do not have a _dependent_ relationship on the parent
+  (remove-if
+            #'null
+            (mapcar #'(lambda (c)
+                        (when (dependent-relationship-p
+                                db
+                                (car (butlast sourcepath))    ; Type of target-resource
+                                (first c)                     ; Relationship to candidate
+                                (second c))                   ; Type of candidate
+                          c))
+                    ;; Get all nodes to which this node has outbound relationships
+                    (mapcar #'(lambda (row)
+                                ;; labels(n) returns a list, hence the (car)
+                                ;; List elements: relationship, target type, target UID
+                                (list (first row) (car (second row)) (third row)))
+                            (neo4cl:extract-rows-from-get-request
+                              (neo4cl:neo4j-transaction
+                                db
+                                `((:STATEMENTS
+                                    ((:STATEMENT .
+                                      ,(format nil "MATCH ~A-[r]->(b) RETURN type(r), labels(b), b.uid"
+                                               (uri-node-helper sourcepath))))))))))))
+
+(defmethod critical-dependency-p ((db neo4cl:neo4j-rest-server)
+                                  (path list))
+  ;; The path must end in a resource UID and be long enough to contain a dependency
+  (log-message
+    :debug
+    (format nil "Checking whether ~{/~A~} ends with a critical dependency." path))
+  (if (and
+        (> (length path) 2)
+        (= (mod (length path) 3) 2))
+      ;; Path is valid.
+      ;; Does the target even depend on this relationship?
+      (if (dependent-relationship-p
+            db
+            (nth (- (length path) 5) path)    ; source-type
+            (nth (- (length path) 3) path)    ; relationship
+            (nth (- (length path) 2) path))   ; target-type
+          ;; Extract all _other_ links to the target resource,
+          ;; and determine whether at least one is a dependent relationship.
+          (let ((target-type (nth (- (length path) 2) path))
+                (candidates
                   (neo4cl:extract-rows-from-get-request
                     (neo4cl:neo4j-transaction
                       db
                       `((:STATEMENTS
                           ((:STATEMENT .
-                                       ,(format nil "MATCH ~A-[r]->(b) RETURN type(r), labels(b), b.uid"
-                                                (uri-node-helper sourcepath)))))))))))
-    ;; Filter out any candidate nodes that do not have a _dependent_ relationship on the parent
-    (remove-if
-      #'null
-      (mapcar #'(lambda (c)
-                  (when (dependent-relationship-p db parent-type (first c) (second c))
-                    c))
-              candidates))))
-
-(defmethod get-dependent-relationships-for-type ((db neo4cl:neo4j-rest-server)
-                                                 (resource-type string))
-  ;; Eliminate duplicates
-  (let ((result-list ()))
-    (mapcar #'(lambda (foo)
-                (pushnew (car foo) result-list :test 'equal))
-            (neo4cl:extract-rows-from-get-request
-              (neo4cl:neo4j-transaction
-                db
-                `((:STATEMENTS
-                    ((:STATEMENT .
-                      ,(format nil "MATCH (a)-[r { dependent: 'true' }]->(~A) RETURN type(r)"
-                               resource-type))))))))
-    ;; Return the de-duplicated list
-    result-list))
+                            ,(format nil "MATCH ~A<-[r]-(n) RETURN type(r), labels(n)"
+                                     (uri-node-helper path))))))))))
+            (log-message
+              :debug
+              (format nil "Extracted the following list of relationships to check for dependency: ~A"
+                      candidates))
+            ;; Now check for any dependent relationships in the returned list.
+            ;; Invert the result of this test, because "no other dependent relationships"
+            ;; is a positive answer to our question.
+            (not
+              (remove-if #'null
+                         (mapcar #'(lambda (c)
+                                     (dependent-relationship-p
+                                       db
+                                       target-type
+                                       (first c)
+                                       (car (second c))))
+                                 candidates))))
+          (error "This is not a dependent path."))
+      ;; Invalid path
+      (error 'client-error :message "Path must end with a resource UID")))
 
 (defmethod check-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                        (sourcepath string)
@@ -618,63 +650,114 @@
                              relationship
                              (uri-node-helper target-parts))))))))))))))
 
-(defmethod delete-resource-by-path ((db neo4cl:neo4j-rest-server) (targetpath string) &key delete-dependent)
+(defmethod delete-resource-by-path ((db neo4cl:neo4j-rest-server)
+                                    (targetpath string)
+                                    &key delete-dependent
+                                    recursive)
   (log-message :debug (format nil "Attempting to delete resource ~A" targetpath))
-  (let* ((parts (get-uri-parts targetpath)))
-    (cond
-      ;; Delete a first-class resource
-      ((equal (length parts) 2)
-       (let ((dependents (get-dependent-resources db parts)))
-         (when dependents
-           (if delete-dependent
-             (progn
-               (log-message
-                 :debug
-                 (format nil "Found dependent resources ~{~A~^, ~}. Proceeding to delete them."
-                         dependents))
-               (mapcar #'(lambda (dependent)
-                           (delete-resource-by-path
-                             db
-                             (format nil "~A/~A/~A/~A"
-                                     targetpath (first dependent) (second dependent) (third dependent))
-                             :delete-dependent "true"))
-                       dependents))
-             (progn
-               (log-message :debug "This resources has dependents, and :delete-dependent was not specified. Bailing out.")
-               (error 'integrity-error :message "This resource has dependents, and :delete-dependent was not specified.")))))
-       ;; Now delete the resource
-       (neo4cl:neo4j-transaction
-         db
-         `((:STATEMENTS
-             ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
-                                     (first parts) (second parts))))))))
-      ;; Delete a relationship to a resource and/or a dependent resource
-      ((equal (mod (length parts) 3) 2)
-       (let ((parent-parts (butlast parts 3))
-             (relationship (nth (- (length parts) 3) parts))
-             (dest-type (nth (- (length parts) 2) parts))
-             (dest-uid (car (last parts))))
-         ;; Has the client requested a dependent relationship, or a regular one?
-         (if (dependent-resource-p db dest-type)
-           ;; Dependent relationship. Does the client really mean it?
-           (if delete-dependent
-             ;; Yes, they're sure. Do it.
-             (neo4cl:neo4j-transaction
-               db
-               `((:STATEMENTS
-                   ((:STATEMENT .
-                     ,(format nil "MATCH ~A DETACH DELETE n" (uri-node-helper parts)))))))
-             ;; Unconfirmed; warn them
-             (error 'client-error :message "This is a dependent resource. If you really want to delete it, try again with the 'delete-dependent=true' parameter."))
-           ;; Regular relationship
-           (neo4cl:neo4j-transaction
-             db
-             `((:STATEMENTS
-                 ((:STATEMENT .
-                   ,(format nil "MATCH ~A-[r:~A]->(:~A {uid: '~A'}) DELETE r"
-                            (uri-node-helper parent-parts)
-                            relationship
-                            dest-type
-                            dest-uid)))))))))
-      (t
-        (error 'client-error :message "This is not a valid deletion request")))))
+  (let ((parts (get-uri-parts targetpath)))
+    ;; The special case turns out to be a link to another resource
+    ;; that does _not_ depend on this one.
+    ;; Both other cases involve deleting the resource and then potentially
+    ;; all resources depending on it.
+    ;; If feasible, refactor this to remove the significant amount of duplication.
+    ;;
+    ;; Expected to use critical-dependency-p to answer some of these questions
+    (if (equal (mod (length parts) 3) 2)
+        ;; Is this a first-class resource?
+        (if (= (length parts) 2)
+            ;; First-class resource
+            ;; Do any other resources depend critically on this one?
+            (let ((dependents (get-dependent-resources db parts)))
+              (if dependents
+                  ;; Yes: it's a first-class resource with dependents.
+                  ;; Was the recursive argument supplied?
+                  (if recursive
+                      ;; Yes. Delete the dependents, passing both the delete-dependent
+                      ;; and recursive arguments.
+                      (progn
+                        (mapcar
+                          #'(lambda (d)
+                              (let ((newpath (format nil "/~{~A~^/~}" (append parts d))))
+                                (log-message
+                                  :debug
+                                  (format nil "Recursing through delete-resource-by-path with new path ~A"
+                                          newpath))
+                                (delete-resource-by-path
+                                  db
+                                  newpath
+                                  :delete-dependent t
+                                  :recursive t)))
+                          dependents)
+                        ;; Having deleted the dependents, delete the resource itself
+                        (neo4cl:neo4j-transaction
+                          db
+                          `((:STATEMENTS
+                              ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
+                                                      (first parts) (second parts))))))))
+                      ;; Dependents, but no recursive argument. Bail out.
+                      ;; FIXME: return a list of the dependents, to help the client.
+                      (error 'integrity-error
+                             :message
+                             "Other resources depend critically on this one, and recursive was not specified."))
+                  ;; First-class resource with no dependents: remove it.
+                  (neo4cl:neo4j-transaction
+                    db
+                    `((:STATEMENTS
+                        ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
+                                                (first parts) (second parts)))))))))
+            ;; Either a dependent resource, or a link to another resource.
+            ;; Does this resource's existence depend on the presence of this link?
+            (if (critical-dependency-p db parts)
+                ;; Yes: this is a critical dependency for this resource.
+                ;; Did the client expect that?
+                (if delete-dependent
+                    ;; Client wants to delete a dependent resource.
+                    ;; Do any other resources depend on this one?
+                    (let ((dependents (get-dependent-resources db parts)))
+                      (if dependents
+                          ;; There are dependent resources.
+                          ;; Was recursive specified?
+                          (if recursive
+                              ;; Yes. Delete the dependents,
+                              ;; passing the delete-dependent and recursive arguments
+                              (progn
+                                (mapcar #'(lambda (d)
+                                            (delete-resource-by-path
+                                              db
+                                              (format nil "~{/~A~}"
+                                                      (append parts d))
+                                              :delete-dependent t
+                                              :recursive t))
+                                        dependents)
+                                ;; Having deleted the dependents, delete the resources itself
+                                (let ((delpath (format nil "MATCH ~A DETACH DELETE n"
+                                                       (uri-node-helper parts))))
+                                  (neo4cl:neo4j-transaction
+                                    db
+                                    `((:STATEMENTS ((:STATEMENT .  ,delpath)))))))
+                              ;; Dependents, but no recursive argument. Bail out.
+                              ;; FIXME: return a list of the depdendents, to help the client.
+                              (error 'integrity-error
+                                     :message
+                                     "Other resources depend critically on this one, and recursive was not specified."))
+                          ;; Dependent resource with no dependents of its own. Delete it.
+                          (let ((delpath (format nil "MATCH ~A DETACH DELETE n"
+                                                 (uri-node-helper parts))))
+                            (neo4cl:neo4j-transaction
+                              db
+                              `((:STATEMENTS ((:STATEMENT .  ,delpath))))))))
+                    ;; This is a critical dependency, and delete-dependent is absent
+                    (error 'integrity-error :message "This would delete the resource itself, and delete-dependent was not specified."))
+                ;; No critical dependency; we're just deleting a relationship. Do it.
+                (let* ((parent-path (uri-rel-helper (butlast parts 2)))
+                       (restype (car (last parts 2)))
+                       (uid (car (last parts)))
+                       (query (format nil "MATCH ~A->(:~A {uid: '~A'}) DELETE n"
+                                      parent-path restype uid)))
+                  (log-message
+                    :debug
+                    (format nil "Attempting to delete relationship with query '~A'" query))
+                  (neo4cl:neo4j-transaction
+                    db `((:STATEMENTS ((:STATEMENT .  ,query))))))))
+        (error 'client-error :message "This is not a valid deletion request"))))

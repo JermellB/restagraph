@@ -75,6 +75,33 @@
                path (first uri-parts) (second uri-parts) (third uri-parts))
        marker))))
 
+(defun uri-rel-helper (uri-parts &optional (path "") (marker "n"))
+  "Build a Cypher path ending in a relationship variable, which defaults to 'n'.
+  Accepts a list of strings and returns a single string."
+  ;; Path-length must be a multiple of 3
+  (if (= (mod (length uri-parts) 3) 0)
+    ;; Path length is OK.
+    ;; Is this the end of the path?
+    (if (> (length uri-parts) 3)
+      ;; More path to come
+      (uri-rel-helper
+        (cdddr uri-parts)
+        (format nil "~A(:~A {uid: '~A'})-[:~A]->"
+                path
+                (first uri-parts)
+                (second uri-parts)
+                (third uri-parts)))
+      ;; End of the path.
+      ;; Return this along with whatever came before.
+      (format nil "~A(:~A {uid: '~A'})-[~A:~A]"
+              path
+              (first uri-parts)
+              (second uri-parts)
+              marker
+              (third uri-parts)))
+    ;; This isn't a path to a relationship
+    (error 'client-error :message "Path length must be a multiple of 3.")))
+
 (defun build-cypher-path (uri-parts &optional (path "") (marker "m"))
   "Build a Cypher path from the list of strings supplied.
   Attach a marker variable to the last node in the list, defaulting to 'm'."
