@@ -296,10 +296,12 @@
     ;; Delete the relationship
     (restagraph:log-message :info "TEST Delete the relationship")
     (multiple-value-bind (result code message)
-      (restagraph::delete-resource-by-path
+      (restagraph:delete-relationship-by-path
         *server*
-        (format nil "/~A/~A/~A/~A/~A"
-                from-type from-uid relationship to-type to-uid))
+        (format nil "/~A/~A/~A"
+                from-type from-uid relationship)
+        (format nil "/~A/~A"
+                to-type to-uid))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Delete the router
