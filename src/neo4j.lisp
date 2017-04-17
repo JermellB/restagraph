@@ -294,7 +294,7 @@
                (error 'integrity-error :message message)))
             ;; Are we trying to create a duplicate?
             ((check-relationship-by-path
-               db (format nil "/~{~A~^/~}" source-parts) relationship destpath)
+               db (format nil "~{/~A~}" source-parts) relationship destpath)
              (let ((message "Relationship already exists"))
                (log-message :debug message)
                (error 'integrity-error :message message)))
