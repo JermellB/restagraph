@@ -207,7 +207,7 @@
       ;; All resources with a particular relationship to this one
       (t
         (log-message :debug
-                     (format nil "Fetching all resources with relationship ~A to resource ~{~A~^/~}"
+                     (format nil "Fetching all resources with relationship ~A to resource ~{/~A~}"
                              (car (last uri-parts))
                              (butlast uri-parts)))
         (mapcar #'(lambda (row)
