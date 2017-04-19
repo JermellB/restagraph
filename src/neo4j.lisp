@@ -336,7 +336,7 @@
 
 
 (defmethod move-dependent-resource ((db neo4cl:neo4j-rest-server)
-                                    (uri list)
+                                    (uri string)
                                     (newparent string))
   (log-message :debug
                (format nil "Attempting to move dependent resource ~A to new parent ~A"
