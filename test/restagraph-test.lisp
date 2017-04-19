@@ -201,9 +201,10 @@
           (restagraph:move-dependent-resource
             *server*
             ;; URI
-            (list p1-type p1-uid p1-target-rel target-type target-uid)
+            (format nil "/~A/~A/~A/~A/~A"
+                    p1-type p1-uid p1-target-rel target-type target-uid)
             ;; New parent
-            (format nil "/~A/~A/~A/~A/~A/~A/"
+            (format nil "/~A/~A/~A/~A/~A/~A"
                     p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel)))))
     ;; Confirm the target resource is now at the new target path
     (fiveam:is
