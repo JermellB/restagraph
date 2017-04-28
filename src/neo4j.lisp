@@ -382,9 +382,7 @@
          (format
            nil
            "Target resource ~A does not depend on the new parent-type ~A for relationship ~A"
-           target-type
-           new-parent-type
-           new-relationship))
+           target-type new-parent-type new-relationship))
        (error 'client-error
               :message
               (format
@@ -393,34 +391,44 @@
                 target-type new-parent-type)))
       ;; Sanity-checks passed; let's do it
       (t
-       (log-message
-         :debug
-         (format nil "Moving target ~A:~A from parent ~A to new parent ~A"
-                 target-type target-uid
-                 current-parent-path
-                 new-parent-path))
-       ;; Create the new relationship
-       (neo4cl:neo4j-transaction
-         db
-         `((:STATEMENTS
-             ((:STATEMENT
-                . ,(format nil "MATCH ~A-[r:~A]->(t:~A {uid: '~A'}), ~A CREATE (m)-[:~A]->(t)"
-                           current-parent-path
-                           current-relationship
-                           target-type
-                           target-uid
-                           new-parent-path
-                           new-relationship))))))
-       ;; Delete the old relationship, using all but the last two elements of the source path
-       (neo4cl:neo4j-transaction
-         db
-         `((:STATEMENTS
-             ((:STATEMENT .
-               ,(format nil "MATCH ~A-[r:~A]->(t:~A {uid: '~A'}) DELETE r"
-                        current-parent-path
-                        current-relationship
-                        target-type
-                        target-uid))))))))))
+        (let ((sourcepath (format nil "~A-[r:~A]->(t:~A {uid: '~A'})"
+                                  current-parent-path
+                                  current-relationship
+                                  target-type
+                                  target-uid))
+              (destpath (format nil "~A-[:~A]->(:~A {uid: '~A'})"
+                                new-parent-path
+                                new-relationship
+                                target-type
+                                target-uid)))
+          (log-message
+            :debug
+            (format nil "Moving target ~A to new parent ~A" sourcepath destpath))
+          ;; Create the new relationship
+          (neo4cl:neo4j-transaction
+            db
+            `((:STATEMENTS
+                ((:STATEMENT
+                   . ,(format nil "MATCH ~A, ~A CREATE (m)-[:~A]->(t)"
+                              sourcepath
+                              new-parent-path
+                              new-relationship)))))))
+        ;; Confirm that the new relationship is actually present.
+        ;; If the MATCH clause matched nothing, it'll return OK.
+        ;; We want to check this every time, and bail out if we detect that it failed.
+        (let ((path (format nil "~A/~A/~A" newparent target-type target-uid)))
+          (unless (get-resources db path)
+            (error 'integrity-error :message "New path ~A was not created." path)))
+        ;; Delete the old relationship, using all but the last two elements of the source path
+        (neo4cl:neo4j-transaction
+          db
+          `((:STATEMENTS
+              ((:STATEMENT .
+                           ,(format nil "MATCH ~A-[r:~A]->(t:~A {uid: '~A'}) DELETE r"
+                                    current-parent-path
+                                    current-relationship
+                                    target-type
+                                    target-uid))))))))))
 
 (defmethod store-dependent-resource ((db neo4cl:neo4j-rest-server)
                                      (uri string)
