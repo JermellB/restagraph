@@ -148,13 +148,16 @@
                                      (source-type string)
                                      (relationship string)
                                      (dest-type string))
+  (log-message :debug
+               (format nil "Checking whether ~A is a valid dependent relationship from ~A to ~A"
+                       relationship source-type dest-type))
   (neo4cl:extract-data-from-get-request
     (neo4cl:neo4j-transaction
       db
       `((:STATEMENTS
-          ((:STATEMENT .
-            ,(format nil "MATCH (a:rgResource { name: '~A' })-[r:~A { dependent: 'true' } ]->(b:rgResource { name: '~A', dependent: 'true' }) WHERE r.dependent = 'true' RETURN type(r)"
-                     source-type relationship dest-type))))))))
+          ((:STATEMENT
+             . ,(format nil "MATCH (a:rgResource { name: '~A' })-[r:~A { dependent: 'true' } ]->(b:rgResource { name: '~A', dependent: 'true' }) WHERE r.dependent = 'true' RETURN type(r)"
+                        source-type relationship dest-type))))))))
 
 (defmethod store-resource ((db neo4cl:neo4j-rest-server) (resourcetype string) (post-params list))
   ;; If this is a dependent resource, bail out now
