@@ -366,9 +366,14 @@
          (target-uid (car (last uri-parts)))
          (dest-parts (get-uri-parts newparent))
          (new-relationship (car (last dest-parts)))
-         (new-parent-path (build-cypher-path (butlast dest-parts)))
-         (new-parent-type (car (last (butlast dest-parts 2)))))
+         (new-parent-type (car (last (butlast dest-parts 2))))
+         ;; Define this here because we use it at both the start and the end
+         (new-path (format nil "~A/~A/~A" newparent target-type target-uid)))
     (cond
+      ;; Sanity-check: does this path already exist?
+      ((get-resources db new-path)
+       (log-message :warn "This path already exists")
+       (error 'integrity-error :message "Path already exists; refusing to create a duplicate."))
       ;; Sanity-check: does the target resource exist?
       ((null (get-resources db uri))
        (log-message :debug (format nil "Target resource ~A does not exist" uri))
@@ -394,44 +399,46 @@
                 target-type new-parent-type)))
       ;; Sanity-checks passed; let's do it
       (t
-        (let ((sourcepath (format nil "~A-[r:~A]->(t:~A {uid: '~A'})"
-                                  current-parent-path
-                                  current-relationship
-                                  target-type
-                                  target-uid))
+       (let* ((new-parent-path (build-cypher-path (butlast dest-parts)))
+              (sourcepath
+                (uri-node-helper (append
+                                   (butlast uri-parts 3)
+                                   (list current-relationship
+                                         target-type
+                                         target-uid))
+                                 "" "t"))
               (destpath (format nil "~A-[:~A]->(:~A {uid: '~A'})"
                                 new-parent-path
                                 new-relationship
                                 target-type
                                 target-uid)))
-          (log-message
-            :debug
-            (format nil "Moving target ~A to new parent ~A" sourcepath destpath))
-          ;; Create the new relationship
-          (neo4cl:neo4j-transaction
-            db
-            `((:STATEMENTS
-                ((:STATEMENT
-                   . ,(format nil "MATCH ~A, ~A CREATE (m)-[:~A]->(t)"
-                              sourcepath
-                              new-parent-path
-                              new-relationship)))))))
-        ;; Confirm that the new relationship is actually present.
-        ;; If the MATCH clause matched nothing, it'll return OK.
-        ;; We want to check this every time, and bail out if we detect that it failed.
-        (let ((path (format nil "~A/~A/~A" newparent target-type target-uid)))
-          (unless (get-resources db path)
-            (error 'integrity-error :message "New path ~A was not created." path)))
-        ;; Delete the old relationship, using all but the last two elements of the source path
-        (neo4cl:neo4j-transaction
-          db
-          `((:STATEMENTS
-              ((:STATEMENT .
-                           ,(format nil "MATCH ~A-[r:~A]->(t:~A {uid: '~A'}) DELETE r"
-                                    current-parent-path
-                                    current-relationship
-                                    target-type
-                                    target-uid))))))))))
+         (log-message
+           :debug
+           (format nil "Moving target ~A to new parent ~A" sourcepath destpath))
+         ;; Create the new relationship
+         (neo4cl:neo4j-transaction
+           db
+           `((:STATEMENTS
+               ((:STATEMENT
+                  . ,(format nil "MATCH ~A MATCH ~A CREATE (m)-[:~A]->(t)"
+                             new-parent-path
+                             sourcepath
+                             new-relationship)))))))
+       ;; Confirm that the new relationship is actually present.
+       ;; If the MATCH clause matched nothing, it'll return OK.
+       ;; We want to check this every time, and bail out if we detect that it failed.
+       (unless (get-resources db new-path)
+         (error 'integrity-error :message (format nil "New path ~A was not created." new-path)))
+       ;; Delete the old relationship, using all but the last two elements of the source path
+       (neo4cl:neo4j-transaction
+         db
+         `((:STATEMENTS
+             ((:STATEMENT .
+               ,(format nil "MATCH ~A-[r:~A]->(t:~A {uid: '~A'}) DELETE r"
+                        current-parent-path
+                        current-relationship
+                        target-type
+                        target-uid))))))))))
 
 (defmethod store-dependent-resource ((db neo4cl:neo4j-rest-server)
                                      (uri string)
