@@ -206,6 +206,7 @@
     (let* ((uri-parts (get-uri-parts (tbnl:request-uri*)))
            (resourcetype (first uri-parts)))
       (cond
+        ;;
         ;; Intercept and reject attempts to interact with the "any" resource-type
         ((equal (third uri-parts) "any")
          (progn
@@ -235,6 +236,7 @@
                  (cl-json:encode-json-alist-to-string result)
                  (cl-json:encode-json-to-string result))))))
         ;; POST -> Store something
+        ;;
         ;; Resource
         ((and
            (equal (tbnl:request-method*) :POST)
@@ -260,7 +262,8 @@
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
            ;; Handle general client errors
            (restagraph:client-error (e) (return-client-error (message e)))))
-        ;; Relationship
+        ;;
+        ;; Store a relationship
         ((and
            (equal (tbnl:request-method*) :POST)
            (equal (mod (length uri-parts) 3) 0)
@@ -285,7 +288,8 @@
              ;; Generic client errors
              (restagraph:client-error (e) (return-client-error (message e)))
              (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))
-        ;; Create dependent resource
+        ;;
+        ;; Create a dependent resource
         ((and
            (equal (tbnl:request-method*) :POST)
            (> (length uri-parts) 0)
@@ -310,7 +314,8 @@
            ;; Generic client errors
            (restagraph:client-error (e) (return-client-error (message e)))
            (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
-        ;; Re-home dependent resource
+        ;;
+        ;; Re-home a dependent resource
         ((and
            (equal (tbnl:request-method*) :POST)
            (> (length uri-parts) 0)
@@ -332,7 +337,9 @@
            ;; Generic client errors
            (restagraph:client-error (e) (return-client-error (message e)))
            (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
+        ;;
         ;; DELETE -> Delete something
+        ;;
         ;; Resource
         ((and (equal (tbnl:request-method*) :DELETE)
               (equal (mod (length uri-parts) 3) 2))
@@ -343,8 +350,8 @@
              (delete-resource-by-path
                (datastore tbnl:*acceptor*)
                sub-uri
-               :delete-dependent (when (tbnl:post-parameter "delete-dependent")
-                                   (tbnl:post-parameter "delete-dependent")))
+               :delete-dependent (tbnl:post-parameter "delete-dependent")
+               :recursive (tbnl:post-parameter "recursive"))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
@@ -352,6 +359,7 @@
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
            ;; Generic client errors
            (restagraph:client-error (e) (return-client-error (message e)))))
+        ;;
         ;; Delete a relationship on an arbitrary path
         ((and (equal (tbnl:request-method*) :DELETE)
               (tbnl:post-parameter "resource")
@@ -370,6 +378,7 @@
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
            ;; Generic client errors
            (restagraph:client-error (e) (return-client-error (message e)))))
+        ;;
         ;; Methods we don't support.
         ;; Take the whitelist approach
         ((not (member (tbnl:request-method*) '(:POST :GET :PUT :DELETE)))
