@@ -235,6 +235,32 @@
                (if (= (mod (length uri-parts) 3) 2)
                  (cl-json:encode-json-alist-to-string result)
                  (cl-json:encode-json-to-string result))))))
+        ;; PUT -> Update something already present
+        ;;
+        ;; Resource
+        ((and
+           (equal (tbnl:request-method*) :PUT)
+           (> (length uri-parts) 0)
+           (equal (mod (length uri-parts) 3) 2))
+         (handler-case
+           (progn
+             (log-message
+               :debug
+               (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
+             (update-resource-attributes
+               (datastore tbnl:*acceptor*)
+               uri-parts
+               (tbnl:post-parameters*))
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-ok+)
+             ;; Return JSON representation of the newly-updated resource
+             (cl-json:encode-json-alist-to-string
+               (get-resources (datastore tbnl:*acceptor*) (tbnl:request-uri*))))
+           ;; Attempted violation of db integrity
+           (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Generic client errors
+           (restagraph:client-error (e) (return-client-error (message e)))
+           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
         ;; POST -> Store something
         ;;
         ;; Resource

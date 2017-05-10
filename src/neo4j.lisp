@@ -77,6 +77,10 @@
 (defmethod validate-resource-before-creating ((db neo4cl:neo4j-rest-server)
                                               (resourcetype string)
                                               (params list))
+  (log-message
+    :debug
+    (format nil "validate-resource-before-creating resourcetype ~A with params ~{~A~^, ~}"
+            resourcetype params))
   ;; Does this resource-type exist?
   (if (neo4cl:extract-data-from-get-request
         (neo4cl:neo4j-transaction
@@ -792,3 +796,31 @@
                   (neo4cl:neo4j-transaction
                     db `((:STATEMENTS ((:STATEMENT .  ,query))))))))
         (error 'client-error :message "This is not a valid deletion request"))))
+
+(defmethod update-resource-attributes ((db neo4cl:neo4j-rest-server)
+                                       (path list)
+                                       (attributes list))
+  (log-message :debug (format nil "Updating attributes for resource ~{/~A~}" path))
+  (let ((attrs
+          (remove-if #'(lambda (f)
+                         (or (equal (car f) :|uid|)
+                             (equal (car f) :|original_uid|)))
+                     (validate-resource-before-creating
+                       db
+                       (car (last (butlast path)))
+                       attributes))))
+    (when attrs
+      (log-message
+        :debug
+        (format nil "Applying the attributes ~{~A~^, ~} to resource ~{/~A~}" attrs path))
+      (let ((query (format nil "MATCH ~A SET ~{~A~^, ~}"
+                           (uri-node-helper path)
+                           (mapcar #'(lambda (a)
+                                       (if (null (cdr a))
+                                         (format nil "n.~A = NULL" (car a))
+                                         (format nil "n.~A = '~A'" (car a) (cdr a))))
+                                   attrs))))
+        (log-message
+          :debug
+          (format nil "Applying statement ~A" query))
+        (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT .  ,query)))))))))

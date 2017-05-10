@@ -63,6 +63,9 @@ Return an error if
   (:documentation "Determine whether the resource identified by this path depends solely on its relationship to its immediate parent on that path.
                    Return a boolean."))
 
+(defgeneric update-resource-attributes (db path attributes)
+            (:documentation "Add, update or delete a set of attributes of a given resource."))
+
 
 ;;;; Relationships
 

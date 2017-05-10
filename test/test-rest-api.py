@@ -382,6 +382,28 @@ class TestAnyType(unittest.TestCase):
         self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid)).status_code, 204)
         self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.t1type, self.t1uid)).status_code, 204)
 
+class TestUpdateAttrs(unittest.TestCase):
+    '''
+    Update and remove attributes of existing resources.
+    '''
+    p1type='routers'
+    p1uid='Trinity'
+    comment1='This is a comment'
+    def test_simple_update(self):
+        print('test_simple_update')
+        # Create the resources
+        self.assertEqual(requests.post('%s/%s' % (BASE_URL, self.p1type), data={'uid': self.p1uid}).status_code, 201)
+        # Add an attribute and confirm the result
+        result=requests.put('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid), data={'comment': self.comment1})
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {'uid': self.p1uid, 'original_uid': self.p1uid, 'comment': self.comment1})
+        # Remove that attribute and confirm the result
+        result=requests.put('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid), data={'comment': ""})
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {'uid': self.p1uid, 'original_uid': self.p1uid, 'comment': ""})
+        # Delete the resource
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid)).status_code, 204)
+
 # Make it happen
 if __name__ == '__main__':
     unittest.main()
