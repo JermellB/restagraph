@@ -79,8 +79,8 @@
     (multiple-value-bind (result code message)
       (restagraph:store-dependent-resource
         *server*
-        (format nil "/~A/~A/~A" parent-type parent-uid relationship)
-        `(("type" . ,child-type) ("uid" . ,child-uid)))
+        (format nil "/~A/~A/~A/~A" parent-type parent-uid relationship child-type)
+        `(("uid" . ,child-uid)))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm it's the only member of the parent's dependents
@@ -114,14 +114,14 @@
     (fiveam:signals (restagraph:client-error "This is not a dependent resource type")
       (restagraph:store-dependent-resource
         *server*
-        (format nil "/~A/~A/~A" parent-type parent-uid relationship)
-        `(("type" . ,invalid-child-type) ("uid" . ,invalid-child-uid))))
+        (format nil "/~A/~A/~A/~A" parent-type parent-uid relationship invalid-child-type)
+        `(("uid" . ,invalid-child-uid))))
     ;; Create the dependent resource yet again
     (restagraph:log-message :debug "TEST: Sucessfully re-create the dependent resource")
     (restagraph:store-dependent-resource
       *server*
-      (format nil "/~A/~A/~A" parent-type parent-uid relationship)
-      `(("type" . ,child-type) ("uid" . ,child-uid)))
+      (format nil "/~A/~A/~A/~A" parent-type parent-uid relationship child-type)
+      `(("uid" . ,child-uid)))
     ;; Delete the parent resource
     (restagraph:log-message :info "TEST Recursively deleting the parent resource")
     (restagraph:delete-resource-by-path
@@ -155,14 +155,16 @@
     ;; Create the child resource
     (restagraph:store-dependent-resource
       *server*
-      (format nil "/~A/~A/~A" parent-type parent-uid relationship)
-      `(("type" . ,child-type) ("uid" . ,child-uid)))
+      (format nil "/~A/~A/~A/~A" parent-type parent-uid relationship child-type)
+      `(("uid" . ,child-uid)))
     ;; Create the grandchild resource
     (restagraph:store-dependent-resource
       *server*
-      (format nil "/~A/~A/~A/~A/~A/~A"
-              parent-type parent-uid relationship child-type child-uid child-relationship)
-      `(("type" . ,grandchild-type) ("uid" . ,grandchild-uid)))
+      (format nil "/~A/~A/~A/~A/~A/~A/~A"
+              parent-type parent-uid
+              relationship child-type child-uid
+              child-relationship grandchild-type)
+      `(("uid" . ,grandchild-uid)))
     ;; Delete the parent resource
     (restagraph:log-message :info "TEST Recursively deleting the parent resource")
     (restagraph:delete-resource-by-path
@@ -202,13 +204,13 @@
     ;; Create second parent as dependent on the initial
     (restagraph:store-dependent-resource
       *server*
-      (format nil "/~A/~A/~A" p1-type p1-uid p1-p2-rel)
-      `(("type" . ,p2-type) ("uid" . ,p2-uid)))
+      (format nil "/~A/~A/~A/~A" p1-type p1-uid p1-p2-rel p2-type)
+      `(("uid" . ,p2-uid)))
     ;; Create the dependent resource to be moved
     (restagraph:store-dependent-resource
       *server*
-      (format nil "/~A/~A/~A" p1-type p1-uid p1-target-rel)
-      `(("type" . ,target-type) ("uid" . ,target-uid)))
+      (format nil "/~A/~A/~A/~A" p1-type p1-uid p1-target-rel target-type)
+      `(("uid" . ,target-uid)))
     ;; Move the resource
     (fiveam:is
       (null

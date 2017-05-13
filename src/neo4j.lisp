@@ -449,16 +449,16 @@
                                      (attributes list))
   (log-message :debug (format nil "Attempting to create a dependent resource at path ~A" uri))
   (let* ((uri-parts (get-uri-parts uri))
-         (relationship (car (last uri-parts)))
-         (parent-parts (butlast uri-parts))
+         (relationship (car (last (butlast uri-parts))))
+         (parent-parts (butlast uri-parts 2))
          (parent-type (nth (- (length parent-parts) 2) parent-parts))
-         (dest-type (cdr (assoc "type" attributes :test 'equal)))
+         (dest-type (car (last uri-parts)))
          (dest-uid (cdr (assoc "uid" attributes :test 'equal)))
          (relationship-attrs (get-relationship-attrs db parent-type relationship dest-type)))
     (cond
       ;; Sanity check: required parameters
-      ((not (and dest-type dest-uid))
-       (let ((message "Both the 'type' and 'uid' parameters must be supplied"))
+      ((not dest-uid)
+       (let ((message "The 'uid' parameter must be supplied"))
          (log-message :debug message)
          (error 'client-error :message message)))
       ;; Sanity check: existence of parent resource
@@ -612,7 +612,8 @@
                                        (first c)
                                        (car (second c))))
                                  candidates))))
-          (error "This is not a dependent path."))
+          ;; The target does not depend on this relationship
+          (log-message :debug "This is not a dependent path."))
       ;; Invalid path
       (error 'client-error :message "Path must end with a resource UID")))
 

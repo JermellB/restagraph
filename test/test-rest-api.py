@@ -134,12 +134,19 @@ class TestDependentResources(unittest.TestCase):
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid}).status_code,
                 201)
         # Screw up creation of the dependent resource, to check error-handling
+        # Invert the parent/child relationship, and break the API to boot
         self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid, self.relationship1),
             data={'type': self.depres1type, 'uid': self.depres1uid}).status_code,
             400)
         # Now get it right
-        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1), data={'type': self.depres1type, 'uid': self.depres1uid}).status_code,
-                201)
+        self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (
+            BASE_URL,
+            self.res1type,
+            self.res1uid,
+            self.relationship1,
+            self.depres1type,
+            ), data={'uid': self.depres1uid}).status_code,
+            201)
         # Confirm it's there
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1, self.depres1type, self.depres1uid)).status_code,
                 200)
@@ -148,7 +155,7 @@ class TestDependentResources(unittest.TestCase):
         # Delete the dependent resource
         # First, fail by skipping the delete-dependent parameter
         self.assertEqual( requests.delete('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1, self.depres1type, self.depres1uid)).status_code,
-                400)
+                409)
         # Now get it right
         self.assertEqual( requests.delete('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1, self.depres1type, self.depres1uid), data={'delete-dependent': 'true'}).status_code,
                 204)
@@ -160,15 +167,21 @@ class TestDependentResources(unittest.TestCase):
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res1type), data={'uid': self.res1uid}).status_code,
                 201)
         # Create a dependent resource
-        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1), data={'type': self.depres1type, 'uid': self.depres1uid}).status_code,
-                201)
+        self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (
+            BASE_URL,
+            self.res1type,
+            self.res1uid,
+            self.relationship1,
+            self.depres1type,
+            ), data={'uid': self.depres1uid}).status_code,
+            201)
         # Confirm it's there
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship1, self.depres1type, self.depres1uid)).status_code,
                 200)
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid)).status_code,
                 200)
         # Delete the parent resource
-        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid), data={'delete-dependent' : 'true'}).status_code,
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid), data={'recursive' : 'true'}).status_code,
                 204)
         # Ensure the dependent resource is gone
         self.assertEqual(requests.get('%s/%s/%s' % (BASE_URL, self.depres1type, self.depres1uid)).status_code,
@@ -189,17 +202,65 @@ class TestMoveDependentResources(unittest.TestCase):
         # Create the initial parent resource
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.p1type), data={'uid': self.p1uid}).status_code, 201)
         # Create the second parent resource, as a dependent to the first
-        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1p2rel), data={'type': self.p2type, 'uid': self.p2uid}).status_code, 201)
+        self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (
+            BASE_URL,
+            self.p1type,
+            self.p1uid,
+            self.p1p2rel,
+            self.p2type,
+            ), data={'uid': self.p2uid}).status_code,
+            201)
         # Create the dependent resource
-        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1targetrel), data={'type': self.targettype, 'uid': self.targetuid}).status_code, 201)
+        self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (
+            BASE_URL,
+            self.p1type,
+            self.p1uid,
+            self.p1targetrel,
+            self.targettype,
+            ), data={'uid': self.targetuid}).status_code,
+            201)
         # Move the dependent resource to its new parent
-        self.assertEqual(requests.post('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1targetrel, self.targettype, self.targetuid), data={'target': '/%s/%s/%s/%s/%s/%s' % (self.p1type, self.p1uid, self.p1p2rel, self.p2type, self.p2uid, self.p2targetrel)}).status_code, 201)
+        self.assertEqual(requests.post('%s/%s/%s/%s/%s/%s' % (
+            BASE_URL,
+            self.p1type,
+            self.p1uid,
+            self.p1targetrel,
+            self.targettype,
+            self.targetuid,
+            ), data={'target': '/%s/%s/%s/%s/%s/%s' % (
+                self.p1type,
+                self.p1uid,
+                self.p1p2rel,
+                self.p2type,
+                self.p2uid,
+                self.p2targetrel,
+                )}).status_code,
+            201)
         # Confirm it's where it should be
-        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1p2rel, self.p2type, self.p2uid, self.p2targetrel, self.targettype, self.targetuid)).status_code, 200)
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (
+            BASE_URL,
+            self.p1type,
+            self.p1uid,
+            self.p1p2rel,
+            self.p2type,
+            self.p2uid,
+            self.p2targetrel,
+            self.targettype,
+            self.targetuid,
+            )).status_code,
+        200)
         # Confirm it's no longer attached to the initial parent
-        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid, self.p1targetrel, self.targettype, self.targetuid)).status_code, 404)
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (
+            BASE_URL,
+            self.p1type,
+            self.p1uid,
+            self.p1targetrel,
+            self.targettype,
+            self.targetuid,
+            )).status_code,
+            404)
         # Delete the parent resource, which should take the rest with it
-        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid), data={'delete-dependent': 'true'}).status_code, 204)
+        self.assertEqual( requests.delete('%s/%s/%s' % (BASE_URL, self.p1type, self.p1uid), data={'recursive': 'true'}).status_code, 204)
 
 
 class TestValidRelationships(unittest.TestCase):
@@ -234,7 +295,7 @@ class TestValidRelationships(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship)).status_code,
             200)
         self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.relationship)).json(),
-            [{"resource-type": self.res2type, "uid": self.res2name}])
+            [[{"original_uid": self.res2name, "uid": self.res2name}]])
         # Delete the relationship
         self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s'%
             (BASE_URL, self.res1type, self.res1uid, self.relationship, self.res2type, self.res2name)).status_code,
@@ -254,8 +315,14 @@ class TestValidRelationships(unittest.TestCase):
                 201)
         self.assertEqual(requests.post('%s/%s/' % (BASE_URL, self.res3type), data={'uid': self.res3uid}).status_code,
                 201)
-        self.assertEqual(requests.post('%s/%s/%s/%s' % (BASE_URL, self.res3type, self.res3uid, self.depres1deprel),
-            data={'type': self.depres1type, 'uid': self.depres1uid}).status_code,
+        self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (
+            BASE_URL,
+            self.res3type,
+            self.res3uid,
+            self.depres1deprel,
+            self.depres1type,
+            ),
+            data={'uid': self.depres1uid}).status_code,
             201)
         # Link from the dependent to the other first-class
         # Confirm that the linked first-class resource is at the end of that path
@@ -267,7 +334,7 @@ class TestValidRelationships(unittest.TestCase):
         # Delete both first-class resources
         self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
                 204)
-        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res3type, self.res3uid), data={'delete-dependent': 'true'}).status_code,
+        self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res3type, self.res3uid), data={'recursive': 'true'}).status_code,
                 204)
 
 class TestInvalidRelationships(unittest.TestCase):
