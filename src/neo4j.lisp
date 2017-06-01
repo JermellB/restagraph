@@ -237,7 +237,7 @@
            db
            `((:STATEMENTS
                ((:STATEMENT .
-                 ,(format nil "MATCH ~A RETURN n"
+                 ,(format nil "MATCH ~A RETURN labels(n), n"
                           (uri-node-helper uri-parts))))))))))))
 
 

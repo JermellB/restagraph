@@ -353,6 +353,13 @@
     (fiveam:is (equal
                  `((("resource-type" . ,to-type) ("uid" . ,to-uid)))
                  (restagraph:get-resources-with-relationship *server* from-type from-uid relationship)))
+    ;; Confirm we get what we expect when checking what's at the end of the path
+    (fiveam:is (equal
+                 `(((,to-type)
+                    ((:uid . ,to-uid) (:original--uid . ,to-uid))))
+                 (restagraph:get-resources
+                   *server*
+                   (format nil "/~A/~A/~A" from-type from-uid relationship))))
     ;; Attempt to create a duplicate relationship between them
     (fiveam:signals (restagraph:integrity-error
                       (format nil "Relationship ~A already exists from ~A ~A to ~A ~A"
