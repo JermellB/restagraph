@@ -2,6 +2,13 @@
 
 ## What it is, what it does and what it's for
 
+Restgraph is an application that dynamically generates a REST API in front of a graph database, based on a schema defined within that same database. This includes features such as:
+
+- constraints on the relationships that can be created between two types of resource
+    - this includes cardinality constraints, i.e. 1:1, 1:many, many:1 and many:many relationships
+- resources which only make sense in the context of other resources, e.g. interfaces on computers.
+
+
 A framework of sorts for producing a REST API for a Neo4J graph database, from a schema defined within that database.
 
 The aim is a black box that automagically converts a schema into an API, without any _need_ for a regular user to know about its internals.
