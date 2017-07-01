@@ -422,7 +422,7 @@
     ;; Database error
     (neo4cl:database-error (e) (return-database-error e))))
 
-(defun startup ()
+(defun startup (&key docker)
   (log-message :info "Starting up the restagraph application server")
   ;; Enforce the schema
   (enforce-db-schema (datastore *restagraph-acceptor*))
@@ -437,7 +437,21 @@
     (tbnl:start *restagraph-acceptor*)
     (usocket:address-in-use-error
       () (log-message :error
-                      (format nil "Attempted to start an already-running instance!")))))
+                      (format nil "Attempted to start an already-running instance!"))))
+  (when docker
+    (sb-thread:join-thread
+      (find-if
+              (lambda (th)
+                (string= (sb-thread:thread-name th)
+                         (format nil "hunchentoot-listener-localhost:~A"
+                                 (getf *config-vars* :listen-port))))
+              (sb-thread:list-all-threads)))))
+
+(defun dockerstart ()
+  (startup :docker t))
+
+(defun save-image (&optional (path "/tmp/restagraph"))
+  (sb-ext:save-lisp-and-die path :executable t :toplevel 'restagraph::dockerstart))
 
 (defun shutdown ()
   (log-message :info
