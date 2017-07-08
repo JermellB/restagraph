@@ -331,6 +331,9 @@ class TestValidRelationships(unittest.TestCase):
         # Confirm that the linked dependent resource is at the end of that path
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.res1todepres1rel, self.depres1type, self.depres1uid)).status_code,
                 200)
+        # What do we get when we just ask for what's at the end of that relationship?
+        self.assertEqual(requests.get('%s/%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid, self.res1todepres1rel)).status_code,
+                200)
         # Delete both first-class resources
         self.assertEqual(requests.delete('%s/%s/%s' % (BASE_URL, self.res1type, self.res1uid)).status_code,
                 204)

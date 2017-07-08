@@ -228,17 +228,25 @@
                                        (uri-node-helper uri-parts)))))))))
       ;; All resources with a particular relationship to this one
       (t
-       (log-message :debug
-                    (format nil "Fetching all resources with relationship ~A to resource ~{/~A~}"
-                            (car (last uri-parts))
-                            (butlast uri-parts)))
-       (neo4cl:extract-rows-from-get-request
-         (neo4cl:neo4j-transaction
-           db
-           `((:STATEMENTS
-               ((:STATEMENT .
-                 ,(format nil "MATCH ~A RETURN labels(n), n"
-                          (uri-node-helper uri-parts))))))))))))
+        (log-message
+          :debug
+          (format nil "Fetching all resources with relationship ~A to resource ~{/~A~}"
+                  (car (last uri-parts))
+                  (butlast uri-parts)))
+        ;; Get the raw data
+        (let* ((response
+                 (neo4cl:extract-rows-from-get-request
+                   (neo4cl:neo4j-transaction
+                     db
+                     `((:STATEMENTS
+                         ((:STATEMENT
+                            . ,(format nil "MATCH ~A RETURN labels(n), n"
+                                       (uri-node-helper uri-parts))))))))))
+          ;; Reformat it so that (:type <type>) appears at the start of the list
+          (mapcar (lambda (r)
+                    (cons (cons :type (caar r))
+                          (cadar response)))
+                  response))))))
 
 
 ;;;; Relationships

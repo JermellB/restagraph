@@ -87,6 +87,12 @@
     (fiveam:is (equal `((,relationship ,child-type ,child-uid))
                       (restagraph:get-dependent-resources
                         *server* (list parent-type parent-uid))))
+    ;; Confirm we get the type when asking for all things with that relationship
+    (restagraph:log-message :debug "TEST: Confirm listing of types with all things with this relationship")
+    (fiveam:is (equal `(((:type . ,child-type) (:uid . ,child-uid) (:original--uid . ,child-uid)))
+                      (restagraph:get-resources
+                        *server*
+                        (format nil "/~A/~A/~A" parent-type parent-uid relationship))))
     ;; Fail to delete the dependent resource
     (restagraph:log-message :debug "TEST: Fail to delete the dependent resource")
     (fiveam:signals
