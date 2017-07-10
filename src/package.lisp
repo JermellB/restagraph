@@ -25,7 +25,7 @@
     move-dependent-resource
     get-resources
     get-dependent-resources
-    get-dependen-relationships-for-type
+    get-dependent-relationships-for-type
     dependent-relationship-p
     create-relationship-by-path
     get-resources-with-relationship
