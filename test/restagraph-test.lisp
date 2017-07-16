@@ -291,6 +291,67 @@
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res3uid))))
 
 (fiveam:test
+  resources-filtering
+  "Filtering while searching for resources"
+  (let ((r1type "routers")
+        (r1uid "upshot")
+        (r1partial "upsh.*")
+        (rel "Interfaces")
+        (r2type "interfaces")
+        (r2uid "eth1/41")
+        (r2partial "eth1.*"))
+    ;; Do the filters do what we expect?
+    ;; Store a resource to check on
+    (restagraph:log-message :info "TEST Creating the primary resource")
+    (restagraph:store-resource *server* r1type `(("uid" . ,r1uid)))
+    ;; Search for it by type and exact UID
+    (restagraph:log-message :info "TEST Searching for the primary resource")
+    (fiveam:is (equal
+                 `((((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid))))
+                 (restagraph:get-resources
+                   *server*
+                   (format nil "/~A" r1type)
+                   `(("uid" . ,r1uid)))))
+    ;; Search for it by type and partial UID
+    (fiveam:is (equal
+                 `((((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid))))
+                 (restagraph:get-resources
+                   *server*
+                   (format nil "/~A" r1type)
+                   `(("uid" . ,r1partial)))))
+    ;; Add a dependent resource to search for
+    (restagraph:log-message :info "TEST Creating the secondary resource")
+    (restagraph:store-dependent-resource
+      *server*
+      (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
+      `(("uid" . ,r2uid)))
+    ;; Confirm it's actually there
+    (fiveam:is (equal `((,rel ,r2type ,(restagraph:sanitise-uid r2uid)))
+                      (restagraph:get-dependent-resources
+                        *server* (list r1type r1uid))))
+    ;; Search for it by relationship to parent and exact UID
+    (restagraph:log-message :info "TEST Searching for the secondary resource")
+    (fiveam:is (equal
+                 `((((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid))))
+                 (restagraph:get-resources
+                   *server*
+                   (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
+                   `(("uid" . ,(restagraph:sanitise-uid r2uid))))))
+    ;; Search for it by type and partial UID
+    (fiveam:is (equal
+                 `((((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid))))
+                 (restagraph:get-resources
+                   *server*
+                   (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
+                   `(("uid" . ,r2partial)))))
+    ;; Clean up: delete the primary and dependent resources.
+    (restagraph:log-message :info "TEST Cleanup: removing the resources")
+    (restagraph:delete-resource-by-path
+      *server*
+      (format nil "/~A/~A" r1type r1uid)
+      :recursive t)))
+
+(fiveam:test
   relationships
   "Basic operations on relationships between resources"
   (let ((from-type "routers")

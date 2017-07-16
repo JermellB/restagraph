@@ -52,8 +52,9 @@ Return an error if
 (defgeneric move-dependent-resource (db uri newparent)
   (:documentation "Take an existing dependent resource, and give it a new parent, where both are identified by their URI paths."))
 
-(defgeneric get-resources (db uri)
-  (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI."))
+(defgeneric get-resources (db uri &optional filters)
+  (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI.
+                  The optional 'filters parameter is for refining the search results."))
 
 (defgeneric get-dependent-resources (db sourcepath)
   (:documentation "Return a list of the resources that depend critically on this one.

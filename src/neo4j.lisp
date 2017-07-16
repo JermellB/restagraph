@@ -204,7 +204,58 @@
                   (error 'restagraph:client-error :message text))))))
         (error 'restagraph:integrity-error :message "Requested resource type does not exist")))))
 
-(defmethod get-resources ((db neo4cl:neo4j-rest-server) (uri string))
+(defun process-filter (filter)
+  "Process a single filter from a GET parameter.
+   Assumes uri-node-helper was called with its default marker, which is 'n'."
+  (log-message :debug "Attempting to process filter ~A" filter)
+  (let* ((name (car filter))
+         (value (cdr filter))
+         ;; Does the value start with "!" to indicate negation?
+         (negationp (string= "!" value :end2 1)))
+    (if negationp
+    (log-message :debug "Negation detected. negationp = ~A" negationp)
+    (log-message :debug "Negation not detected. Double-negative in progress."))
+    ;; Prepend negation if applicable
+    (format
+      nil
+      "~A~A"
+      ;; Are we negating it?
+      (if negationp "NOT " "")
+      ;; Infer the operator
+      (cond
+        ;; Regex match
+        ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
+        ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
+         (let ((offset (if negationp 1 0)))
+           (log-message :debug
+                         "Regex detected; extracting the value from a starting offset of ~d."
+                         offset)
+           (format
+             nil "n.~A =~~ '~A'" name
+             ;; Drop the first character if we're negating the match,
+             ;; otherwise use the whole string.
+             (subseq value offset))))
+        ;;
+        ;; Simple existence check
+        ((string= "exists" value)
+         (format nil "exists(n.~A)" name))
+        ;;
+        ;; Default case: exact text match
+        (t
+         (format nil "n.~A = '~A'" name value))))))
+
+(defun process-filters (filters)
+  "Take GET parameters, and turn them into a string of Neo4j WHERE clauses."
+  (log-message :debug (format nil "Attempting to process filters ~A" filters))
+  (let ((result (mapcar #'process-filter filters)))
+    (log-message :debug "Result of filter processing: ~A" result)
+    (if result
+        (let ((response (format nil " WHERE ~{ ~A~^ AND~}" result)))
+          (log-message :debug "Output from process-filters: ~A." response)
+          response)
+        "")))
+
+(defmethod get-resources ((db neo4cl:neo4j-rest-server) (uri string) &optional filters)
   (log-message :debug (format nil "Fetching resources for URI ~A" uri))
   (let ((uri-parts (get-uri-parts uri)))
     (cond
@@ -215,8 +266,9 @@
          (neo4cl:neo4j-transaction
            db
            `((:STATEMENTS
-               ((:STATEMENT . ,(format nil "MATCH ~A RETURN n"
-                                       (uri-node-helper uri-parts)))))))))
+               ((:STATEMENT . ,(format nil "MATCH ~A~A RETURN n"
+                                       (uri-node-helper uri-parts)
+                                       (process-filters filters)))))))))
       ;; One specific resource
       ((equal (mod (length uri-parts) 3) 2)
        (log-message :debug (format nil "Fetching the resource matching the path ~A" uri))
@@ -240,8 +292,9 @@
                      db
                      `((:STATEMENTS
                          ((:STATEMENT
-                            . ,(format nil "MATCH ~A RETURN labels(n), n"
-                                       (uri-node-helper uri-parts))))))))))
+                            . ,(format nil "MATCH ~A~A RETURN labels(n), n"
+                                       (uri-node-helper uri-parts)
+                                       (process-filters filters))))))))))
           ;; Reformat it so that (:type <type>) appears at the start of the list
           (mapcar (lambda (r)
                     (cons (cons :type (caar r))

@@ -200,6 +200,11 @@
   "Replace UID-unfriendly characters in UIDs with something safe"
   (cl-ppcre:regex-replace-all "[/ ]" uid "_"))
 
+(defun get-sub-uri (uri base-uri)
+  "Extract the URI from the full request string,
+   excluding the base URL and any GET parameters."
+  (first (cl-ppcre:split "\\?" (cl-ppcre:regex-replace base-uri uri ""))))
+
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
   (handler-case
@@ -213,14 +218,19 @@
            (setf (tbnl:content-type*) "text/plain")
            (setf (tbnl:return-code*) tbnl:+http-not-found+)
            (format nil "No resources found for ~A" uri-parts)))
+        ;;
         ;; GET -> Retrieve something
         ((equal (tbnl:request-method*) :GET)
          (log-message :debug
                       (format nil "Dispatching GET request for URI ~A"
                               (tbnl:request-uri*)))
-         (let* ((sub-uri (cl-ppcre:regex-replace
-                           (getf *config-vars* :uri-base) (tbnl:request-uri*) ""))
-                (result (get-resources (datastore tbnl:*acceptor*) sub-uri)))
+         (let* (
+                ;; Extract the URI by dropping the base URL.
+                ;; Do it separately because we use it again later in this function.
+                (sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :uri-base)))
+                (result (get-resources (datastore tbnl:*acceptor*)
+                                       sub-uri
+                                       (tbnl:get-parameters*))))
            ;; Handle the null result
            (if (or (null result)
                    (equal result ""))
