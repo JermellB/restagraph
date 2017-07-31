@@ -94,4 +94,6 @@ Return an error if
 ;;;; Both
 
 (defgeneric delete-resource-by-path (db path &key delete-dependent recursive)
-  (:documentation "Delete a relationship or resource according to the URI supplied"))
+  (:documentation "Delete a relationship or resource according to the URI supplied.
+  :delete-dependent confirms that you intend to delete a dependent resource.
+  :recursive confirms that you intend to delete all resources depending on the one identified in the path."))
