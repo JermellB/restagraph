@@ -67,7 +67,7 @@
   "Break the URI into parts for processing by uri-node-helper"
   (cdr
     (ppcre:split "/"
-                 (cl-ppcre:regex-replace (getf *config-vars* :uri-base) uri ""))))
+                 (cl-ppcre:regex-replace (getf *config-vars* :api-uri-base) uri ""))))
 
 (defun uri-node-helper (uri-parts &optional (path "") (marker "n"))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
@@ -205,6 +205,140 @@
    excluding the base URL and any GET parameters."
   (first (cl-ppcre:split "\\?" (cl-ppcre:regex-replace base-uri uri ""))))
 
+(defun schema-dispatcher-v1 ()
+  "Hunchentoot dispatch function for managing Restagraph's schema."
+  (handler-case
+    (let* ((uri-parts (get-uri-parts (tbnl:request-uri*))))
+      (cond
+        ;; Get the description of a single resource-type
+        ((and
+           (equal (tbnl:request-method*) :GET)
+           (tbnl:get-parameter "name"))
+         (progn
+           (setf (tbnl:content-type*) "application/json")
+           (setf (tbnl:return-code*) tbnl:+http-ok+)
+           (cl-json:encode-json-alist-to-string
+             (describe-resource-type (datastore tbnl:*acceptor*) (tbnl:get-parameter "name")))))
+        ;; Get a description of the whole schema
+        ((equal (tbnl:request-method*) :GET)
+         (progn
+           (setf (tbnl:content-type*) "application/json")
+           (setf (tbnl:return-code*) tbnl:+http-ok+)
+           (cl-json:encode-json-to-string
+             (mapcar
+               #'(lambda (r)
+                   (describe-resource-type
+                     (datastore tbnl:*acceptor*)
+                     (cdr (assoc :name r))))
+               (get-resource-types (datastore tbnl:*acceptor*))))))
+        ;; Add a resource-type
+        ((and
+           (equal (tbnl:request-method*) :POST)
+           (equal (third uri-parts) "resourcetype"))
+         (let ((resourcetype (fourth uri-parts)))
+           (if (and
+                 (not (equal resourcetype ""))
+                 (not (equal resourcetype "NIL")))
+             ;; Sanity test passed; store it
+             (progn
+               (log-message :debug (format nil "Adding resource type ~A" resourcetype))
+               (add-resourcetype (datastore tbnl:*acceptor*)
+                                 resourcetype
+                                 :attrs (cl-ppcre:split "," (tbnl:post-parameter "attributes"))
+                                 :dependent (tbnl:post-parameter "dependent"))
+               ;; Return something useful
+               (setf (tbnl:content-type*) "application/text")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               "Created")
+             ;; Sanity test failed; report the problem
+             (progn
+               (setf (tbnl:content-type*) "application/text")
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               "At least give me the name of the resourcetype to create"))))
+        ;; Delete a resource-type
+        ((and
+           (equal (tbnl:request-method*) :DELETE)
+           (equal (third uri-parts) "resourcetype"))
+         (let ((resourcetype (fourth uri-parts)))
+           ;; Remove it
+           (log-message :debug (format nil "Deleting resource type ~A" resourcetype))
+           (delete-resourcetype (datastore tbnl:*acceptor*)
+                                resourcetype)
+           ;; Return something useful
+           (setf (tbnl:content-type*) "application/text")
+           (setf (tbnl:return-code*) tbnl:+http-no-content+)
+           ""))
+        ;; Add a relationship
+        ((and
+           (equal (tbnl:request-method*) :POST)
+           (equal (third uri-parts) "relationship"))
+         (let ((source-type (fourth uri-parts))
+               (relationship (fifth uri-parts))
+               (destination-type (sixth uri-parts)))
+           ;; Sanity test
+           (if (and
+                 source-type
+                 (not (equal source-type ""))
+                 (not (equal source-type "NIL"))
+                 relationship
+                 (not (equal relationship ""))
+                 (not (equal relationship "NIL"))
+                 destination-type
+                 (not (equal relationship ""))
+                 (not (equal relationship "NIL")))
+             ;; Store it
+             (progn
+               (log-message :debug
+                            (format nil "Adding relationship ~A from ~A to ~A"
+                                    relationship source-type destination-type))
+               ;; Handle cardinality and dependent attributes
+               ;; Make it go
+               (add-resource-relationship
+                 (datastore tbnl:*acceptor*)
+                 source-type
+                 relationship
+                 destination-type
+                 :dependent (tbnl:post-parameter "dependent")
+                 :cardinality (tbnl:post-parameter "cardinality"))
+               ;; Return something useful
+               (setf (tbnl:content-type*) "application/text")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               "Created")
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               (setf (tbnl:content-type*) "application/text")
+               "All parameters are required: /<source-type>/<relationship>/<destination-type>"))))
+        ;; Delete a relationship
+        ((and
+           (equal (tbnl:request-method*) :DELETE)
+           (equal (third uri-parts) "relationship"))
+         (let ((source-type (fourth uri-parts))
+               (relationship (fifth uri-parts))
+               (destination-type (sixth uri-parts)))
+           ;; Store it
+           (log-message :debug
+                        (format nil "Adding relationship ~A from ~A to ~A"
+                                relationship source-type destination-type))
+           (add-resource-relationship (datastore tbnl:*acceptor*)
+                                      source-type
+                                      relationship
+                                      destination-type)
+           ;; Return something useful
+           (setf (tbnl:content-type*) "application/text")
+           (setf (tbnl:return-code*) tbnl:+http-no-content+)
+           ""))
+        ;; Handle all other cases
+        (t
+          (return-client-error "This wasn't a valid request"))))
+    ;; Handle general errors
+    ;;
+    ;; Generic client errors
+    (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
+    ;; Transient error
+    (neo4cl:transient-error (e) (return-transient-error e))
+    ;; Database error
+    (neo4cl:database-error (e) (return-database-error e))))
+
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
   (handler-case
@@ -227,7 +361,7 @@
          (let* (
                 ;; Extract the URI by dropping the base URL.
                 ;; Do it separately because we use it again later in this function.
-                (sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :uri-base)))
+                (sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :api-uri-base)))
                 (result (get-resources (datastore tbnl:*acceptor*)
                                        sub-uri
                                        (tbnl:get-parameters*))))
@@ -333,7 +467,7 @@
            (tbnl:post-parameter "uid"))
          (handler-case
            (let ((sub-uri (cl-ppcre:regex-replace
-                            (getf *config-vars* :uri-base) (tbnl:request-uri*) ""))
+                            (getf *config-vars* :api-uri-base) (tbnl:request-uri*) ""))
                  (newtype (tbnl:post-parameter "type"))
                  (uid (tbnl:post-parameter "uid")))
              (log-message :debug (format nil "Attempting to create dependent resource ~A:~A on ~A"
@@ -358,12 +492,12 @@
            (tbnl:post-parameter "target"))
          (handler-case
            (let ((sub-uri (cl-ppcre:regex-replace
-                            (getf *config-vars* :uri-base) (tbnl:request-uri*) "")))
+                            (getf *config-vars* :api-uri-base) (tbnl:request-uri*) "")))
              (log-message :debug (format nil "Attempting to move dependent resource ~A to ~A"
                                          sub-uri (tbnl:post-parameter "target")))
              (move-dependent-resource
                (datastore tbnl:*acceptor*)
-               uri-parts
+               sub-uri
                (tbnl:post-parameter "target"))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-created+)
@@ -382,7 +516,7 @@
               (equal (mod (length uri-parts) 3) 2))
          (handler-case
            (let ((sub-uri (cl-ppcre:regex-replace
-                            (getf *config-vars* :uri-base) (tbnl:request-uri*) "")))
+                            (getf *config-vars* :api-uri-base) (tbnl:request-uri*) "")))
              (log-message :debug "Attempting to delete a resource on an arbitrary path")
              (delete-resource-by-path
                (datastore tbnl:*acceptor*)
@@ -434,12 +568,25 @@
 
 (defun startup (&key docker)
   (log-message :info "Starting up the restagraph application server")
-  ;; Enforce the schema
-  (enforce-db-schema (datastore *restagraph-acceptor*))
+  ;; Ensure we have a uniqueness constraint on resource-types
+  (handler-case
+    (neo4cl:neo4j-transaction
+      (datastore *restagraph-acceptor*)
+      `((:STATEMENTS
+          ((:STATEMENT . "CREATE CONSTRAINT ON (r:rgResource) ASSERT r.name IS UNIQUE")))))
+    (neo4cl:database-error (e)
+                           (if (equal (neo4cl:title e) "ConstraintCreateFailed")
+                             nil   ; This is OK - do nothing
+                             (return-database-error
+                               (format nil "~A.~A: ~A"
+                                       (neo4cl:category e)
+                                       (neo4cl:title e)
+                                       (neo4cl:message e))))))
   ;; Set the dispatch table
   (setf tbnl:*dispatch-table*
         (list
-          (tbnl:create-prefix-dispatcher (getf *config-vars* :uri-base) 'api-dispatcher-v1)
+          (tbnl:create-prefix-dispatcher (getf *config-vars* :api-uri-base) 'api-dispatcher-v1)
+          (tbnl:create-prefix-dispatcher (getf *config-vars* :schema-uri-base) 'schema-dispatcher-v1)
           (tbnl:create-prefix-dispatcher "/" 'four-oh-four)))
   ;; Start up the server
   (log-message :info "Starting up Hunchentoot to serve HTTP requests")
@@ -451,11 +598,11 @@
   (when docker
     (sb-thread:join-thread
       (find-if
-              (lambda (th)
-                (string= (sb-thread:thread-name th)
-                         (format nil "hunchentoot-listener-localhost:~A"
-                                 (getf *config-vars* :listen-port))))
-              (sb-thread:list-all-threads)))))
+        (lambda (th)
+          (string= (sb-thread:thread-name th)
+                   (format nil "hunchentoot-listener-localhost:~A"
+                           (getf *config-vars* :listen-port))))
+        (sb-thread:list-all-threads)))))
 
 (defun dockerstart ()
   (startup :docker t))

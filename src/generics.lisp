@@ -17,17 +17,29 @@
 
 ;;;; Schema
 
-(defgeneric get-resource-defs-from-db (db)
+(defgeneric add-resourcetype (db resourcetype &key attrs dependent)
+  (:documentation "Create a resource, add its attributes, and update the database's uniqueness constraints. Attributes are supplied as a list of strings, naming them. If :dependent evaluates to True, it will be created as a dependent type."))
+
+(defgeneric delete-resourcetype (db resourcetype)
+  (:documentation "Delete a resource-type, and all its instances along with any relationships to other types."))
+
+(defgeneric add-resource-relationship (db parent-type relationship dependent-type &key dependent cardinality)
+  (:documentation "Create a relationship between two resource types. If :dependent is "))
+
+(defgeneric delete-resource-relationship (db parent-type relationship dependent-type)
+  (:documentation "Delete a dependency between two resource types. If this removes the last relationship on which a dependent resource-type depends, that type and all its instances will also be deleted."))
+
+(defgeneric get-resource-types (db)
   (:documentation "Extract resource definitions from the database"))
+
+(defgeneric describe-resource-type (db resourcetype)
+  (:documentation "Return the description of a resource-type, as an alist. Entries include :name, :attributes and :dependent."))
 
 (defgeneric get-resource-attributes-from-db (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database"))
 
 (defgeneric relationship-valid-p (db from-resource relationship to-resource)
   (:documentation "Checks whether this type of relationship is permitted between these types of resources. Returns a boolean."))
-
-(defgeneric enforce-db-schema (db)
-  (:documentation "Creates whatever schema is most appropriate to the DB engine in use. Currently enforces the presence/absence of uniqueness constraints according to whether each resource is dependent."))
 
 (defgeneric validate-resource-before-creating (db resourcetype params)
   (:documentation "Confirm whether the provided data is valid, before attempting to use it to create a resource.

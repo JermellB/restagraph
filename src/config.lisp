@@ -23,6 +23,7 @@
     :dbport 7474
     :dbusername "neo4j"
     :dbpasswd "wallaby"
-    :uri-base "/api/v1"))
+    :api-uri-base "/api/v1"
+    :schema-uri-base "/schema/v1"))
 
 (setf *loglevel* :info)

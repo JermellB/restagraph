@@ -28,21 +28,29 @@
 
 (fiveam:test
   resources-basic
+  :depends-on 'schema-relationships
   "Basic operations on resources"
   (let ((restype "routers")
+        (resattrs '("comment"))
         (uid "amchitka")
         (comment "Test router #1")
         (invalid-type "interfaces")
         (invalid-uid "eth0"))
+    ;; Set up the fixtures
+    (restagraph:log-message :info "TEST Set up the fixtures")
+    (restagraph:add-resourcetype *server* restype :attrs resattrs)
     ;; Confirm the resource isn't already present
+    (restagraph:log-message :info "TEST Confirm the resource isn't already present")
     (fiveam:is (null (restagraph:get-resources
                        *server* (format nil "/~A/~A" restype uid))))
     ;; Store the resource
+    (restagraph:log-message :info "TEST Store the resource")
     (multiple-value-bind (result code message)
       (restagraph:store-resource *server* restype `(("uid" . ,uid) ("comment" . ,comment)))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm it's there
+    (restagraph:log-message :info "TEST Confirm the resource is present")
     (fiveam:is (equal
                  `((:uid . ,uid)
                    (:original--uid . ,(restagraph:sanitise-uid uid))
@@ -50,28 +58,42 @@
                  (restagraph:get-resources
                    *server* (format nil "/~A/~A" restype uid))))
     ;; Delete it
+    (restagraph:log-message :info "TEST Delete the resource")
     (multiple-value-bind (result code message)
       (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" restype uid))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm it's gone again
+    (restagraph:log-message :info "TEST Confirm the resource is gone")
     (fiveam:is (null (restagraph:get-resources
                        *server* (format nil "/~A/~A" restype uid))))
     ;; Ensure we can't create a dependent type
+    (restagraph:log-message :info "TEST Ensure we can't create a dependent type")
     (fiveam:signals
       (restagraph:integrity-error "This is a dependent resource; it must be created as a sub-resource of an existing resource.")
-      (restagraph:store-resource *server* invalid-type `(("uid" . ,invalid-uid))))))
+      (restagraph:store-resource *server* invalid-type `(("uid" . ,invalid-uid))))
+    ;; Remove the fixtures
+    (restagraph:log-message :info "TEST Remove the fixtures")
+    (restagraph:delete-resourcetype *server* restype)))
 
 (fiveam:test
   resources-dependent-simple
+  :depends-on 'resources-basic
   "Basic operations on dependent resources"
   (let ((parent-type "routers")
+        (parent-attrs '("comment"))
         (parent-uid "bikini")
         (relationship "Interfaces")
         (child-type "interfaces")
+        (child-attrs '("mac-address" "enabled"))
         (child-uid "eth0")
         (invalid-child-type "routers")
         (invalid-child-uid "whitesands"))
+    ;; Create the fixtures
+    (restagraph:log-message :info "TEST Create the fixtures")
+    (restagraph:add-resourcetype *server* parent-type :attrs parent-attrs)
+    (restagraph:add-resourcetype *server* child-type :attrs child-attrs :dependent t)
+    (restagraph:add-resource-relationship *server* parent-type relationship child-type :dependent t)
     ;; Create the parent resource
     (restagraph:store-resource *server* parent-type `(("uid" . ,parent-uid)))
     ;; Create the dependent resource
@@ -84,6 +106,7 @@
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm it's the only member of the parent's dependents
+    (restagraph:log-message :debug "TEST; confirm this is an only child")
     (fiveam:is (equal `((,relationship ,child-type ,child-uid))
                       (restagraph:get-dependent-resources
                         *server* (list parent-type parent-uid))))
@@ -114,7 +137,7 @@
     ;; Confirm the dependent resource is gone
     (restagraph:log-message :debug "TEST: Confirm the dependent resource is gone.")
     (fiveam:is (null (restagraph:get-resources
-                             *server* (format nil "/~A/~A" child-type child-uid))))
+                       *server* (format nil "/~A/~A" child-type child-uid))))
     ;; Attempt to create a child resource that isn't of a dependent type
     (restagraph:log-message :debug "TEST: Fail to create a non-dependent child resource.")
     (fiveam:signals (restagraph:client-error "This is not a dependent resource type")
@@ -143,19 +166,33 @@
     (fiveam:is (null (restagraph:get-resources
                        *server*
                        (format nil "/~A/~A" child-type child-uid))))
-    (restagraph:log-message :info "TEST resources-dependent is complete")))
+    ;; Tear down the fixtures
+    (restagraph:log-message :info "TEST Remove the fixtures")
+    (restagraph:delete-resourcetype *server* parent-type)
+    (restagraph:delete-resourcetype *server* child-type)))
 
 (fiveam:test
   resources-dependent-compound
+  :depends-on 'resources-dependent-simple
   "Basic operations on 2-layered dependent resources"
   (let ((parent-type "routers")
+        (parent-attrs '("comment"))
         (parent-uid "bikini")
         (relationship "Interfaces")
         (child-type "interfaces")
+        (child-attrs '("mac-address" "enabled"))
         (child-uid "eth0")
         (child-relationship "Addresses")
         (grandchild-type "ipv4Addresses")
+        (grandchild-attrs '("static"))
         (grandchild-uid "192.168.24.1"))
+    ;; Create the fixtures
+    (restagraph:log-message :info "TEST Create the fixtures")
+    (restagraph:add-resourcetype *server* parent-type :attrs parent-attrs)
+    (restagraph:add-resourcetype *server* child-type :attrs child-attrs :dependent t)
+    (restagraph:add-resourcetype *server* grandchild-type :attrs grandchild-attrs :dependent t)
+    (restagraph:add-resource-relationship *server* parent-type relationship child-type :dependent t)
+    (restagraph:add-resource-relationship *server* child-type child-relationship grandchild-type :dependent t)
     ;; Create the parent resource
     (restagraph:store-resource *server* parent-type `(("uid" . ,parent-uid)))
     ;; Create the child resource
@@ -191,20 +228,37 @@
                            parent-type parent-uid relationship
                            child-type child-uid child-relationship
                            grandchild-type grandchild-uid))))
-    (restagraph:log-message :info "TEST resources-dependent is complete")))
+    (restagraph:log-message :info "TEST resources-dependent is complete")
+    ;; Tear down the fixtures
+    (restagraph:log-message :info "TEST Remove the fixtures")
+    (restagraph:delete-resourcetype *server* parent-type)
+    (restagraph:delete-resourcetype *server* child-type)
+    (restagraph:delete-resourcetype *server* grandchild-type)))
 
 (fiveam:test
   resources-dependent-moving
+  :depends-on 'resources-dependent-compound
   "Moving a dependent resource to a new parent"
   (let ((p1-type "routers")
+        (p1-attrs '("comment"))
         (p1-uid "woomera")
         (p1-target-rel "Addresses")
         (p2-type "interfaces")
+        (p2-attrs '("mac-address" "enabled"))
         (p2-uid "eth1")
         (p1-p2-rel "Interfaces")
         (p2-target-rel "Addresses")
         (target-type "ipv4Addresses")
+        (target-attrs '("static"))
         (target-uid "172.20.0.1"))
+    ;; Create the fixtures
+    (restagraph:log-message :info "TEST Create the fixtures")
+    (restagraph:add-resourcetype *server* p1-type :attrs p1-attrs)
+    (restagraph:add-resourcetype *server* p2-type :attrs p2-attrs :dependent t)
+    (restagraph:add-resourcetype *server* target-type :attrs target-attrs :dependent t)
+    (restagraph:add-resource-relationship *server* p1-type p1-target-rel target-type :dependent t)
+    (restagraph:add-resource-relationship *server* p1-type p1-p2-rel p2-type :dependent t)
+    (restagraph:add-resource-relationship *server* p2-type p2-target-rel target-type :dependent t)
     ;; Create initial parent
     (restagraph:store-resource *server* p1-type `(("uid" . ,p1-uid)))
     ;; Create second parent as dependent on the initial
@@ -251,17 +305,27 @@
       :recursive t)
     ;; Confirm stuff is gone
     (fiveam:is (null
-                 (restagraph:get-resources *server* (format nil "/~A/~A" p1-type p1-uid))))))
+                 (restagraph:get-resources *server* (format nil "/~A/~A" p1-type p1-uid))))
+    ;; Delete the fixtures
+    (restagraph:log-message :info "TEST Delete the fixtures")
+    (restagraph:delete-resourcetype *server* p1-type)
+    (restagraph:delete-resourcetype *server* p2-type)
+    (restagraph:delete-resourcetype *server* target-type)))
 
 (fiveam:test
   resources-multiple
+  :depends-on 'resources-basic
   "Confirm we can retrieve all resources of a given type"
   (let ((resourcetype "routers")
+        (resource-attrs '("comment"))
         (res1uid "amchitka")
         (res1attrname "comment")
         (res1attrval "Test router")
         (res2uid "bikini")
         (res3uid "mururoa"))
+    ;; Set up the fixtures
+    (restagraph:log-message :info "TEST Set up the fixtures")
+    (restagraph:add-resourcetype *server* resourcetype :attrs resource-attrs)
     ;; Confirm we have no instances of that resource in place now
     (fiveam:is (null (restagraph:get-resources *server* (format nil "/~A" resourcetype))))
     ;; Add one of that kind of resource
@@ -288,18 +352,28 @@
     ;; Delete all the resources we added
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res1uid))
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res2uid))
-    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res3uid))))
+    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res3uid))
+    ;; Remove the fixtures
+    (restagraph:log-message :info "TEST Remove the fixtures")
+    (restagraph:delete-resourcetype *server* resourcetype)))
 
 (fiveam:test
   resources-filtering
+  :depends-on 'resources-multiple
   "Filtering while searching for resources"
   (let ((r1type "routers")
+        (r1attrs '("comment"))
         (r1uid "upshot")
         (r1partial "upsh.*")
         (rel "Interfaces")
         (r2type "interfaces")
         (r2uid "eth1/41")
         (r2partial "eth1.*"))
+    ;; Create the fixtures
+    (restagraph:log-message :info "TEST Create the fixtures")
+    (restagraph:add-resourcetype *server* r1type :attrs r1attrs)
+    (restagraph:add-resourcetype *server* r2type :dependent t)
+    (restagraph:add-resource-relationship *server* r1type rel r2type :dependent t)
     ;; Do the filters do what we expect?
     ;; Store a resource to check on
     (restagraph:log-message :info "TEST Creating the primary resource")
@@ -349,30 +423,40 @@
     (restagraph:delete-resource-by-path
       *server*
       (format nil "/~A/~A" r1type r1uid)
-      :recursive t)))
+      :recursive t)
+    ;; Delete the fixtures
+    (restagraph:log-message :info "TEST Delete the fixtures")
+    (restagraph:delete-resourcetype *server* r1type)
+    (restagraph:delete-resourcetype *server* r2type)))
 
 (fiveam:test
   relationships
+  :depends-on 'resources-basic
   "Basic operations on relationships between resources"
   (let ((from-type "routers")
         (from-uid "bikini")
         (relationship "Asn")
         (to-type "asn")
         (to-uid "64512"))
-    (restagraph:log-message :info "TEST Creating the resources")
+    ;; Create the fixtures
+    (restagraph:log-message :info "TEST Create the fixtures")
+    (restagraph:add-resourcetype *server* from-type)
+    (restagraph:add-resourcetype *server* to-type)
+    (restagraph:add-resource-relationship *server* from-type relationship to-type)
     ;; Store the router
+    (restagraph:log-message :info "TEST Creating the resources")
     (restagraph:store-resource *server* from-type `(("uid" . ,from-uid)))
     ;; Create the interface
     (restagraph:store-resource *server* to-type `(("uid" . ,to-uid)))
     ;; Create a relationship between them
     (restagraph:log-message :info "TEST Create the relationship")
-      (multiple-value-bind (result code message)
-        (restagraph:create-relationship-by-path
-          *server*
-          (format nil "/~A/~A/~A" from-type from-uid relationship)
-          (format nil "/~A/~A" to-type to-uid))
-        (declare (ignore result) (ignore message))
-        (fiveam:is (equal 200 code)))
+    (multiple-value-bind (result code message)
+      (restagraph:create-relationship-by-path
+        *server*
+        (format nil "/~A/~A/~A" from-type from-uid relationship)
+        (format nil "/~A/~A" to-type to-uid))
+      (declare (ignore result) (ignore message))
+      (fiveam:is (equal 200 code)))
     ;; Confirm the relationship is there
     (restagraph:log-message :info "TEST Confirm the relationship")
     (fiveam:is (equal
@@ -393,16 +477,26 @@
     (restagraph:log-message :info "TEST Cleanup: removing the resources")
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" from-type from-uid))
     ;; Delete the interface
-    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" to-type to-uid))))
+    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" to-type to-uid))
+    ;; Delete the fixtures
+    (restagraph:log-message :info "TEST Delete the fixtures")
+    (restagraph:delete-resourcetype *server* from-type)
+    (restagraph:delete-resourcetype *server* to-type)))
 
 (fiveam:test
   relationships-integrity
+  :depends-on 'relationships
   "Basic operations on relationships between resources"
   (let ((from-type "routers")
         (from-uid "bikini")
         (relationship "Asn")
         (to-type "asn")
         (to-uid "64512"))
+    ;; Create the fixtures
+    (restagraph:log-message :info "TEST Create the fixtures")
+    (restagraph:add-resourcetype *server* from-type)
+    (restagraph:add-resourcetype *server* to-type)
+    (restagraph:add-resource-relationship *server* from-type relationship to-type)
     ;; Create the resources
     (restagraph:log-message :info "TEST Creating the resources")
     (restagraph:store-resource *server* from-type `(("uid" . ,from-uid)))
@@ -422,8 +516,9 @@
                  (restagraph:get-resources-with-relationship *server* from-type from-uid relationship)))
     ;; Confirm we get what we expect when checking what's at the end of the path
     (fiveam:is (equal
-                 `(((,to-type)
-                    ((:uid . ,to-uid) (:original--uid . ,to-uid))))
+                 `(((:type . ,to-type)
+                    (:uid . ,to-uid)
+                    (:original--uid . ,to-uid)))
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A/~A/~A" from-type from-uid relationship))))
@@ -431,10 +526,10 @@
     (fiveam:signals (restagraph:integrity-error
                       (format nil "Relationship ~A already exists from ~A ~A to ~A ~A"
                               relationship from-type from-uid to-type to-uid))
-                    (restagraph:create-relationship-by-path
-                      *server*
-                      (format nil "/~A/~A/~A" from-type from-uid relationship)
-                      (format nil "/~A/~A" to-type to-uid)))
+      (restagraph:create-relationship-by-path
+        *server*
+        (format nil "/~A/~A/~A" from-type from-uid relationship)
+        (format nil "/~A/~A" to-type to-uid)))
     ;; Confirm we still only have one relationship between them
     (fiveam:is (equal
                  `((("resource-type" . ,to-type) ("uid" . ,to-uid)))
@@ -451,15 +546,23 @@
     ;; Clean-up: delete the resources
     (restagraph:log-message :info "TEST Cleaning up: removing the resources")
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" from-type from-uid))
-    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" to-type to-uid))))
+    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" to-type to-uid))
+    ;; Delete the fixtures
+    (restagraph:log-message :info "TEST Delete the fixtures")
+    (restagraph:delete-resourcetype *server* from-type)
+    (restagraph:delete-resourcetype *server* to-type)))
 
 (fiveam:test
   errors-basic
+  :depends-on 'resources-basic
   "Errors that can be triggered just by making a bad request"
   (let ((invalid-resourcetype "IjustMadeThisUpNow")
         (valid-resourcetype "routers")
         (invalid-attributes '(foo))
         (valid-attributes '("comment")))
+    ;; Create the fixtures
+    (restagraph:log-message :info "TEST Create the fixtures")
+    (restagraph:add-resourcetype *server* valid-resourcetype :attrs valid-attributes)
     ;; Create a resource of an invalid type
     (restagraph:log-message :info "TEST Creating a resource of an invalid type")
     (fiveam:signals (restagraph:integrity-error
@@ -476,4 +579,77 @@
                               valid-resourcetype
                               invalid-attributes
                               valid-attributes))
-      (restagraph:store-resource *server* valid-resourcetype '(("uid" . "amchitka") (:foo . "bar"))))))
+      (restagraph:store-resource *server* valid-resourcetype '(("uid" . "amchitka") (:foo . "bar"))))
+      ;; Remove the fixtures
+      (restagraph:log-message :info "TEST Remove the fixtures")
+      (restagraph:delete-resourcetype *server* valid-resourcetype)))
+
+(fiveam:test
+  schema-basic
+  "Simple operations to create and delete resource-types and relationships between them."
+  (let ((ptype1-name "foo")
+        (ptype1-attrs '("height" "Weight"))
+        (dtype1-name "bar"))
+    ;; Create one primary resource
+    (restagraph:log-message :info "Create one primary resource")
+    (fiveam:is (restagraph:add-resourcetype *server* ptype1-name))
+    ;; Confirm it's there
+    (restagraph:log-message :info "Confirm presence of single primary resource")
+    (fiveam:is (equal
+                 `(((:NAME . ,ptype1-name)))
+                 (restagraph:get-resource-types *server*)))
+    ;; Delete the single primary resource
+    (restagraph:log-message :info "TEST Delete one primary resource")
+    (fiveam:is (restagraph:delete-resourcetype *server* ptype1-name))
+    ;; Create a single dependent resource
+    (restagraph:log-message :info "TEST Create a single dependent resource")
+    (fiveam:is (restagraph:add-resourcetype *server* dtype1-name :dependent t))
+    ;; Confirm the presence of the single dependent resource
+    (restagraph:log-message :info "TEST Confirm the presence of the single dependent resource")
+    (fiveam:is (equal
+                 `(((:NAME . ,dtype1-name) (:DEPENDENT . "true")))
+                 (restagraph:get-resource-types *server*)))
+    ;; Delete the single dependent resource
+    (restagraph:log-message :info "TEST Delete the single dependent resource")
+    (fiveam:is (restagraph:delete-resourcetype *server* dtype1-name))
+    ;; Create, confirm and delete a primary resource with attributes
+    (restagraph:log-message :info "TEST Create a primary resource with attributes")
+    (fiveam:is (restagraph:add-resourcetype *server* ptype1-name :attrs ptype1-attrs))
+    (restagraph:log-message :info "TEST Confirm presence of a single primary resource with attributes")
+    (fiveam:is (equal
+                 `((:NAME . ,ptype1-name)
+                   (:ATTRIBUTES . ,(sort (copy-list ptype1-attrs) #'string-lessp))
+                   (:DEPENDENT nil))
+                 (restagraph::describe-resource-type *server* ptype1-name)))
+    (restagraph:log-message :info "TEST Delete the primary resource with attributes")
+    (fiveam:is (restagraph:delete-resourcetype *server* ptype1-name))))
+
+(fiveam:test
+  schema-relationships
+  :depends-on 'schema-basic
+  "Relationships between resource types in the schema"
+  (let ((p1type-name "rum")
+        (d1type-name "cola")
+        (rel1name "complements")
+        ;(cardinality1 "1:1")
+        )
+    ;; Create the fixtures
+    (restagraph:log-message :info "Creating test fixtures")
+    (restagraph:add-resourcetype *server* p1type-name)
+    (restagraph:add-resourcetype *server* d1type-name)
+    ;; Create a simple (non-dependent) relationship between them
+    (restagraph:log-message :info "TEST Create simple relationship between resources")
+    (fiveam:is (restagraph:add-resource-relationship *server* p1type-name rel1name d1type-name))
+    ;; Delete that simple relationship
+    (restagraph:log-message :info "TEST Delete simple relationship between resources")
+    (fiveam:is (restagraph:delete-resource-relationship *server* p1type-name rel1name d1type-name))
+    ;; Create a dependent relationship between them
+    (restagraph:log-message :info "TEST Create dependent relationship between resources")
+    (fiveam:is (restagraph:add-resource-relationship *server* p1type-name rel1name d1type-name :dependent t))
+    ;; Delete that dependent relationship
+    (restagraph:log-message :info "TEST Delete dependent relationship between resources")
+    (fiveam:is (restagraph:delete-resource-relationship *server* p1type-name rel1name d1type-name))
+    ;; Delete the fixtures
+    (restagraph:log-message :info "Deleting test fixtures")
+    (restagraph:delete-resourcetype *server* p1type-name)
+    (restagraph:delete-resourcetype *server* d1type-name)))

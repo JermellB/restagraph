@@ -20,13 +20,113 @@
 
 ;;;; Schema methods and functions
 
-(defmethod get-resource-defs-from-db ((db neo4cl:neo4j-rest-server))
+(defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
+                             (resourcetype string)
+                             &key attrs dependent)
+  (log-message :debug
+               (format nil "Create the resource ~A, plus its attributes" resourcetype))
+  ;; FIXME: Check before creating a duplicate
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           . ,(format nil "CREATE (r:rgResource {name: '~A'~A})~{, (r)-[:rgHasAttribute]->(:rgAttribute {name: '~A'})~};"
+                      resourcetype
+                      (if dependent
+                          ", dependent: 'true'"
+                          "")
+                      attrs))))))
+  (log-message :debug "Add a uniqueness constraint in the database, but only if it's a primary resource.")
+  (unless dependent
+    (handler-case
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT
+               . ,(format nil "CREATE CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE" resourcetype))))))
+      (neo4cl:database-error (e)
+                             (if (equal (neo4cl:title e) "ConstraintCreateFailed")
+                                 nil   ; This is OK - do nothing
+                                 (return-database-error
+                                   (format nil "~A.~A: ~A"
+                                           (neo4cl:category e)
+                                           (neo4cl:title e)
+                                           (neo4cl:message e)))))))
+  ;; Return a uniform resource, either way
+  t)
+
+(defmethod delete-resourcetype ((db neo4cl:neo4j-rest-server)
+                                (resourcetype string))
+  ;; FIXME Pull this resource-type's definition.
+  ;; If it's not a dependent type, delete its uniqueness constraint.
+  (when (not (dependent-resource-p db resourcetype))
+    (log-message
+      :debug
+      (format nil "Dropping uniqueness constraint for resource-type ~A" resourcetype))
+    (handler-case
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT
+               .  ,(format nil "DROP CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE" resourcetype))))))
+      (neo4cl:database-error (e)
+                             (if (equal (neo4cl:title e) "ConstraintDropFailed")
+                                 nil   ; This is OK - do nothing
+                                 (return-database-error
+                                   (format nil "~A.~A: ~A"
+                                           (neo4cl:category e)
+                                           (neo4cl:title e)
+                                           (neo4cl:message e)))))))
+  (log-message :debug "Delete all instances of this resource-type.")
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           . ,(format nil "MATCH (n:~A) DETACH DELETE n;" resourcetype))))))
+  (log-message :debug "Delete this type, along with its attributes and any relationships it has to other types.")
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(r) DETACH DELETE r;" resourcetype))))))
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           . ,(format nil "MATCH (r:rgResource {name: '~A'}) DETACH DELETE r;" resourcetype)))))))
+
+(defmethod get-resource-types ((db neo4cl:neo4j-rest-server))
   (mapcar #'car
           (neo4cl::extract-rows-from-get-request
             (neo4cl:neo4j-transaction
               db
               `((:STATEMENTS
                   ((:STATEMENT . "MATCH (c:rgResource) RETURN c"))))))))
+
+(defmethod describe-resource-type ((db neo4cl:neo4j-rest-server)
+                                   (resourcetype string))
+  ;; Confirm whether this resourcetype exists at all.
+  ;; If it doesn't, automatically return NIL.
+  (when (neo4cl:extract-data-from-get-request
+          (neo4cl:neo4j-transaction
+            db
+            `((:STATEMENTS ((:STATEMENT . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n" resourcetype)))))))
+    ;; Construct the return values
+    `((:NAME . ,resourcetype)
+      (:ATTRIBUTES
+        . ,(sort
+             (mapcar
+               #'(lambda (s) (cdr (assoc :name (car s))))
+               (neo4cl:extract-rows-from-get-request
+                 (neo4cl:neo4j-transaction
+                   db
+                   `((:STATEMENTS
+                       ((:STATEMENT
+                          . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n" resourcetype))))))))
+             #'string-lessp))
+      (:DEPENDENT . ,(if (dependent-resource-p db resourcetype)
+                     "true"
+                     "false")))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))
@@ -38,34 +138,55 @@
             ,(format nil "MATCH (c:rgResource { name: '~A' })-[:rgHasAttribute]-(a:rgAttribute) RETURN a"
                      resourcetype))))))))
 
-(defmethod enforce-db-schema ((db neo4cl:neo4j-rest-server))
-  (mapcar #'(lambda (resource)
-              (let ((statement
-                      (format nil "~A CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE"
-                              ;; Create or drop the constraint,
-                              ;; according to whether this resource is dependent
-                              (if (and (assoc :dependent resource)
-                                       (equal (cdr (assoc :dependent resource))
-                                              "true"))
-                                "DROP"
-                                "CREATE")
-                              (cdr (assoc :name resource)))))
-                (log-message :debug
-                             (format nil "Requesting db constraint as follows: '~A'"
-                                     statement))
-                (handler-case
-                  (neo4cl:neo4j-transaction
-                    db
-                    `((:STATEMENTS ((:STATEMENT . ,statement)))))
-                  (neo4cl:database-error (e)
-                                         (if (equal (neo4cl:title e) "ConstraintDropFailed")
-                                           nil   ; This is OK - do nothing
-                                           (return-database-error
-                                             (format nil "~A.~A: ~A"
-                                                     (neo4cl:category e)
-                                                     (neo4cl:title e)
-                                                     (neo4cl:message e))))))))
-          (get-resource-defs-from-db db)))
+(defmethod add-resource-relationship ((db neo4cl:neo4j-rest-server)
+                                      (parent-type string)
+                                      (relationship string)
+                                      (dependent-type string)
+                                      &key dependent cardinality)
+  (cond
+    ;; Sanity checks
+    ((not (describe-resource-type db parent-type))
+     (error (format nil "Parent resource type ~A does not exist" parent-type)))
+    ((not (describe-resource-type db dependent-type))
+     (error (format nil "Dependent resource type ~A does not exist" dependent-type)))
+    ;; FIXME catch the case where this relationship already exists
+    ;; FIXME catch attempts to create dependent relationships to non-dependent types
+    ;; All sanity checks have passed. Create it.
+    (t
+     (let ((attrs ())) ; The attributes, if any, to include in the relationship
+       ;; Add whatever attributes apply
+       (when dependent
+         (pushnew "dependent: 'true'" attrs))
+       (when (member cardinality '("1:1" "many:1" "1:many" "many:many"))
+         (pushnew (format nil "cardinality: '~A'" cardinality)
+                  attrs))
+       ;; Create it
+       (neo4cl:neo4j-transaction
+         db
+         `((:STATEMENTS
+             ((:STATEMENT .
+               ,(format
+                  nil
+                  "MATCH (s:rgResource { name: '~A' }), (d:rgResource { name: '~A'}) CREATE (s)-[:~A {~{~A~^, ~}}]->(d)"
+                  parent-type
+                  dependent-type
+                  relationship
+                  attrs))))))))))
+
+(defmethod delete-resource-relationship ((db neo4cl:neo4j-rest-server)
+                                         (parent-type string)
+                                         (relationship string)
+                                         (dependent-type string))
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT .
+          ,(format
+             nil
+             "MATCH (s:rgResource { name: '~A' })-[r:~A]->(d:rgResource { name: '~A'}) DELETE r"
+             parent-type
+             relationship
+             dependent-type)))))))
 
 (defun format-post-params-as-properties (params)
   "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map that Neo4J expects in the :PROPERTIES section of a query."

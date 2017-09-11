@@ -14,7 +14,12 @@
     ;; Functions
     sanitise-uid
     ;; Methods
-    get-resource-defs-from-db
+    add-resourcetype
+    delete-resourcetype
+    add-resource-relationship
+    delete-resource-relationship
+    get-resource-types
+    describe-resource-type
     get-resource-attributes-from-db
     relationship-valid-p
     enforce-db-schema
