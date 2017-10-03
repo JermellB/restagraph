@@ -57,9 +57,9 @@ class TestSchemaApi(unittest.TestCase):
         # Create a resource
         self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL), data={'attributes': 'length,width'}).status_code, 201)
         # Confirm it's the only one present
-        self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'attributes': ['length', 'width'], 'dependent': 'false', 'name': 'foo'}])
+        self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'attributes': ['length', 'width'], 'dependent': 'false', 'name': 'foo', 'notes': None}])
         # Check its attributes
-        self.assertEqual(requests.get('%s/foo' % SCHEMA_BASE_URL).json(), [{'name': 'foo', 'dependent': 'false', 'attributes': ['length', 'width']}])
+        self.assertEqual(requests.get('%s/foo' % SCHEMA_BASE_URL).json(), [{'name': 'foo', 'dependent': 'false', 'attributes': ['length', 'width'], 'notes': None}])
         # Delete it
         self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 204)
         # Confirm it's gone
@@ -71,10 +71,9 @@ class TestSchemaApi(unittest.TestCase):
         # Create a resource
         self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL), data={'attributes': 'length,width', 'dependent': 'true'}).status_code, 201)
         # Confirm it's the only one present
-        #self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'name': 'foo'}])
-        self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'dependent': 'true', 'attributes': ['length', 'width'], 'name': 'foo'}])
+        self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'dependent': 'true', 'attributes': ['length', 'width'], 'name': 'foo', 'notes': None}])
         # Check its attributes
-        self.assertEqual(requests.get('%s/foo' % SCHEMA_BASE_URL).json(), [{'name': 'foo', 'attributes': ['length', 'width'], 'dependent': 'true'}])
+        self.assertEqual(requests.get('%s/foo' % SCHEMA_BASE_URL).json(), [{'name': 'foo', 'attributes': ['length', 'width'], 'dependent': 'true', 'notes': None}])
         # Delete it
         self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 204)
         # Confirm it's gone

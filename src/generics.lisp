@@ -17,14 +17,14 @@
 
 ;;;; Schema
 
-(defgeneric add-resourcetype (db resourcetype &key attrs dependent)
-  (:documentation "Create a resource, add its attributes, and update the database's uniqueness constraints. Attributes are supplied as a list of strings, naming them. If :dependent evaluates to True, it will be created as a dependent type."))
+(defgeneric add-resourcetype (db resourcetype &key attrs dependent notes)
+  (:documentation "Create a resource, add its attributes, and update the database's uniqueness constraints. Attributes are supplied as a list of strings, naming them. If :dependent evaluates to True, it will be created as a dependent type. Notes provide the opportunity to explain the intent of each resourcetype."))
 
 (defgeneric delete-resourcetype (db resourcetype)
   (:documentation "Delete a resource-type, and all its instances along with any relationships to other types."))
 
-(defgeneric add-resource-relationship (db parent-type relationship dependent-type &key dependent cardinality)
-  (:documentation "Create a relationship between two resource types. If :dependent is "))
+(defgeneric add-resource-relationship (db parent-type relationship dependent-type &key dependent cardinality notes)
+  (:documentation "Create a relationship between two resource types. Notes provide the opportunity to explain the intent of each resourcetype."))
 
 (defgeneric delete-resource-relationship (db parent-type relationship dependent-type)
   (:documentation "Delete a dependency between two resource types. If this removes the last relationship on which a dependent resource-type depends, that type and all its instances will also be deleted."))

@@ -242,10 +242,17 @@
              ;; Sanity test passed; store it
              (progn
                (log-message :debug (format nil "Adding resource type ~A" resourcetype))
-               (add-resourcetype (datastore tbnl:*acceptor*)
-                                 resourcetype
-                                 :attrs (cl-ppcre:split "," (tbnl:post-parameter "attributes"))
-                                 :dependent (tbnl:post-parameter "dependent"))
+               (let ((object
+                       (append
+                         (list (datastore tbnl:*acceptor*) resourcetype)
+                         (when (tbnl:post-parameter "attributes")
+                           (list :attrs (cl-ppcre:split "," (tbnl:post-parameter "attributes"))))
+                         (when (tbnl:post-parameter "notes")
+                           (list :notes (tbnl:post-parameter "notes")))
+                         (when (tbnl:post-parameter "dependent")
+                           (list :dependent (tbnl:post-parameter "dependent"))))))
+                 (log-message :debug (format nil "Using parameters ~A" object))
+                 (apply #'add-resourcetype object))
                ;; Return something useful
                (setf (tbnl:content-type*) "application/text")
                (setf (tbnl:return-code*) tbnl:+http-created+)

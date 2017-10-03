@@ -22,18 +22,20 @@
 
 (defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
                              (resourcetype string)
-                             &key attrs dependent)
+                             &key attrs dependent notes)
   (log-message :debug
                (format nil "Create the resource ~A, plus its attributes" resourcetype))
-  ;; FIXME: Check before creating a duplicate
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
         ((:STATEMENT
-           . ,(format nil "CREATE (r:rgResource {name: '~A'~A})~{, (r)-[:rgHasAttribute]->(:rgAttribute {name: '~A'})~};"
+           . ,(format nil "CREATE (r:rgResource {name: '~A'~A~A})~{, (r)-[:rgHasAttribute]->(:rgAttribute {name: '~A'})~};"
                       resourcetype
                       (if dependent
                           ", dependent: 'true'"
+                          "")
+                      (if notes
+                          (format nil ", notes: '~A'" notes)
                           "")
                       attrs))))))
   (log-message :debug "Add a uniqueness constraint in the database, but only if it's a primary resource.")
@@ -57,7 +59,6 @@
 
 (defmethod delete-resourcetype ((db neo4cl:neo4j-rest-server)
                                 (resourcetype string))
-  ;; FIXME Pull this resource-type's definition.
   ;; If it's not a dependent type, delete its uniqueness constraint.
   (when (not (dependent-resource-p db resourcetype))
     (log-message
@@ -107,26 +108,29 @@
                                    (resourcetype string))
   ;; Confirm whether this resourcetype exists at all.
   ;; If it doesn't, automatically return NIL.
-  (when (neo4cl:extract-data-from-get-request
-          (neo4cl:neo4j-transaction
-            db
-            `((:STATEMENTS ((:STATEMENT . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n" resourcetype)))))))
-    ;; Construct the return values
-    `((:NAME . ,resourcetype)
-      (:ATTRIBUTES
-        . ,(sort
-             (mapcar
-               #'(lambda (s) (cdr (assoc :name (car s))))
-               (neo4cl:extract-rows-from-get-request
-                 (neo4cl:neo4j-transaction
-                   db
-                   `((:STATEMENTS
-                       ((:STATEMENT
-                          . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n" resourcetype))))))))
-             #'string-lessp))
-      (:DEPENDENT . ,(if (dependent-resource-p db resourcetype)
-                     "true"
-                     "false")))))
+  (let ((node
+          (neo4cl:extract-data-from-get-request
+            (neo4cl:neo4j-transaction
+              db
+              `((:STATEMENTS ((:STATEMENT . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n" resourcetype)))))))))
+    (when node
+      ;; Construct the return values
+      `((:NAME . ,resourcetype)
+        (:ATTRIBUTES
+          . ,(sort
+               (mapcar
+                 #'(lambda (s) (cdr (assoc :name (car s))))
+                 (neo4cl:extract-rows-from-get-request
+                   (neo4cl:neo4j-transaction
+                     db
+                     `((:STATEMENTS
+                         ((:STATEMENT
+                            . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n" resourcetype))))))))
+               #'string-lessp))
+        (:DEPENDENT . ,(if (assoc :DEPENDENT node)
+                         "true"
+                         "false"))
+        (:NOTES . ,(cdr (assoc :NOTES node)))))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))
@@ -142,7 +146,7 @@
                                       (parent-type string)
                                       (relationship string)
                                       (dependent-type string)
-                                      &key dependent cardinality)
+                                      &key dependent cardinality notes)
   (cond
     ;; Sanity checks
     ((not (describe-resource-type db parent-type))
@@ -160,6 +164,8 @@
        (when (member cardinality '("1:1" "many:1" "1:many" "many:many"))
          (pushnew (format nil "cardinality: '~A'" cardinality)
                   attrs))
+       (when notes
+         (pushnew (format nil "notes: '~A'" notes) attrs))
        ;; Create it
        (neo4cl:neo4j-transaction
          db

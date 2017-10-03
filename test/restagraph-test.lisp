@@ -589,6 +589,7 @@
   "Simple operations to create and delete resource-types and relationships between them."
   (let ((ptype1-name "foo")
         (ptype1-attrs '("height" "Weight"))
+        (ptype1-notes "This resourcetype represents a metasyntactic variable.")
         (dtype1-name "bar"))
     ;; Create one primary resource
     (restagraph:log-message :info "Create one primary resource")
@@ -614,12 +615,13 @@
     (fiveam:is (restagraph:delete-resourcetype *server* dtype1-name))
     ;; Create, confirm and delete a primary resource with attributes
     (restagraph:log-message :info "TEST Create a primary resource with attributes")
-    (fiveam:is (restagraph:add-resourcetype *server* ptype1-name :attrs ptype1-attrs))
+    (fiveam:is (restagraph:add-resourcetype *server* ptype1-name :attrs ptype1-attrs :notes ptype1-notes))
     (restagraph:log-message :info "TEST Confirm presence of a single primary resource with attributes")
     (fiveam:is (equal
                  `((:NAME . ,ptype1-name)
                    (:ATTRIBUTES . ,(sort (copy-list ptype1-attrs) #'string-lessp))
-                   (:DEPENDENT nil))
+                   (:DEPENDENT . "false")
+                   (:NOTES . ,ptype1-notes))
                  (restagraph::describe-resource-type *server* ptype1-name)))
     (restagraph:log-message :info "TEST Delete the primary resource with attributes")
     (fiveam:is (restagraph:delete-resourcetype *server* ptype1-name))))
