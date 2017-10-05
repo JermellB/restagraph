@@ -94,6 +94,17 @@ class TestSchemaApi(unittest.TestCase):
         requests.delete('%s/resourcetype/cheeseburger' % (SCHEMA_BASE_URL))
         print('Test: schema should be empty')
         self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
+    def test_invalid_relationships(self):
+        print('Test: test_invalid_relationships')
+        # Create the resources to connect
+        requests.post('%s/resourcetype/dangler' % (SCHEMA_BASE_URL))
+        # Fail to connect it to nonexistent things
+        self.assertEqual(requests.post('%s/relationship/dangler/holds/subdangler' % SCHEMA_BASE_URL).status_code, 409)
+        self.assertEqual(requests.post('%s/relationship/superdangler/holds/dangler' % SCHEMA_BASE_URL).status_code, 409)
+        # Remove the fixtures
+        requests.delete('%s/resourcetype/dangler' % (SCHEMA_BASE_URL))
+        print('Test: schema should be empty')
+        self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
     def test_dependent_resource_relationships(self):
         print('Test: test_dependent_resource_relationships')
         # Create the resources to connect

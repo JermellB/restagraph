@@ -339,6 +339,8 @@
           (return-client-error "This wasn't a valid request"))))
     ;; Handle general errors
     ;;
+    ;; Attempted violation of db integrity
+    (restagraph:integrity-error (e) (return-integrity-error (message e)))
     ;; Generic client errors
     (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))
     ;; Transient error

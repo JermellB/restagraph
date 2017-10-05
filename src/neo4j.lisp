@@ -150,9 +150,11 @@
   (cond
     ;; Sanity checks
     ((not (describe-resource-type db parent-type))
-     (error (format nil "Parent resource type ~A does not exist" parent-type)))
+     (error 'restagraph:integrity-error :message
+            (format nil "Parent resource type ~A does not exist" parent-type)))
     ((not (describe-resource-type db dependent-type))
-     (error (format nil "Dependent resource type ~A does not exist" dependent-type)))
+     (error 'restagraph:integrity-error :message
+            (format nil "Dependent resource type ~A does not exist" dependent-type)))
     ;; FIXME catch the case where this relationship already exists
     ;; FIXME catch attempts to create dependent relationships to non-dependent types
     ;; All sanity checks have passed. Create it.
