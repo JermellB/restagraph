@@ -449,6 +449,7 @@
                                    (source-type string)
                                    (relationship string)
                                    (dest-type string))
+  (log-message :debug (format nil "Retrieving the dependency and cardinality attributes of relationship ~A from ~A to ~A" relationship source-type dest-type))
   (car
     (neo4cl:extract-rows-from-get-request
       (neo4cl:neo4j-transaction
