@@ -163,7 +163,7 @@
        ;; Add whatever attributes apply
        (when dependent
          (pushnew "dependent: 'true'" attrs))
-       (when (member cardinality '("1:1" "many:1" "1:many" "many:many"))
+       (when (member cardinality '("1:1" "many:1" "1:many" "many:many") :test #'equal)
          (pushnew (format nil "cardinality: '~A'" cardinality)
                   attrs))
        (when notes
