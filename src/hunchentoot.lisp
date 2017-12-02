@@ -477,7 +477,7 @@
          (handler-case
            (let ((sub-uri (cl-ppcre:regex-replace
                             (getf *config-vars* :api-uri-base) (tbnl:request-uri*) ""))
-                 (newtype (tbnl:post-parameter "type"))
+                 (newtype (car (last uri-parts)))
                  (uid (tbnl:post-parameter "uid")))
              (log-message :debug (format nil "Attempting to create dependent resource ~A:~A on ~A"
                                          newtype uid sub-uri))
