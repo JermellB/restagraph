@@ -34,7 +34,7 @@
 
 ;;; We can't directly check whether this acceptor is running,
 ;;; so we're using the existence of its special variable as a proxy.
-(defvar *restagraph-acceptor*
+(defparameter *restagraph-acceptor*
   (make-instance 'restagraph-acceptor
                  :address (getf *config-vars* :listen-address)
                  :port (getf *config-vars* :listen-port)
