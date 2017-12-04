@@ -451,13 +451,12 @@
                                    (dest-type string))
   (log-message :debug (format nil "Retrieving the dependency and cardinality attributes of relationship ~A from ~A to ~A" relationship source-type dest-type))
   (car
-    (neo4cl:extract-rows-from-get-request
-      (neo4cl:neo4j-transaction
-        db
-        `((:STATEMENTS
-            ((:STATEMENT
-               .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r.dependent, r.cardinality"
-                           source-type relationship dest-type)))))))))
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS
+          ((:STATEMENT
+             .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r.dependent, r.cardinality"
+                         source-type relationship dest-type))))))))
 
 (defmethod create-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (sourcepath string)

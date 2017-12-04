@@ -26,6 +26,12 @@
 (fiveam:def-suite main)
 (fiveam:in-suite main)
 
+(defun sort-results (results)
+  (sort results
+        #'string-lessp
+        :key #'(lambda (f)
+                 (cdr (assoc :uid (car f) :test #'equal)))))
+
 (fiveam:test
   resources-basic
   :depends-on 'schema-relationships
@@ -112,7 +118,9 @@
                         *server* (list parent-type parent-uid))))
     ;; Confirm we get the type when asking for all things with that relationship
     (restagraph:log-message :debug "TEST: Confirm listing of types with all things with this relationship")
-    (fiveam:is (equal `(((:type . ,child-type) (:uid . ,child-uid) (:original--uid . ,child-uid)))
+    (fiveam:is (equal `(((:type . ,child-type)
+                         (:uid . ,child-uid)
+                         (:original--uid . ,child-uid)))
                       (restagraph:get-resources
                         *server*
                         (format nil "/~A/~A/~A" parent-type parent-uid relationship))))
@@ -338,17 +346,28 @@
     (restagraph:store-resource *server* resourcetype `(("uid" . ,res2uid)))
     ;; Confirm we now get a list containing both resources
     (fiveam:is (equal
-                 `((((:uid . ,res1uid) (:original--uid . ,(restagraph:sanitise-uid res1uid)) (,(intern (string-upcase res1attrname) 'keyword) . ,res1attrval)))
-                   (((:uid . ,res2uid) (:original--uid . ,(restagraph:sanitise-uid res2uid)))))
-                 (restagraph:get-resources *server* (format nil "/~A" resourcetype))))
+                 (sort-results
+                   `((((:uid . ,res1uid)
+                       (:original--uid . ,(restagraph:sanitise-uid res1uid))
+                       (,(intern (string-upcase res1attrname) 'keyword) . ,res1attrval)))
+                     (((:uid . ,res2uid)
+                       (:original--uid . ,(restagraph:sanitise-uid res2uid))))))
+                 (sort-results
+                   (restagraph:get-resources *server* (format nil "/~A" resourcetype)))))
     ;; Add a third of that kind of resource
     (restagraph:store-resource *server* resourcetype `(("uid" . ,res3uid)))
     ;; Confirm we now get a list containing both resources
     (fiveam:is (equal
-                 `((((:uid . ,res1uid) (:original--uid . ,(restagraph:sanitise-uid res1uid)) (,(intern (string-upcase res1attrname) 'keyword) . ,res1attrval)))
-                   (((:uid . ,res2uid) (:original--uid . ,(restagraph:sanitise-uid res2uid))))
-                   (((:uid . ,res3uid) (:original--uid . ,(restagraph:sanitise-uid res3uid)))))
-                 (restagraph:get-resources *server* (format nil "/~A" resourcetype))))
+                 (sort-results
+                   `((((:uid . ,res1uid)
+                       (:original--uid . ,(restagraph:sanitise-uid res1uid))
+                       (,(intern (string-upcase res1attrname) 'keyword) . ,res1attrval)))
+                     (((:uid . ,res2uid)
+                       (:original--uid . ,(restagraph:sanitise-uid res2uid))))
+                     (((:uid . ,res3uid)
+                       (:original--uid . ,(restagraph:sanitise-uid res3uid))))))
+                 (sort-results
+                   (restagraph:get-resources *server* (format nil "/~A" resourcetype)))))
     ;; Delete all the resources we added
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res1uid))
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res2uid))
