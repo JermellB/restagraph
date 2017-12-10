@@ -352,6 +352,10 @@
       (if negationp "NOT " "")
       ;; Infer the operator
       (cond
+        ;; Outbound links
+        ((equal name "outbound")
+         (progn
+           (log-message :debug "Outbound link detected")))
         ;; Regex match
         ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
         ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
@@ -384,7 +388,9 @@
           response)
         "")))
 
-(defmethod get-resources ((db neo4cl:neo4j-rest-server) (uri string) &optional filters)
+(defmethod get-resources ((db neo4cl:neo4j-rest-server)
+                          (uri string)
+                          &optional filters)
   (log-message :debug (format nil "Fetching resources for URI ~A" uri))
   (let ((uri-parts (get-uri-parts uri)))
     (cond

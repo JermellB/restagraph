@@ -367,10 +367,10 @@
          (log-message :debug
                       (format nil "Dispatching GET request for URI ~A"
                               (tbnl:request-uri*)))
-         (let* (
-                ;; Extract the URI by dropping the base URL.
+         (let* (;; Extract the URI by dropping the base URL.
                 ;; Do it separately because we use it again later in this function.
                 (sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :api-uri-base)))
+                ;; Get the search result
                 (result (get-resources (datastore tbnl:*acceptor*)
                                        sub-uri
                                        (tbnl:get-parameters*))))
