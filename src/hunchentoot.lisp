@@ -239,29 +239,32 @@
            (if (and
                  (not (equal resourcetype ""))
                  (not (equal resourcetype "NIL")))
-             ;; Sanity test passed; store it
-             (progn
-               (log-message :debug (format nil "Adding resource type ~A" resourcetype))
-               (let ((object
-                       (append
-                         (list (datastore tbnl:*acceptor*) resourcetype)
-                         (when (tbnl:post-parameter "attributes")
-                           (list :attrs (cl-ppcre:split "," (tbnl:post-parameter "attributes"))))
-                         (when (tbnl:post-parameter "notes")
-                           (list :notes (tbnl:post-parameter "notes")))
-                         (when (tbnl:post-parameter "dependent")
-                           (list :dependent (tbnl:post-parameter "dependent"))))))
-                 (log-message :debug (format nil "Using parameters ~A" object))
-                 (apply #'add-resourcetype object))
-               ;; Return something useful
-               (setf (tbnl:content-type*) "application/text")
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               "Created")
-             ;; Sanity test failed; report the problem
-             (progn
-               (setf (tbnl:content-type*) "application/text")
-               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-               "At least give me the name of the resourcetype to create"))))
+               ;; Sanity test passed; store it
+               (let ((attrs
+                       (when (tbnl:post-parameter "attributes")
+                         (cl-ppcre:split "," (tbnl:post-parameter "attributes")))))
+                 (log-message
+                   :debug
+                   (format nil "Adding resource type ~A with notes '~A', dependent status '~A' and attributes ~{~A~^ ~}."
+                           resourcetype
+                           (tbnl:post-parameter "notes")
+                           (tbnl:post-parameter "dependent")
+                           attrs))
+                 (add-resourcetype
+                   (datastore tbnl:*acceptor*)
+                   resourcetype
+                   :attrs attrs
+                   :dependent (tbnl:post-parameter "dependent")
+                   :notes (tbnl:post-parameter "notes"))
+                 ;; Return something useful
+                 (setf (tbnl:content-type*) "application/text")
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 "Created")
+               ;; Sanity test failed; report the problem
+               (progn
+                 (setf (tbnl:content-type*) "application/text")
+                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+                 "At least give me the name of the resourcetype to create"))))
         ;; Delete a resource-type
         ((and
            (equal (tbnl:request-method*) :DELETE)
