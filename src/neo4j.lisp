@@ -397,13 +397,14 @@
       ;; All resources of a given type
       ((equal (mod (length uri-parts) 3) 1)
        (log-message :debug (format nil "Fetching all resources of type ~A" uri))
-       (neo4cl:extract-rows-from-get-request
-         (neo4cl:neo4j-transaction
-           db
-           `((:STATEMENTS
-               ((:STATEMENT . ,(format nil "MATCH ~A~A RETURN n"
-                                       (uri-node-helper uri-parts)
-                                       (process-filters filters)))))))))
+       (mapcar #'car
+               (neo4cl:extract-rows-from-get-request
+                 (neo4cl:neo4j-transaction
+                   db
+                   `((:STATEMENTS
+                       ((:STATEMENT . ,(format nil "MATCH ~A~A RETURN n"
+                                               (uri-node-helper uri-parts)
+                                               (process-filters filters))))))))))
       ;; One specific resource
       ((equal (mod (length uri-parts) 3) 2)
        (log-message :debug (format nil "Fetching the resource matching the path ~A" uri))
