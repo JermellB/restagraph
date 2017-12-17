@@ -431,10 +431,11 @@
                             . ,(format nil "MATCH ~A~A RETURN labels(n), n"
                                        (uri-node-helper uri-parts)
                                        (process-filters filters))))))))))
+          (log-message
+            :debug
+            (format nil "Retrieved results: ~A" response))
           ;; Reformat it so that (:type <type>) appears at the start of the list
-          (mapcar (lambda (r)
-                    (cons (cons :type (caar r))
-                          (cadar response)))
+          (mapcar (lambda (r) (cons (cons :type (caar r)) (cadr r)))
                   response))))))
 
 
