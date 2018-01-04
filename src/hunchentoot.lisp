@@ -408,7 +408,7 @@
                uri-parts
                (tbnl:post-parameters*))
              (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-ok+)
+             (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; Return JSON representation of the newly-updated resource
              (cl-json:encode-json-alist-to-string
                (get-resources (datastore tbnl:*acceptor*) (tbnl:request-uri*))))
