@@ -360,9 +360,14 @@
       ;; Infer the operator
       (cond
         ;; Outbound links
+        ;; Simple format: relationship/path/to/target
         ((equal name "outbound")
-         (progn
-           (log-message :debug "Outbound link detected")))
+         (let* ((parts (cl-ppcre:split "/" value))
+                (relationship (first parts))
+                (target-type (second parts))
+                (target-uid (third parts)))
+           (log-message :debug "Outbound link detected: ~A" value)
+           (format nil "(n)-[:~A]-(:~A {uid: '~A'})" relationship target-type target-uid)))
         ;; Regex match
         ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
         ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
