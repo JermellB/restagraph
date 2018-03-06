@@ -9,27 +9,11 @@ Restgraph is an application that dynamically generates a REST API in front of a 
 - resources which only make sense in the context of other resources, e.g. interfaces on computers.
 
 
-A framework of sorts for producing a REST API for a Neo4J graph database, from a schema defined within that database.
+So it's a framework of sorts for producing a REST API for a Neo4J graph database, from a schema defined within that database.
 
 The aim is a black box that automagically converts a schema into an API, without any _need_ for a regular user to know about its internals.
 
 There is explicit support for dependent resources, i.e. resources that only make sense in the context of another.
-
-### Where it came from
-
-Impetus 1: I wanted something that would enforce a schema for Neo4j, which I gather a few other people would also like. It would also be nice to have a REST API whose shape matches that of the schema, to make it easier to think in terms of the problem domain, and to save application users having to learn Cypher before being able to do anything with it.
-
-Impetus 2: I needed to prototype schemas for [Syscat](https://github.com/equill/syscat), and writing everything by hand was just tedious.
-
-it certainly doesn't solve all cases, but it's working nicely for its niche.
-
-Note that I'm still primarily focused on Syscat, so development of Restagraph will be driven by that project's needs until it has matured enough that I can divide my attention again. Or unless I find out somebody's using this and needs me to fix/add something.
-
-### Current state
-
-The good: it does its primary job well enough for Syscat development to be ticking along. It's usable _if_ you're familar with running Common Lisp applications that are based on Hunchentoot. If that sentence made no sense to you, you want to wait until I've Dockerised this, which is ticket #18.
-
-The less good: it still needs a lot of polish, hardening, documentation, and general stuff to make it operations-ready.
 
 
 ## What goes in the database
@@ -116,8 +100,21 @@ DELETE /api/v1/<resource-type>/<Unique ID>/<relationship>/<Unique ID>
 
 ### Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs
 ```
-GET /api/v1/<resource-type>/<Unique ID>/<relationship>/
+GET /api/v1/<resource-type>/<Unique ID>/<relationship>/?<attribute>=<value>
 ```
+
+Regular expressions based on [Java regexes](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) can be used. Negation can be effected by putting `!` at the start of the regex.
+
+
+### Search for objects with a set relationship to another resource
+
+This is currently limited to one hop.
+```
+GET /api/v1/<resource-type>?outbound=<relationship>/<resource-type>/<resource-uid>
+```
+
+E.g, `GET /api/v1/devices?outbound=BusinessOwner/organisations/Sales`
+
 
 ### Create a resource that depends on another for its context
 This is defined in the schema by adding the attribute `dependent=true` to the dependent `rgResource` definition, and by then adding the same attribute to the relationships to that resource-type from resource-types that are valid parents.
@@ -127,9 +124,11 @@ POST /api/v1/<parent-type>/<parent-uid>/<relationship-type>
 with parameters: 'type=<child-type>' and 'uid=<child-uid>' (both are required)
 ```
 
+
 ### Delete a dependent resource
 Either use the `DELETE` method on the full path to the resource in question to remove it specifically, or pass the `delete-dependent=true` parameter to the API call to one of its parents further up the chain.
 The `delete-dependent` parameter acts recursively downward from whatever resource is being deleted.
+
 
 ### Move a dependent resource from one parent to another
 Note that the new parent must be a valid parent for the child resource, and the new relationship must also be a valid dependent relationship.
@@ -137,6 +136,7 @@ Note that the new parent must be a valid parent for the child resource, and the 
 POST /api/v1/path/to/dependent/resource
 with parameter: 'target=/uri/path/to/new/parent/and/relationship'
 ```
+
 
 ## Working example
 
