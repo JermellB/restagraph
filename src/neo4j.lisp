@@ -292,7 +292,9 @@
              . ,(format nil "MATCH (a:rgResource { name: '~A' })-[r:~A { dependent: 'true' } ]->(b:rgResource { name: '~A', dependent: 'true' }) WHERE r.dependent = 'true' RETURN type(r)"
                         source-type relationship dest-type))))))))
 
-(defmethod store-resource ((db neo4cl:neo4j-rest-server) (resourcetype string) (post-params list))
+(defmethod store-resource ((db neo4cl:neo4j-rest-server)
+                           (resourcetype string)
+                           (post-params list))
   (cond
     ;; Catch any critical deficiencies in the definition asap
     ((or (null (assoc "uid" post-params :test 'equal))
