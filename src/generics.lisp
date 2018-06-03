@@ -56,7 +56,8 @@
   (:documentation "Store a resource in the database.
 Return an error if
 - the resource type is not present in the schema
-- any of the attributes is not defined in the schema for this resource type."))
+- any of the attributes is not defined in the schema for this resource type.
+Attributes argument is expected to be an alist."))
 
 (defgeneric store-dependent-resource (db uri attributes)
   (:documentation "Create a dependent resource, at the end of the path given by URI. Its parent resource must exist, and the relationship must be a valid dependent relationship."))

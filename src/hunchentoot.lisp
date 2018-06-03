@@ -578,7 +578,12 @@
     ;; Database error
     (neo4cl:database-error (e) (return-database-error e))))
 
-(defun startup (&key docker)
+(defun startup (&key docker schema-path)
+  "Start up the appserver.
+  Ensures the uniqueness constraint on resource-types is present in Neo4j.
+  Keyword arguments:
+  - docker = whether to start up in a manner suitable to running under docker, i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up.
+  - schema-path = path to a YAML-formatted schema file. If this is supplied, read the file, check whether the version is newer than the one recorded in the database and, if so, apply it."
   (log-message :info "Starting up the restagraph application server")
   ;; Ensure we have a uniqueness constraint on resource-types
   (handler-case
