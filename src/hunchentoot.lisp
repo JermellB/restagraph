@@ -32,22 +32,6 @@
   (:default-initargs :address "127.0.0.1")
   (:documentation "vhost object, subclassed from tbnl:easy-acceptor"))
 
-;;; We can't directly check whether this acceptor is running,
-;;; so we're using the existence of its special variable as a proxy.
-(defparameter *restagraph-acceptor*
-  (make-instance 'restagraph-acceptor
-                 :address (getf *config-vars* :listen-address)
-                 :port (getf *config-vars* :listen-port)
-                 :url-base (getf *config-vars* ::url-base)
-                 ;; Send all logs to STDOUT, and let Docker sort 'em out
-                 :access-log-destination (make-synonym-stream 'cl:*standard-output*)
-                 :message-log-destination (make-synonym-stream 'cl:*standard-output*)
-                 ;; Datastore object - for specialising all the db methods on
-                 :datastore (make-instance 'neo4cl:neo4j-rest-server
-                                           :hostname (getf *config-vars* :dbhostname)
-                                           :dbpasswd (getf *config-vars* :dbpasswd)
-                                           :dbuser (getf *config-vars* :dbusername))))
-
 ;;; Define a logging method
 (defmethod tbnl:acceptor-log-message ((acceptor restagraph-acceptor)
                                       log-level
@@ -380,17 +364,17 @@
            ;; Handle the null result
            (if (or (null result)
                    (equal result ""))
-             (progn
-               (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-not-found+)
-               (format nil "No resources found for ~A" sub-uri))
-             ;; It worked; return what we found
-             (progn
-               (setf (tbnl:content-type*) "application/json")
-               (setf (tbnl:return-code*) tbnl:+http-ok+)
-               (if (= (mod (length uri-parts) 3) 2)
-                 (cl-json:encode-json-alist-to-string result)
-                 (cl-json:encode-json-to-string result))))))
+               (progn
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-not-found+)
+                 (format nil "No resources found for ~A" sub-uri))
+               ;; It worked; return what we found
+               (progn
+                 (setf (tbnl:content-type*) "application/json")
+                 (setf (tbnl:return-code*) tbnl:+http-ok+)
+                 (if (= (mod (length uri-parts) 3) 2)
+                     (cl-json:encode-json-alist-to-string result)
+                     (cl-json:encode-json-to-string result))))))
         ;; PUT -> Update something already present
         ;;
         ;; Resource
@@ -578,48 +562,89 @@
     ;; Database error
     (neo4cl:database-error (e) (return-database-error e))))
 
-(defun startup (&key docker schema-path)
+(defun make-default-acceptor ()
+  (make-instance 'restagraph-acceptor
+                 :address (getf *config-vars* :listen-address)
+                 :port (getf *config-vars* :listen-port)
+                 :url-base (getf *config-vars* ::url-base)
+                 ;; Send all logs to STDOUT, and let Docker sort 'em out
+                 :access-log-destination (make-synonym-stream 'cl:*standard-output*)
+                 :message-log-destination (make-synonym-stream 'cl:*standard-output*)
+                 ;; Datastore object - for specialising all the db methods on
+                 :datastore (make-instance 'neo4cl:neo4j-rest-server
+                                           :hostname (getf *config-vars* :dbhostname)
+                                           :dbpasswd (getf *config-vars* :dbpasswd)
+                                           :dbuser (getf *config-vars* :dbusername))))
+
+(defun startup (&key acceptor dispatchers docker schema)
   "Start up the appserver.
-  Ensures the uniqueness constraint on resource-types is present in Neo4j.
-  Keyword arguments:
-  - docker = whether to start up in a manner suitable to running under docker, i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up.
-  - schema-path = path to a YAML-formatted schema file. If this is supplied, read the file, check whether the version is newer than the one recorded in the database and, if so, apply it."
-  (log-message :info "Starting up the restagraph application server")
-  ;; Ensure we have a uniqueness constraint on resource-types
-  (handler-case
-    (neo4cl:neo4j-transaction
-      (datastore *restagraph-acceptor*)
-      `((:STATEMENTS
-          ((:STATEMENT . "CREATE CONSTRAINT ON (r:rgResource) ASSERT r.name IS UNIQUE")))))
-    (neo4cl:database-error (e)
-                           (if (equal (neo4cl:title e) "ConstraintCreateFailed")
-                             nil   ; This is OK - do nothing
-                             (return-database-error
-                               (format nil "~A.~A: ~A"
-                                       (neo4cl:category e)
-                                       (neo4cl:title e)
-                                       (neo4cl:message e))))))
-  ;; Set the dispatch table
-  (setf tbnl:*dispatch-table*
-        (list
-          (tbnl:create-prefix-dispatcher (getf *config-vars* :api-uri-base) 'api-dispatcher-v1)
-          (tbnl:create-prefix-dispatcher (getf *config-vars* :schema-uri-base) 'schema-dispatcher-v1)
-          (tbnl:create-prefix-dispatcher "/" 'four-oh-four)))
-  ;; Start up the server
-  (log-message :info "Starting up Hunchentoot to serve HTTP requests")
-  (handler-case
-    (tbnl:start *restagraph-acceptor*)
-    (usocket:address-in-use-error
-      () (log-message :error
-                      (format nil "Attempted to start an already-running instance!"))))
-  (when docker
-    (sb-thread:join-thread
-      (find-if
-        (lambda (th)
-          (string= (sb-thread:thread-name th)
-                   (format nil "hunchentoot-listener-localhost:~A"
-                           (getf *config-vars* :listen-port))))
-        (sb-thread:list-all-threads)))))
+   Ensures the uniqueness constraint on resource-types is present in Neo4j.
+   Keyword arguments:
+   - acceptor = prebuilt acceptor, to use instead of the default.
+   - dispatchers = extra dispatchers to add to tbnl:*dispatch-table* in addition to the defaults.
+   - docker = whether to start up in a manner suitable to running under docker,
+     i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up.
+   - schema = schema, as returned by applying cl-yaml:parse to a valid YAML file. If supplied,
+     check whether the version is newer than the one recorded in the database and, if so, apply it."
+  (log-message :info "Attempting to start up the restagraph application server")
+  ;; Sanity-check: is an acceptor already running?
+  ;;; We can't directly check whether this acceptor is running,
+  ;;; so we're using the existence of its special variable as a proxy.
+  (if (boundp '*restagraph-acceptor*)
+      ;; There's an acceptor already in play; bail out.
+      (log-message :warn "Acceptor already exists; refusing to create a new one.")
+      ;; No existing acceptor; we're good to go.
+      (progn
+        ;; Ensure we have an acceptor to work with
+        (unless acceptor (setf acceptor (make-default-acceptor)))
+        ;; Make it available as a dynamic variable, for shutdown to work on
+        (defparameter *restagraph-acceptor* acceptor)
+        ;; Ensure we have a uniqueness constraint on resource-types
+        (handler-case
+          (neo4cl:neo4j-transaction
+            (datastore acceptor)
+            `((:STATEMENTS
+                ((:STATEMENT . "CREATE CONSTRAINT ON (r:rgResource) ASSERT r.name IS UNIQUE")))))
+          ;; If this fails because we already did it, that's fine.
+          (neo4cl:database-error (e)
+                                 (if (equal (neo4cl:title e) "ConstraintCreateFailed")
+                                     nil   ; This is OK - do nothing
+                                     (return-database-error
+                                       (format nil "~A.~A: ~A"
+                                               (neo4cl:category e)
+                                               (neo4cl:title e)
+                                               (neo4cl:message e))))))
+        ;; Update the schema, if one has been specified
+        (when schema (inject-schema (datastore acceptor) schema))
+        ;; Set the dispatch table
+        (restagraph:log-message :info "Configuring the dispatch table")
+        (setf tbnl:*dispatch-table*
+              (append
+                ;; Restagraph defaults
+                (list (tbnl:create-prefix-dispatcher
+                        (getf *config-vars* :api-uri-base) 'api-dispatcher-v1)
+                      (tbnl:create-prefix-dispatcher
+                        (getf *config-vars* :schema-uri-base) 'schema-dispatcher-v1))
+                ;; Include the additional dispatchers here
+                dispatchers
+                ;; Default fallback
+                (list (tbnl:create-prefix-dispatcher "/" 'four-oh-four))))
+        ;; Start up the server
+        (log-message :info "Starting up Hunchentoot to serve HTTP requests")
+        (handler-case
+          (tbnl:start acceptor)
+          (usocket:address-in-use-error
+            () (log-message :error
+                            (format nil "Attempted to start an already-running instance!"))))
+        (when docker
+          (sb-thread:join-thread
+            (find-if
+                    (lambda (th)
+                      (string= (sb-thread:thread-name th)
+                               (format nil "hunchentoot-listener-~A:~A"
+                                       (tbnl:acceptor-address acceptor)
+                                       (tbnl:acceptor-port acceptor))))
+                    (sb-thread:list-all-threads)))))))
 
 (defun dockerstart ()
   (startup :docker t))
@@ -628,9 +653,32 @@
   (sb-ext:save-lisp-and-die path :executable t :toplevel 'restagraph::dockerstart))
 
 (defun shutdown ()
-  (log-message :info
-               (format nil "Shutting down the restagraph application server"))
-  (handler-case
-    (tbnl:stop *restagraph-acceptor*)
-    ;; Catch the case where it's already shut down
-    (tbnl::unbound-slot () (log-message :info "Attempting to shut down Hunchentoot, but it's not running."))))
+  ;; Check whether there's something to shut down
+  (if (boundp '*restagraph-acceptor*)
+      ;; There is; go ahead
+      (progn
+      ;; Check whether it's still present but shutdown
+      (if (tbnl::acceptor-shutdown-p *restagraph-acceptor*)
+          (log-message :info "Acceptor was present but already shut down.")
+          (progn
+            (restagraph:log-message
+              :info
+              (format nil "Shutting down the restagraph application server"))
+            (handler-case
+              ;; Perform a soft shutdown: finish serving any requests in flight
+              (tbnl:stop *restagraph-acceptor* :soft t)
+              ;; Catch the case where it's already shut down
+              (tbnl::unbound-slot
+                ()
+                (restagraph:log-message
+                  :info
+                  "Attempting to shut down Hunchentoot, but it's not running."))
+              (sb-pcl::no-applicable-method-error
+                ()
+                (restagraph:log-message
+                  :info
+                  "Attempted to shut down Hunchentoot, but received an error. Assuming it wasn't running.")))))
+        ;; Nuke the acceptor
+        (makunbound '*restagraph-acceptor*))
+      ;; No acceptor. Note the fact and do nothing.
+      (restagraph:log-message :warn "No acceptor present; nothing to shut down.")))

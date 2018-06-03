@@ -16,6 +16,28 @@ The aim is a black box that automagically converts a schema into an API, without
 There is explicit support for dependent resources, i.e. resources that only make sense in the context of another.
 
 
+## Defining the schema
+
+There are two ways of managing the schema, which can be combined as desired:
+
+- pass a schema object to the `startup` function
+    - this object is expected to be the output of `(cl-yaml:parse)`, and must include
+        - `name` with a string value
+        - `version` with an integer value. If this is greater than the existing version for the schema with this name, or there's no record of a schema with that name, the schema will be applied, and then this number will be set as a version. The "current" version is assumed to be the highest number of a version linked to the schema name, so there's no "currentVersion" link or attribute to manage.
+    - an example of a valid schema is found in the [Syscat sources](https://bitbucket.org/equill/syscat/src/master/).
+- its dedicated API at `/schema/v1`.
+
+
+### Dump the whole schema
+
+`GET /schema/v1/` will return a description of all resources, in JSON format (a list of objects).
+
+
+### Describe the schema for a single resource
+
+`GET /schema/v1?name=<name of resource>` will return the description of a single resource, as a JSON object.
+
+
 ## What goes in the database
 
 Objects/resources are defined with the label `rgResource`; their name becomes the label used to create their nodes in the database.
@@ -25,6 +47,10 @@ Their attributes are defined as objects with the label `rgAttribute`, linked to 
 *Note:* attribute names must be in lowercase, due to the way this system handles them. I hope to lift this restriction in future.
 
 The third element is relationships between `rgResource` objects. These are implemented as regular Neo4J relationships, and define the relationships that can be created from one resource instance to another.
+
+Lastly, `rgSchemas` and `rgSchemaVersions` are used for managing schemas.
+
+It's recommended not to define any schema objects with names starting with `rg`.
 
 
 ## The API it generates
