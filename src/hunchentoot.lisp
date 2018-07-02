@@ -177,6 +177,13 @@
   ;; Otherwise, just pass on the logmessage.
   (if message message logmessage))
 
+(defun return-service-error (logmessage &optional message)
+  "There was a problem with connecting to the backend service."
+  (log-message :crit (format nil "Service error: ~A" logmessage))
+  (setf (tbnl:content-type*) "text/plain")
+  (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+  (or message logmessage))
+
 
 ;; Functions for dispatching requests
 
@@ -333,7 +340,9 @@
     ;; Transient error
     (neo4cl:transient-error (e) (return-transient-error e))
     ;; Database error
-    (neo4cl:database-error (e) (return-database-error e))))
+    (neo4cl:database-error (e) (return-database-error e))
+    ;; Service errors, e.g. connection refused
+    (neo4cl:service-error (e) (return-service-error (neo4cl:message e)))))
 
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
@@ -560,7 +569,9 @@
     ;; Transient error
     (neo4cl:transient-error (e) (return-transient-error e))
     ;; Database error
-    (neo4cl:database-error (e) (return-database-error e))))
+    (neo4cl:database-error (e) (return-database-error e))
+    ;; Service errors, e.g. connection refused
+    (neo4cl:service-error (e) (return-service-error (neo4cl:message e)))))
 
 (defun make-default-acceptor ()
   (make-instance 'restagraph-acceptor
