@@ -587,6 +587,69 @@
                                            :dbpasswd (getf *config-vars* :dbpasswd)
                                            :dbuser (getf *config-vars* :dbusername))))
 
+(defun ensure-db-passwd (server)
+  "Check the credentials for the database.
+   If they fail initially, test whether the default password is still in effect;
+   if so, change it.
+   If it's neither the default nor the specified one, bail out noisily.
+   Expected argument is an instance of neo4cl:neo4j-rest-server.
+   Returns t on success"
+  (log-message :info "Checking database credentials.")
+  (if (neo4cl:get-user-status server)
+      ;; Success! Report such
+      (progn
+        (log-message :info "Specified credentials succeeded")
+        t)
+      ;; The specified credentials failed.
+      ;; If the default password works, change it.
+      (let ((defaults (make-instance 'neo4cl:neo4j-rest-server
+                                     :hostname (neo4cl:hostname server)
+                                     :port (neo4cl:port server)
+                                     :dbuser "neo4j"
+                                     :dbpasswd "neo4j")))
+        (log-message :info "Specified credentials failed. Testing the default password")
+        (handler-case
+          (if (neo4cl:get-user-status defaults)
+              (progn
+                (log-message :error "Default password works. Changing it.")
+                (neo4cl:change-password defaults (neo4cl:dbpasswd server)))
+              (progn
+                (log-message :critical "Failed to change password. Exiting.")
+                (sb-ext:exit)))
+          (neo4cl:service-error
+            (e)
+            (if (and
+                  (equal (neo4cl:category e) "Password")
+                  (equal (neo4cl:message e) "Password change is required"))
+                (log-message :info "Default password still in effect. Changing..")
+                (neo4cl:change-password defaults (neo4cl:dbpasswd server))))))))
+
+(defun confirm-db-is-running (server &key (counter 1) (max-count 5) (sleep-time 5))
+  (log-message :debug "Checking whether the database is running on ~A:~A"
+               (neo4cl:hostname server) (neo4cl:port server))
+  (handler-case
+    (when (drakma:http-request
+    (format nil "http://~A:~A" (neo4cl:hostname server) (neo4cl:port server)))
+    (ensure-db-passwd server))
+    (USOCKET:CONNECTION-REFUSED-ERROR
+      (e)
+      (declare (ignore e))
+      (if (>= counter max-count)
+          ;; Timed out.
+          ;; Leave a message, then exit this whole thing.
+          (progn
+            (log-message :crit "Timed out trying to connect to the database. Exiting.")
+            (sb-ext:exit))
+          ;; Still isn't responding, but we haven't yet hit timeout.
+          ;; Leave a message, pause, then try again.
+          (progn
+            (log-message :warn "Connection refused. Pausing for ~A seconds before retrying" sleep-time)
+            (sleep sleep-time)
+            (confirm-db-is-running server
+                                   :counter (+ counter 1)
+                                   :max-count max-count
+                                   :sleep-time sleep-time))))))
+
 (defun startup (&key acceptor dispatchers docker schema)
   "Start up the appserver.
    Ensures the uniqueness constraint on resource-types is present in Neo4j.
@@ -610,6 +673,9 @@
         (unless acceptor (setf acceptor (make-default-acceptor)))
         ;; Make it available as a dynamic variable, for shutdown to work on
         (defparameter *restagraph-acceptor* acceptor)
+        ;; Sanity-check whether the database is available
+        (unless (confirm-db-is-running (datastore acceptor) :max-count 25)
+          (error "Database is not available"))
         ;; Ensure we have a uniqueness constraint on resource-types
         (handler-case
           (neo4cl:neo4j-transaction

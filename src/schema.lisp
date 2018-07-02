@@ -5,6 +5,7 @@
 (defun ensure-schema-schema (db)
   "Bootstrap function to ensure the database contains the schema-related schema.
    Must be handled separately from the schema we're trying to inject."
+  (log-message :info "Attempting to apply schema")
   ;; Schema name.
   ;; Enables us to combine multiple schemas in a single system.
   (handler-case

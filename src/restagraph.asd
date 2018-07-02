@@ -19,6 +19,7 @@
   :description "Generates a REST API from a shema defined in Neo4J"
   :depends-on (#:neo4cl
                #:hunchentoot
+               #:drakma
                #:cl-yaml)
   :components ((:file "package")
                (:file "config")
