@@ -280,28 +280,28 @@
                  destination-type
                  (not (equal relationship ""))
                  (not (equal relationship "NIL")))
-             ;; Store it
-             (progn
-               (log-message :debug
-                            (format nil "Adding relationship ~A from ~A to ~A"
-                                    relationship source-type destination-type))
-               ;; Handle cardinality and dependent attributes
-               ;; Make it go
-               (add-resource-relationship
-                 (datastore tbnl:*acceptor*)
-                 source-type
-                 relationship
-                 destination-type
-                 :dependent (tbnl:post-parameter "dependent")
-                 :cardinality (tbnl:post-parameter "cardinality"))
-               ;; Return something useful
-               (setf (tbnl:content-type*) "application/text")
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               "Created")
-             (progn
-               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-               (setf (tbnl:content-type*) "application/text")
-               "All parameters are required: /<source-type>/<relationship>/<destination-type>"))))
+               ;; Store it
+               (progn
+                 (log-message :debug
+                              (format nil "Adding relationship ~A from ~A to ~A"
+                                      relationship source-type destination-type))
+                 ;; Handle cardinality and dependent attributes
+                 ;; Make it go
+                 (add-resource-relationship
+                   (datastore tbnl:*acceptor*)
+                   source-type
+                   relationship
+                   destination-type
+                   :dependent (tbnl:post-parameter "dependent")
+                   :cardinality (tbnl:post-parameter "cardinality"))
+                 ;; Return something useful
+                 (setf (tbnl:content-type*) "application/text")
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 "Created")
+               (progn
+                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+                 (setf (tbnl:content-type*) "application/text")
+                 "All parameters are required: /<source-type>/<relationship>/<destination-type>"))))
         ;; Delete a relationship
         ((and
            (equal (tbnl:request-method*) :DELETE)
