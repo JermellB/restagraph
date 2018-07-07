@@ -654,7 +654,9 @@
 
 (defun shutdown ()
   ;; Check whether there's something to shut down
-  (if (boundp '*restagraph-acceptor*)
+  (if (and
+        (boundp '*restagraph-acceptor*)
+        *restagraph-acceptor*)
       ;; There is; go ahead
       (progn
       ;; Check whether it's still present but shutdown
