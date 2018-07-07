@@ -20,8 +20,10 @@
 
 (defvar *loglevels*
   '(:crit 4
+    :critical 4
     :error 3
     :warn 2
+    :warning 2
     :info 1
     :debug 0))
 
