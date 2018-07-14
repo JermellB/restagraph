@@ -130,7 +130,23 @@
         (:DEPENDENT . ,(if (assoc :DEPENDENT node)
                          "true"
                          "false"))
-        (:NOTES . ,(cdr (assoc :NOTES node)))))))
+        (:NOTES . ,(if (cdr (assoc :NOTES node)) (cdr (assoc :NOTES node)) ""))
+        (:RELATIONSHIPS . ,(describe-dependent-resources db resourcetype))))))
+
+(defmethod describe-dependent-resources ((db neo4cl:neo4j-rest-server)
+                                         (resourcetype string))
+  (mapcar #'(lambda (row)
+              `((:relationship . ,(first row))
+                (:dependent . ,(if (second row) "true" "false"))
+                (:cardinality . ,(third row))
+                (:resourcetype . ,(fourth row))))
+          (neo4cl:extract-rows-from-get-request
+            (neo4cl:neo4j-transaction
+              db
+              `((:STATEMENTS
+                  ((:STATEMENT .
+                    ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN type(r), r.dependent, r.cardinality, n.name"
+                             resourcetype)))))))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))

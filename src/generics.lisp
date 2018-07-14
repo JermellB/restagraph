@@ -35,6 +35,9 @@
 (defgeneric describe-resource-type (db resourcetype)
   (:documentation "Return the description of a resource-type, as an alist. Entries include :name, :attributes and :dependent."))
 
+(defgeneric describe-dependent-resources (db resourcetype)
+  (:documentation "Return a list of descriptions of all the dependent resourcetypes for this resource."))
+
 (defgeneric get-resource-attributes-from-db (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database"))
 
