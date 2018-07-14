@@ -175,14 +175,16 @@
   (setf (tbnl:return-code*) tbnl:+http-bad-request+)
   ;; If we were handed a specific message, use that.
   ;; Otherwise, just pass on the logmessage.
-  (if message message logmessage))
+  (format nil "Client error: ~A"
+          (or message logmessage)))
 
 (defun return-service-error (logmessage &optional message)
   "There was a problem with connecting to the backend service."
   (log-message :crit (format nil "Service error: ~A" logmessage))
   (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
-  (or message logmessage))
+  (format nil "Service error: ~A"
+          (or message logmessage)))
 
 
 ;; Functions for dispatching requests
