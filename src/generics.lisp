@@ -32,11 +32,18 @@
 (defgeneric get-resource-types (db)
   (:documentation "Extract resource definitions from the database"))
 
-(defgeneric describe-resource-type (db resourcetype)
-  (:documentation "Return the description of a resource-type, as an alist. Entries include :name, :attributes and :dependent."))
+(defgeneric describe-resource-type (db resourcetype &key recursive resources-seen)
+  (:documentation "Return the description of a resource-type, as an alist.
+                   Entries include :name, :attributes and :dependent.
+                   The :recursive key is a boolean indicating whether to recursively traverse all the relationships
+                   from this resource-type.
+                   The :resources-seen key is used internally to break loops when recursing."))
 
-(defgeneric describe-dependent-resources (db resourcetype)
-  (:documentation "Return a list of descriptions of all the dependent resourcetypes for this resource."))
+(defgeneric describe-dependent-resources (db resourcetype &key recursive resources-seen)
+  (:documentation "Return a list of descriptions of all the dependent resourcetypes for this resource.
+                   Entries include :name :attributes and :dependent.
+                   The :recursive key is a boolean indicating whether to recursively traverse all the relationships
+                   The :resources-seen key is used internally to break loops when recursing."))
 
 (defgeneric get-resource-attributes-from-db (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database"))

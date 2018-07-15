@@ -105,7 +105,10 @@
                   ((:STATEMENT . "MATCH (c:rgResource) RETURN c"))))))))
 
 (defmethod describe-resource-type ((db neo4cl:neo4j-rest-server)
-                                   (resourcetype string))
+                                   (resourcetype string)
+                                   &key recursive
+                                   resources-seen)
+  (log-message :debug (format nil "Describing resource-type '~A'" resourcetype))
   ;; Confirm whether this resourcetype exists at all.
   ;; If it doesn't, automatically return NIL.
   (let ((node
@@ -125,28 +128,49 @@
                      db
                      `((:STATEMENTS
                          ((:STATEMENT
-                            . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n" resourcetype))))))))
+                            . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n"
+                                       resourcetype))))))))
                #'string-lessp))
         (:DEPENDENT . ,(if (assoc :DEPENDENT node)
-                         "true"
-                         "false"))
+                           "true"
+                           "false"))
         (:NOTES . ,(if (cdr (assoc :NOTES node)) (cdr (assoc :NOTES node)) ""))
-        (:RELATIONSHIPS . ,(describe-dependent-resources db resourcetype))))))
+        (:RELATIONSHIPS . ,(describe-dependent-resources
+                             db
+                             resourcetype
+                             :recursive recursive
+                             :resources-seen resources-seen))))))
 
 (defmethod describe-dependent-resources ((db neo4cl:neo4j-rest-server)
-                                         (resourcetype string))
+                                         (resourcetype string)
+                                         &key recursive
+                                         resources-seen)
+  (log-message :debug (format nil "Describing resources linked from '~A'" resourcetype))
   (mapcar #'(lambda (row)
+              (log-message :debug "Adding description for linked resourcetype '~A'" (fourth row))
+              ;; Return an alist of the values, ready for rendering into Javascript
               `((:relationship . ,(first row))
                 (:dependent . ,(if (second row) "true" "false"))
                 (:cardinality . ,(third row))
-                (:resourcetype . ,(fourth row))))
-          (neo4cl:extract-rows-from-get-request
-            (neo4cl:neo4j-transaction
-              db
-              `((:STATEMENTS
-                  ((:STATEMENT .
-                    ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN type(r), r.dependent, r.cardinality, n.name"
-                             resourcetype)))))))))
+                (:resourcetype
+                  . ,(if recursive
+                         (progn
+                           ;; Add this resource-type to the list of those seen
+                           (log-message :debug (format nil "Adding '~A' to the list of resources already seen" (fourth row)))
+                           (pushnew (fourth row) resources-seen)
+                           ;; Now recurse through this process
+                           (describe-resource-type db (fourth row) :recursive t :resources-seen resources-seen))
+                         (fourth row)))))
+          ;; Skip any resources we've already seen, to break loops
+          (remove-if #'(lambda (row)
+                         (member (fourth row) resources-seen :test #'equal))
+                     (neo4cl:extract-rows-from-get-request
+                       (neo4cl:neo4j-transaction
+                         db
+                         `((:STATEMENTS
+                             ((:STATEMENT .
+                               ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN type(r), r.dependent, r.cardinality, n.name"
+                                        resourcetype))))))))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))

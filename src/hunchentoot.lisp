@@ -211,7 +211,10 @@
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-alist-to-string
-             (describe-resource-type (datastore tbnl:*acceptor*) (tbnl:get-parameter "name")))))
+             (describe-resource-type
+               (datastore tbnl:*acceptor*)
+               (tbnl:get-parameter "name")
+               :recursive (tbnl:get-parameter "recursive")))))
         ;; Get a description of the whole schema
         ((equal (tbnl:request-method*) :GET)
          (progn
@@ -222,7 +225,8 @@
                #'(lambda (r)
                    (describe-resource-type
                      (datastore tbnl:*acceptor*)
-                     (cdr (assoc :name r))))
+                     (cdr (assoc :name r))
+                     :recursive (tbnl:get-parameter "recursive")))
                (get-resource-types (datastore tbnl:*acceptor*))))))
         ;; Add a resource-type
         ((and
