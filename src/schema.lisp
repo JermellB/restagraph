@@ -4,10 +4,11 @@
 
 (defun ensure-schema-schema (db)
   "Bootstrap function to ensure the database contains the schema-related schema.
-   Must be handled separately from the schema we're trying to inject."
+  Must be handled separately from the schema we're trying to inject."
   (log-message :info "Attempting to apply schema")
   ;; Schema name.
   ;; Enables us to combine multiple schemas in a single system.
+  (log-message :info "Attempting to add resourcetype rgSchemas")
   (handler-case
     (add-resourcetype
       db
@@ -18,9 +19,11 @@
       (e)
       (when (and (equal (neo4cl:title e) "Schema")
                  (equal (neo4cl:message e) "ConstraintValidationFailed"))
+        (log-message :warn "Failed to create rgSchemas resource: ConstraintValidationFailed")
         nil)))
   ;; Schema version object.
   ;; Allows us to track the history of schema updates in this installation.
+  (log-message :info "Attempting to add resourcetype rgSchemaVersions")
   (handler-case
     (add-resourcetype
       db
@@ -32,8 +35,10 @@
       (e)
       (when (and (equal (neo4cl:title e) "Schema")
                  (equal (neo4cl:message e) "ConstraintValidationFailed"))
+        (log-message :warn "Failed to create rgSchemaVersions resource: ConstraintValidationFailed")
         nil)))
   ;; Define the relationship between schemas and their versions
+  (log-message :info "Attempting to link rgSchemas with rgSchemaVersions")
   (add-resource-relationship
     db
     "rgSchemas"
