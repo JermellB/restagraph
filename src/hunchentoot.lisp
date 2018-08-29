@@ -53,7 +53,7 @@
     (ppcre:split "/"
                  (cl-ppcre:regex-replace (getf *config-vars* :api-uri-base) uri ""))))
 
-(defun uri-node-helper (uri-parts &optional (path "") (marker "n"))
+(defun uri-node-helper (uri-parts &optional (path "") (marker "n") &key (directional t))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."
   (cond
@@ -65,16 +65,26 @@
      (format nil "~A(~A:~A { uid: '~A' })"
              path marker (first uri-parts) (second uri-parts)))
     ((equal (length uri-parts) 3)
-     (format nil "~A(:~A { uid: '~A' })-[:~A]->(~A)"
-             path (first uri-parts) (second uri-parts) (third uri-parts) marker))
+     (format nil "~A(:~A { uid: '~A' })-[:~A]~A(~A)"
+             path
+             (first uri-parts)
+             (second uri-parts)
+             (third uri-parts)
+             (if directional "->" "-")
+             marker))
     (t
      (uri-node-helper
        (cdddr uri-parts)
-       (format nil "~A(:~A { uid: '~A' })-[:~A]->"
-               path (first uri-parts) (second uri-parts) (third uri-parts))
-       marker))))
+       (format nil "~A(:~A { uid: '~A' })-[:~A]~A"
+               path
+               (first uri-parts)
+               (second uri-parts)
+               (third uri-parts)
+               (if directional "->" "-"))
+       marker
+       :directional directional))))
 
-(defun uri-rel-helper (uri-parts &optional (path "") (marker "n"))
+(defun uri-rel-helper (uri-parts &optional (path "") (marker "n") &key (directional t))
   "Build a Cypher path ending in a relationship variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."
   ;; Path-length must be a multiple of 3
@@ -85,11 +95,14 @@
       ;; More path to come
       (uri-rel-helper
         (cdddr uri-parts)
-        (format nil "~A(:~A {uid: '~A'})-[:~A]->"
+        (format nil "~A(:~A {uid: '~A'})-[:~A]~A"
                 path
                 (first uri-parts)
                 (second uri-parts)
-                (third uri-parts)))
+                (third uri-parts)
+                (if directional "->" "-"))
+        marker
+        :directional directional)
       ;; End of the path.
       ;; Return this along with whatever came before.
       (format nil "~A(:~A {uid: '~A'})-[~A:~A]"

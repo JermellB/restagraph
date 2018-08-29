@@ -53,6 +53,7 @@
   (let ((rawdata (get-resources
                    db
                    (format nil "/rgSchemas/~A/Versions/rgSchemaVersions" name))))
+    (log-message :debug "Versions retrieved")
     (when rawdata
       (let ((versions
               (mapcar

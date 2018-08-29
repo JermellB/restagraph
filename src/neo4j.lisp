@@ -451,23 +451,27 @@
       ;; All resources of a given type
       ((equal (mod (length uri-parts) 3) 1)
        (log-message :debug (format nil "Fetching all resources of type ~A" uri))
-       (mapcar #'car
-               (neo4cl:extract-rows-from-get-request
-                 (neo4cl:neo4j-transaction
-                   db
-                   `((:STATEMENTS
-                       ((:STATEMENT . ,(format nil "MATCH ~A~A RETURN n"
-                                               (uri-node-helper uri-parts)
-                                               (process-filters filters))))))))))
+       (let ((query (format nil "MATCH ~A~A RETURN n"
+                            (uri-node-helper uri-parts "" "n" :directional nil)
+                            (process-filters filters))))
+         (log-message :debug (format nil "Querying database: ~A" query))
+         (mapcar #'car
+                 (neo4cl:extract-rows-from-get-request
+                   (neo4cl:neo4j-transaction
+                     db
+                     `((:STATEMENTS
+                         ((:STATEMENT . ,query)))))))))
       ;; One specific resource
       ((equal (mod (length uri-parts) 3) 2)
        (log-message :debug (format nil "Fetching the resource matching the path ~A" uri))
-       (neo4cl:extract-data-from-get-request
-         (neo4cl:neo4j-transaction
-           db
-           `((:STATEMENTS
-               ((:STATEMENT . ,(format nil "MATCH ~A RETURN n"
-                                       (uri-node-helper uri-parts)))))))))
+       (let ((query (format nil "MATCH ~A RETURN n"
+                            (uri-node-helper uri-parts "" "n" :directional nil))))
+         (log-message :debug (format nil "Querying database: ~A" query))
+         (neo4cl:extract-data-from-get-request
+           (neo4cl:neo4j-transaction
+             db
+             `((:STATEMENTS
+                 ((:STATEMENT . ,query))))))))
       ;; All resources with a particular relationship to this one
       (t
         (log-message
@@ -476,21 +480,22 @@
                   (car (last uri-parts))
                   (butlast uri-parts)))
         ;; Get the raw data
-        (let* ((response
-                 (neo4cl:extract-rows-from-get-request
-                   (neo4cl:neo4j-transaction
-                     db
-                     `((:STATEMENTS
-                         ((:STATEMENT
-                            . ,(format nil "MATCH ~A~A RETURN labels(n), n"
-                                       (uri-node-helper uri-parts)
-                                       (process-filters filters))))))))))
-          (log-message
-            :debug
-            (format nil "Retrieved results: ~A" response))
-          ;; Reformat it so that (:type <type>) appears at the start of the list
-          (mapcar (lambda (r) (cons (cons :type (caar r)) (cadr r)))
-                  response))))))
+        (let ((query (format nil "MATCH ~A~A RETURN labels(n), n"
+                             (uri-node-helper "" "n" uri-parts :directional nil)
+                             (process-filters filters))))
+          (log-message :debug (format nil "Querying database: ~A" query))
+          (let* ((response
+                   (neo4cl:extract-rows-from-get-request
+                     (neo4cl:neo4j-transaction
+                       db
+                       `((:STATEMENTS
+                           ((:STATEMENT . ,query))))))))
+            (log-message
+              :debug
+              (format nil "Retrieved results: ~A" response))
+            ;; Reformat it so that (:type <type>) appears at the start of the list
+            (mapcar (lambda (r) (cons (cons :type (caar r)) (cadr r)))
+                    response)))))))
 
 
 ;;;; Relationships
@@ -589,7 +594,7 @@
                      `((:STATEMENTS
                          ((:STATEMENT
                             .  ,(format nil "MATCH ~A-[:~A]->(b:~A) RETURN count(b)"
-                                        (uri-node-helper source-parts "" "a")
+                                        (uri-node-helper source-parts "" "a" :directional t)
                                         relationship
                                         dest-type)))))))
                  0))
@@ -604,10 +609,9 @@
                 `((:STATEMENTS
                     ((:STATEMENT .
                                  ,(format nil "MATCH ~A, ~A MERGE (a)-[:~A]->(b)"
-                                          (uri-node-helper source-parts "" "a")
-                                          (uri-node-helper dest-parts "" "b")
+                                          (uri-node-helper source-parts "" "a" :directional t)
+                                          (uri-node-helper dest-parts "" "b" :directional t)
                                           relationship)))))))))))))
-
 
 (defmethod move-dependent-resource ((db neo4cl:neo4j-rest-server)
                                     (uri string)
@@ -616,7 +620,7 @@
                (format nil "Attempting to move dependent resource ~A to new parent ~A"
                        uri newparent))
   (let* ((uri-parts (get-uri-parts uri))
-         (current-parent-path (uri-node-helper (butlast uri-parts 3) "" "b"))
+         (current-parent-path (uri-node-helper (butlast uri-parts 3) "" "b" :directional t))
          (current-relationship (car (last (butlast uri-parts 2))))
          (target-type (car (last (butlast uri-parts))))
          (target-uid (car (last uri-parts)))
@@ -662,7 +666,9 @@
                                    (list current-relationship
                                          target-type
                                          target-uid))
-                                 "" "t"))
+                                 ""
+                                 "t"
+                                 :directional t))
               (destpath (format nil "~A-[:~A]->(:~A {uid: '~A'})"
                                 new-parent-path
                                 new-relationship
@@ -761,7 +767,7 @@
                       `((:STATEMENTS
                           ((:STATEMENT .
                                        ,(format nil "MATCH ~A<-[r {dependent: 'true'}]-() RETURN count(r)"
-                                                (uri-node-helper parent-parts))))))))
+                                                (uri-node-helper parent-parts "" "n" :directional t))))))))
                   0))
               (error 'integrity-error :message
                      (format nil"~{~A~^/~} already has a ~A ~A relationship with a resource of type ~A"
@@ -775,7 +781,7 @@
                 `((:STATEMENTS
                     ((:STATEMENT .
                                  ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A { properties })"
-                                          (uri-node-helper parent-parts)
+                                          (uri-node-helper parent-parts "" "n" :directional t)
                                           relationship
                                           dest-type))
                      (:PARAMETERS . ((:PROPERTIES . ,validated-attributes))))))))
@@ -819,7 +825,7 @@
                                 `((:STATEMENTS
                                     ((:STATEMENT .
                                       ,(format nil "MATCH ~A-[r]->(b) RETURN type(r), labels(b), b.uid"
-                                               (uri-node-helper sourcepath))))))))))))
+                                               (uri-node-helper sourcepath "" "n" :directional t))))))))))))
 
 (defmethod critical-dependency-p ((db neo4cl:neo4j-rest-server)
                                   (path list))
@@ -847,7 +853,7 @@
                       `((:STATEMENTS
                           ((:STATEMENT .
                             ,(format nil "MATCH ~A<-[r]-(n) RETURN type(r), labels(n)"
-                                     (uri-node-helper path))))))))))
+                                     (uri-node-helper path "" "n" :directional t))))))))))
             (log-message
               :debug
               (format nil "Extracted the following list of relationships to check for dependency: ~A"
@@ -879,7 +885,7 @@
       `((:STATEMENTS
           ((:STATEMENT .
             ,(format nil "MATCH ~A-[r:~A]->~A RETURN labels(a), a.uid, r, labels(b), b.uid"
-                     (uri-node-helper (get-uri-parts sourcepath) "" "a")
+                     (uri-node-helper (get-uri-parts sourcepath) "" "a" :directional t)
                      relationship
                      (uri-node-helper (get-uri-parts destpath) "" "b")))))))))
 
@@ -923,7 +929,7 @@
                      `((:STATEMENTS
                          ((:STATEMENT .
                            ,(format nil "MATCH ~A<-[r {dependent: 'true'}]-() return count(r)"
-                                    (uri-node-helper target-parts ""))))))))
+                                    (uri-node-helper target-parts "" "n" :directional t))))))))
                  0))
             (error 'restagraph:integrity-error
                    :message "Removing the last parent would leave an orphan dependent resource. Delete the dependent resource instead."))
@@ -934,9 +940,9 @@
               `((:STATEMENTS
                   ((:STATEMENT .
                     ,(format nil "MATCH ~A-[r:~A]->~A DELETE r"
-                             (uri-node-helper rel-path)
+                             (uri-node-helper rel-path "" "n" :directional t)
                              relationship
-                             (uri-node-helper target-parts))))))))))))))
+                             (uri-node-helper target-parts "" "n" :directional t))))))))))))))
 
 (defmethod delete-resource-by-path ((db neo4cl:neo4j-rest-server)
                                     (targetpath string)
@@ -1020,7 +1026,7 @@
                                         dependents)
                                 ;; Having deleted the dependents, delete the resources itself
                                 (let ((delpath (format nil "MATCH ~A DETACH DELETE n"
-                                                       (uri-node-helper parts))))
+                                                       (uri-node-helper parts "" "n" :directional t))))
                                   (neo4cl:neo4j-transaction
                                     db
                                     `((:STATEMENTS ((:STATEMENT .  ,delpath)))))))
@@ -1031,14 +1037,14 @@
                                      "Other resources depend critically on this one, and recursive was not specified."))
                           ;; Dependent resource with no dependents of its own. Delete it.
                           (let ((delpath (format nil "MATCH ~A DETACH DELETE n"
-                                                 (uri-node-helper parts))))
+                                                 (uri-node-helper parts "" "n" :directional t))))
                             (neo4cl:neo4j-transaction
                               db
                               `((:STATEMENTS ((:STATEMENT .  ,delpath))))))))
                     ;; This is a critical dependency, and delete-dependent is absent
                     (error 'integrity-error :message "This would delete the resource itself, and delete-dependent was not specified."))
                 ;; No critical dependency; we're just deleting a relationship. Do it.
-                (let* ((parent-path (uri-rel-helper (butlast parts 2)))
+                (let* ((parent-path (uri-rel-helper (butlast parts 2) :directional t))
                        (restype (car (last parts 2)))
                        (uid (car (last parts)))
                        (query (format nil "MATCH ~A->(:~A {uid: '~A'}) DELETE n"
@@ -1067,7 +1073,7 @@
         :debug
         (format nil "Applying the attributes ~{~A~^, ~} to resource ~{/~A~}" attrs path))
       (let ((query (format nil "MATCH ~A SET ~{~A~^, ~}"
-                           (uri-node-helper path)
+                           (uri-node-helper path "" "n" :directional t)
                            (mapcar #'(lambda (a)
                                        (if (null (cdr a))
                                          (format nil "n.~A = NULL" (car a))
