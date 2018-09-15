@@ -481,7 +481,7 @@
                   (butlast uri-parts)))
         ;; Get the raw data
         (let ((query (format nil "MATCH ~A~A RETURN labels(n), n"
-                             (uri-node-helper "" "n" uri-parts :directional nil)
+                             (uri-node-helper uri-parts "" "n" :directional nil)
                              (process-filters filters))))
           (log-message :debug (format nil "Querying database: ~A" query))
           (let* ((response
