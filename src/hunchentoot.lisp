@@ -335,14 +335,14 @@
          (let ((source-type (fourth uri-parts))
                (relationship (fifth uri-parts))
                (destination-type (sixth uri-parts)))
-           ;; Store it
+           ;; Delete it
            (log-message :debug
-                        (format nil "Adding relationship ~A from ~A to ~A"
+                        (format nil "Deleting relationship ~A from ~A to ~A"
                                 relationship source-type destination-type))
-           (add-resource-relationship (datastore tbnl:*acceptor*)
-                                      source-type
-                                      relationship
-                                      destination-type)
+           (delete-resource-relationship (datastore tbnl:*acceptor*)
+                                         source-type
+                                         relationship
+                                         destination-type)
            ;; Return something useful
            (setf (tbnl:content-type*) "application/text")
            (setf (tbnl:return-code*) tbnl:+http-no-content+)
