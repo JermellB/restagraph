@@ -57,6 +57,33 @@
   ;; Return a uniform resource, either way
   t)
 
+(defmethod resourcetype-exists-p ((db neo4cl:neo4j-rest-server)
+                          (resourcetype string))
+  (log-message :debug
+               (format nil "Checking for existence of resourcetype '~A'"
+                       resourcetype))
+  (neo4cl:extract-data-from-get-request
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS ((:STATEMENT . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n" resourcetype))))))))
+
+(defmethod add-attributes-to-resourcetype ((db neo4cl:neo4j-rest-server)
+                                           (resourcetype string)
+                                           (attrs list))
+  (log-message
+    :debug
+    (format nil "Attempting to add attributes to resourcetype ~A: ~{~A~^, ~}"
+            resourcetype attrs))
+  ;; Sanity-check: does the resource exist?
+  (if (resourcetype-exists-p db resourcetype)
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT
+               . ,(format nil "MATCH (r:rgResource {name: '~A'}) CREATE ~{(r)-[:rgHasAtrribute]->(:rgAttribute {name: '~A'})~^, ~}"
+                          resourcetype attrs))))))
+      (return-integrity-error "No such resourcetype")))
+
 (defmethod delete-resourcetype ((db neo4cl:neo4j-rest-server)
                                 (resourcetype string))
   ;; If it's not a dependent type, delete its uniqueness constraint.
@@ -111,12 +138,8 @@
   (log-message :debug (format nil "Describing resource-type '~A'" resourcetype))
   ;; Confirm whether this resourcetype exists at all.
   ;; If it doesn't, automatically return NIL.
-  (let ((node
-          (neo4cl:extract-data-from-get-request
-            (neo4cl:neo4j-transaction
-              db
-              `((:STATEMENTS ((:STATEMENT . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n" resourcetype)))))))))
-    (when node
+  (let ((node))
+    (when (resourcetype-exists-p db resourcetype)
       ;; Construct the return values
       `((:NAME . ,resourcetype)
         (:ATTRIBUTES

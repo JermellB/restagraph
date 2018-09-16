@@ -249,32 +249,59 @@
            (if (and
                  (not (equal resourcetype ""))
                  (not (equal resourcetype "NIL")))
-               ;; Sanity test passed; store it
-               (let ((attrs
-                       (when (tbnl:post-parameter "attributes")
-                         (cl-ppcre:split "," (tbnl:post-parameter "attributes")))))
-                 (log-message
-                   :debug
-                   (format nil "Adding resource type ~A with notes '~A', dependent status '~A' and attributes ~{~A~^ ~}."
-                           resourcetype
-                           (tbnl:post-parameter "notes")
-                           (tbnl:post-parameter "dependent")
-                           attrs))
-                 (add-resourcetype
-                   (datastore tbnl:*acceptor*)
-                   resourcetype
-                   :attrs attrs
-                   :dependent (tbnl:post-parameter "dependent")
-                   :notes (tbnl:post-parameter "notes"))
-                 ;; Return something useful
-                 (setf (tbnl:content-type*) "application/text")
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 "Created")
-               ;; Sanity test failed; report the problem
-               (progn
-                 (setf (tbnl:content-type*) "application/text")
-                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-                 "At least give me the name of the resourcetype to create"))))
+             ;; Sanity test passed; store it
+             (let ((attrs
+                     (when (tbnl:post-parameter "attributes")
+                       (cl-ppcre:split ",[ ]*" (tbnl:post-parameter "attributes")))))
+               (log-message
+                 :debug
+                 (format nil "Adding resource type ~A with notes '~A', dependent status '~A' and attributes ~{~A~^ ~}."
+                         resourcetype
+                         (tbnl:post-parameter "notes")
+                         (tbnl:post-parameter "dependent")
+                         attrs))
+               (add-resourcetype
+                 (datastore tbnl:*acceptor*)
+                 resourcetype
+                 :attrs attrs
+                 :dependent (tbnl:post-parameter "dependent")
+                 :notes (tbnl:post-parameter "notes"))
+               ;; Return something useful
+               (setf (tbnl:content-type*) "application/text")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               "Created")
+             ;; Sanity test failed; report the problem
+             (progn
+               (setf (tbnl:content-type*) "application/text")
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               "At least give me the name of the resourcetype to create"))))
+        ;; Add attributes to a resource
+        ((and
+           (equal (tbnl:request-method*) :PUT)
+           ;; They've requested a change to a resourcetype
+           (equal (third uri-parts) "resourcetype")
+           ;; They've specified the resourcetype
+           (not (equal (fourth uri-parts) ""))
+           (not (equal (fourth uri-parts) "NIL")))
+         ;; Sanity-check: did they actually specify attributes?
+         (if (and (tbnl:post-parameter "attributes")
+                  (not (equal (tbnl:post-parameter "attributes") "")))
+           ;; They did; carry on.
+           (let ((resourcetype (fourth uri-parts))
+                 (attributes (cl-ppcre:split ",[ ]*" (tbnl:post-parameter "attributes"))))
+             (add-attributes-to-resourcetype
+               (datastore tbnl:*acceptor*)
+               resourcetype
+               attributes)
+             (setf (tbnl:content-type*) "application/text")
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             "Created")
+           ;; No attributes specified. Bail out.
+           (progn
+             (log-message :warn "Attempt made to update a resource without specifying attributes")
+             (setf (tbnl:content-type*) "application/text")
+             (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+             "No attributes parameter supplied")))
         ;; Delete a resource-type
         ((and
            (equal (tbnl:request-method*) :DELETE)
@@ -306,28 +333,28 @@
                  destination-type
                  (not (equal relationship ""))
                  (not (equal relationship "NIL")))
-               ;; Store it
-               (progn
-                 (log-message :debug
-                              (format nil "Adding relationship ~A from ~A to ~A"
-                                      relationship source-type destination-type))
-                 ;; Handle cardinality and dependent attributes
-                 ;; Make it go
-                 (add-resource-relationship
-                   (datastore tbnl:*acceptor*)
-                   source-type
-                   relationship
-                   destination-type
-                   :dependent (tbnl:post-parameter "dependent")
-                   :cardinality (tbnl:post-parameter "cardinality"))
-                 ;; Return something useful
-                 (setf (tbnl:content-type*) "application/text")
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 "Created")
-               (progn
-                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-                 (setf (tbnl:content-type*) "application/text")
-                 "All parameters are required: /<source-type>/<relationship>/<destination-type>"))))
+             ;; Store it
+             (progn
+               (log-message :debug
+                            (format nil "Adding relationship ~A from ~A to ~A"
+                                    relationship source-type destination-type))
+               ;; Handle cardinality and dependent attributes
+               ;; Make it go
+               (add-resource-relationship
+                 (datastore tbnl:*acceptor*)
+                 source-type
+                 relationship
+                 destination-type
+                 :dependent (tbnl:post-parameter "dependent")
+                 :cardinality (tbnl:post-parameter "cardinality"))
+               ;; Return something useful
+               (setf (tbnl:content-type*) "application/text")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               "Created")
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               (setf (tbnl:content-type*) "application/text")
+               "All parameters are required: /<source-type>/<relationship>/<destination-type>"))))
         ;; Delete a relationship
         ((and
            (equal (tbnl:request-method*) :DELETE)
