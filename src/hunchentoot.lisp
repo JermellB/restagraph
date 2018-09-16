@@ -219,14 +219,14 @@
         ;; Get the description of a single resource-type
         ((and
            (equal (tbnl:request-method*) :GET)
-           (tbnl:get-parameter "name"))
+           (third uri-parts))
          (progn
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-alist-to-string
              (describe-resource-type
                (datastore tbnl:*acceptor*)
-               (tbnl:get-parameter "name")
+               (third uri-parts)
                :recursive (tbnl:get-parameter "recursive")))))
         ;; Get a description of the whole schema
         ((equal (tbnl:request-method*) :GET)
