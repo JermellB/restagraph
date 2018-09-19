@@ -20,69 +20,64 @@
 
 ;;;; Schema methods and functions
 
-(defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
-                             (resourcetype string)
-                             &key attrs dependent notes)
-  (log-message :debug
-               (format nil "Create the resource ~A, plus its attributes" resourcetype))
-  (neo4cl:neo4j-transaction
-    db
-    `((:STATEMENTS
-        ((:STATEMENT
-           . ,(format nil "CREATE (r:rgResource {name: '~A'~A~A})~{, (r)-[:rgHasAttribute]->(:rgAttribute {name: '~A'})~};"
-                      resourcetype
-                      (if dependent
-                          ", dependent: 'true'"
-                          "")
-                      (if notes
-                          (format nil ", notes: '~A'" notes)
-                          "")
-                      attrs))))))
-  (log-message :debug "Add a uniqueness constraint in the database, but only if it's a primary resource.")
-  (unless dependent
-    (handler-case
-      (neo4cl:neo4j-transaction
-        db
-        `((:STATEMENTS
-            ((:STATEMENT
-               . ,(format nil "CREATE CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE" resourcetype))))))
-      (neo4cl:database-error (e)
-                             (if (equal (neo4cl:title e) "ConstraintCreateFailed")
-                                 nil   ; This is OK - do nothing
-                                 (return-database-error
-                                   (format nil "~A.~A: ~A"
-                                           (neo4cl:category e)
-                                           (neo4cl:title e)
-                                           (neo4cl:message e)))))))
-  ;; Return a uniform resource, either way
-  t)
-
 (defmethod resourcetype-exists-p ((db neo4cl:neo4j-rest-server)
-                          (resourcetype string))
+                                  (resourcetype string))
   (log-message :debug
                (format nil "Checking for existence of resourcetype '~A'"
                        resourcetype))
   (neo4cl:extract-data-from-get-request
     (neo4cl:neo4j-transaction
       db
-      `((:STATEMENTS ((:STATEMENT . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n" resourcetype))))))))
+      `((:STATEMENTS
+          ((:STATEMENT
+             . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n" resourcetype))))))))
 
-(defmethod add-attributes-to-resourcetype ((db neo4cl:neo4j-rest-server)
-                                           (resourcetype string)
-                                           (attrs list))
-  (log-message
-    :debug
-    (format nil "Attempting to add attributes to resourcetype ~A: ~{~A~^, ~}"
-            resourcetype attrs))
-  ;; Sanity-check: does the resource exist?
+(defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
+                             (resourcetype string)
+                             &key dependent notes)
+  (log-message :debug
+               (format nil "Create resourcetype '~A'" resourcetype))
+  ;; Do we already have one of these?
   (if (resourcetype-exists-p db resourcetype)
+    ;; Already have one; return early
+    (progn
+      (log-message
+        :info
+        (format nil "Resourcetype '~A' already exists" resourcetype))
+      ;; FIXME: return 200, not 201
+      t)
+    ;; Not already present; create it
+    (progn
       (neo4cl:neo4j-transaction
         db
         `((:STATEMENTS
             ((:STATEMENT
-               . ,(format nil "MATCH (r:rgResource {name: '~A'}) CREATE ~{(r)-[:rgHasAtrribute]->(:rgAttribute {name: '~A'})~^, ~}"
-                          resourcetype attrs))))))
-      (return-integrity-error "No such resourcetype")))
+               . ,(format nil "CREATE (r:rgResource {name: '~A'~A~A});"
+                          resourcetype
+                          (if dependent
+                            ", dependent: 'true'"
+                            "")
+                          (if notes
+                            (format nil ", notes: '~A'" notes)
+                            "")))))))
+      (log-message :debug "Add a uniqueness constraint in the database, but only if it's a primary resource.")
+      (unless dependent
+        (handler-case
+          (neo4cl:neo4j-transaction
+            db
+            `((:STATEMENTS
+                ((:STATEMENT
+                   . ,(format nil "CREATE CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE" resourcetype))))))
+          (neo4cl:database-error (e)
+                                 (if (equal (neo4cl:title e) "ConstraintCreateFailed")
+                                   nil   ; This is OK - do nothing
+                                   (return-database-error
+                                     (format nil "~A.~A: ~A"
+                                             (neo4cl:category e)
+                                             (neo4cl:title e)
+                                             (neo4cl:message e)))))))
+      ;; Return a uniform response, either way.
+      t)))
 
 (defmethod delete-resourcetype ((db neo4cl:neo4j-rest-server)
                                 (resourcetype string))
@@ -111,7 +106,7 @@
     `((:STATEMENTS
         ((:STATEMENT
            . ,(format nil "MATCH (n:~A) DETACH DELETE n;" resourcetype))))))
-  (log-message :debug "Delete this type, along with its attributes and any relationships it has to other types.")
+  (log-message :debug "Delete this type, along with any relationships it has to other types.")
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
@@ -274,14 +269,7 @@
     (format nil "validate-resource-before-creating resourcetype ~A with params ~{~A~^, ~}"
             resourcetype params))
   ;; Does this resource-type exist?
-  (if (neo4cl:extract-data-from-get-request
-        (neo4cl:neo4j-transaction
-          db
-          `((:STATEMENTS
-              ((:STATEMENT .
-                           ,(format nil
-                                    "MATCH (n:rgResource { name: '~A' }) RETURN n"
-                                    resourcetype)))))))
+  (if (resourcetype-exists-p db resourcetype)
     ;; Were attributes specified and, if so, are they all valid for this resource-type?
     (let
       ((requested-attributes
@@ -289,11 +277,14 @@
       (if (or
             ;; If no attributes were specified other than "uid", we're good
             (not requested-attributes)
-            ;; If other attributes were specified, check them all for validity
+            ;; If other attributes were specified, check them all for validity.
+            (log-message :debug "Checking the supplied attributes.")
+            ;; First, get a list of valid attributes for this resourcetype.
             (let* ((valid-attributes
                      (mapcar #'(lambda (row)
                                  (cdr (assoc :name (car row))))
                              (get-resource-attributes-from-db db resourcetype)))
+                   ;; Now check the requested set of parameters against the list of valid ones.
                    (invalid-attributes
                      (remove-if #'null
                                 (mapcar #'(lambda (par)
@@ -303,14 +294,13 @@
                                                       :test 'equal)
                                               (string-downcase (car par))))
                                         requested-attributes))))
-              (log-message :debug "Checking the supplied attributes.")
-              ;; Record the valid ones, if we're debugging
+              ;; Record the valid possibilities, if we're debugging.
               (if valid-attributes
                 (log-message :debug (format nil "Valid attributes for resource-type ~A: ~{~A~^, ~}."
                                             resourcetype valid-attributes))
                 (log-message :debug (format nil "Resource-type ~A has no valid attributes to set."
                                             resourcetype)))
-              ;; If any invalid attributes were requested, log this and signal an error
+              ;; If any invalid attributes were requested, log this and signal an error.
               (if invalid-attributes
                 (progn
                   (log-message :debug (format nil "Identified invalid attributes: ~{~A~^, ~}"
@@ -318,15 +308,20 @@
                   (error 'restagraph:client-error :message
                          (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}"
                                  resourcetype invalid-attributes)))
-                (log-message :debug "No invalid attributes identified."))
+                (log-message :debug "No invalid attributes identified. Proceeding."))
               ;; We were given attributes other than "uid" and all of them checked out OK.
-              ;; Return the supplied attributes to the caller
+              ;; Explicitly return something positive from this clause of the if statement.
               t))
+        ;; Return the supplied attributes to the caller, properly formatted for Neo4j.
         (format-post-params-as-properties
           (acons "uid" (sanitise-uid (cdr (assoc "uid" params :test #'string=)))
                  (acons "original_uid" (cdr (assoc "uid" params :test #'string=))
                         (remove-if #'(lambda (param) (equal (car param) "uid"))
-                                   params))))))))
+                                   params))))))
+    ;; No such resourcetype
+    (signal 'client-error
+            :message
+            (format nil "There is no resourcetype called '~A'" resourcetype))))
 
 
 ;;;; Resources
@@ -404,6 +399,34 @@
                     (log-message :error text)
                     (error 'restagraph:client-error :message text))))))
           (error 'restagraph:integrity-error :message "Requested resource type does not exist"))))))
+
+(defmethod update-resource-attributes ((db neo4cl:neo4j-rest-server)
+                                       (path list)
+                                       (attributes list))
+  (log-message :debug (format nil "Updating attributes for resource ~{/~A~}" path))
+  (let ((attrs
+          (remove-if #'(lambda (f)
+                         (or (equal (car f) :|uid|)
+                             (equal (car f) :|original_uid|)))
+                     (validate-resource-before-creating
+                       db
+                       (car (last (butlast path)))
+                       attributes))))
+    (when attrs
+      (log-message
+        :debug
+        (format nil "Applying the attributes ~{~A~^, ~} to resource ~{/~A~}" attrs path))
+      (let ((query (format nil "MATCH ~A SET ~{~A~^, ~}"
+                           (uri-node-helper path "" "n" :directional t)
+                           (mapcar #'(lambda (a)
+                                       (if (null (cdr a))
+                                           (format nil "n.~A = NULL" (car a))
+                                           (format nil "n.~A = '~A'" (car a) (cdr a))))
+                                   attrs))))
+        (log-message
+          :debug
+          (format nil "Applying statement ~A" query))
+        (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT .  ,query)))))))))
 
 (defun process-filter (filter)
   "Process a single filter from a GET parameter.
@@ -1081,31 +1104,3 @@
                   (neo4cl:neo4j-transaction
                     db `((:STATEMENTS ((:STATEMENT .  ,query))))))))
         (error 'client-error :message "This is not a valid deletion request"))))
-
-(defmethod update-resource-attributes ((db neo4cl:neo4j-rest-server)
-                                       (path list)
-                                       (attributes list))
-  (log-message :debug (format nil "Updating attributes for resource ~{/~A~}" path))
-  (let ((attrs
-          (remove-if #'(lambda (f)
-                         (or (equal (car f) :|uid|)
-                             (equal (car f) :|original_uid|)))
-                     (validate-resource-before-creating
-                       db
-                       (car (last (butlast path)))
-                       attributes))))
-    (when attrs
-      (log-message
-        :debug
-        (format nil "Applying the attributes ~{~A~^, ~} to resource ~{/~A~}" attrs path))
-      (let ((query (format nil "MATCH ~A SET ~{~A~^, ~}"
-                           (uri-node-helper path "" "n" :directional t)
-                           (mapcar #'(lambda (a)
-                                       (if (null (cdr a))
-                                         (format nil "n.~A = NULL" (car a))
-                                         (format nil "n.~A = '~A'" (car a) (cdr a))))
-                                   attrs))))
-        (log-message
-          :debug
-          (format nil "Applying statement ~A" query))
-        (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT .  ,query)))))))))

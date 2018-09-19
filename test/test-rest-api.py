@@ -55,11 +55,9 @@ class TestSchemaApi(unittest.TestCase):
         # Schema should be empty
         self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
         # Create a resource
-        self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL), data={'attributes': 'length,width'}).status_code, 201)
+        self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 201)
         # Confirm it's the only one present
-        self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'attributes': ['length', 'width'], 'dependent': 'false', 'name': 'foo', 'notes': None}])
-        # Check its attributes
-        self.assertEqual(requests.get('%s/foo' % SCHEMA_BASE_URL).json(), [{'name': 'foo', 'dependent': 'false', 'attributes': ['length', 'width'], 'notes': None}])
+        self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'dependent': 'false', 'name': 'foo', 'notes': None}])
         # Delete it
         self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 204)
         # Confirm it's gone
@@ -69,11 +67,9 @@ class TestSchemaApi(unittest.TestCase):
         # Schema should be empty
         self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
         # Create a resource
-        self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL), data={'attributes': 'length,width', 'dependent': 'true'}).status_code, 201)
+        self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL), data={'dependent': 'true'}).status_code, 201)
         # Confirm it's the only one present
-        self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'dependent': 'true', 'attributes': ['length', 'width'], 'name': 'foo', 'notes': None}])
-        # Check its attributes
-        self.assertEqual(requests.get('%s/foo' % SCHEMA_BASE_URL).json(), [{'name': 'foo', 'attributes': ['length', 'width'], 'dependent': 'true', 'notes': None}])
+        self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(), [{'dependent': 'true', 'name': 'foo', 'notes': None}])
         # Delete it
         self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 204)
         # Confirm it's gone
@@ -128,16 +124,14 @@ class TestResources(unittest.TestCase):
     '''
     restype = 'routers'
     resuid = 'amchitka'
-    resattrname = 'comment'
-    resattrval = 'Test router 1'
     def test_create_and_delete_single_resource(self):
         print('Test: create fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.restype), data={'attributes': [self.resattrname]})
+        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.restype))
         print('Test: test_create_and_delete_single_resource')
         # Ensure it's not already present
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL, self.restype, self.resuid)).status_code,
                 404)
-        # Create it without attributes
+        # Create it
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.restype), data={'uid': self.resuid}).status_code,
                 201)
         # Confirm that it's now there
@@ -148,19 +142,6 @@ class TestResources(unittest.TestCase):
                 requests.delete('%s/%s/%s' % (API_BASE_URL, self.restype, self.resuid)).status_code,
                 204)
         # Confirm it's gone
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL, self.restype, self.resuid)).status_code,
-                404)
-        # Create it again, this time with a comment
-        self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.restype), data={'uid': self.resuid, self.resattrname: self.resattrval}).status_code,
-                201)
-        # Confirm that it's there, complete with comment
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL, self.restype, self.resuid)).json(),
-                {'original_uid': sanitise_uid(self.resuid), 'uid': self.resuid, self.resattrname: self.resattrval})
-        # Delete it again
-        self.assertEqual(
-                requests.delete('%s/%s/%s' % (API_BASE_URL, self.restype, self.resuid)).status_code,
-                204)
-        # Confirm it's gone again
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL, self.restype, self.resuid)).status_code,
                 404)
         # Remove the fixtures
@@ -390,8 +371,6 @@ class TestValidRelationships(unittest.TestCase):
     '''
     res1type = 'routers'
     res1uid = 'bikini'
-    res1attrname = 'comment'
-    res1attrval = 'Test router 2'
     relationship = 'Asn'
     res2type = 'asn'
     res2name = '64512'
@@ -404,11 +383,11 @@ class TestValidRelationships(unittest.TestCase):
     def test_basic_relationship(self):
         print('Test: test_basic_relationship')
         print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type), data={'attributes': ['comment']})
+        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
         requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL, self.res1type, self.relationship, self.res2type))
         # Create two new resources
-        self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type), data={'uid': self.res1uid, self.res1attrname: self.res1attrval}).status_code,
+        self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type), data={'uid': self.res1uid}).status_code,
                 201)
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res2type), data={'uid': self.res2name}).status_code,
                 201)
@@ -645,34 +624,6 @@ class TestAnyType(unittest.TestCase):
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.t1type))
         requests.delete('%s/resourcetype/any' % (SCHEMA_BASE_URL))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
-
-class TestUpdateAttrs(unittest.TestCase):
-    '''
-    Update and remove attributes of existing resources.
-    '''
-    p1type='routers'
-    p1uid='Trinity'
-    comment1='This is a comment'
-    def test_simple_update(self):
-        print('test_simple_update')
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type), data={'attributes': ['comment']})
-        # Create the resources
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.p1type), data={'uid': self.p1uid}).status_code, 201)
-        # Add an attribute and confirm the result
-        result=requests.put('%s/%s/%s' % (API_BASE_URL, self.p1type, self.p1uid), data={'comment': self.comment1})
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json(), {'uid': self.p1uid, 'original_uid': self.p1uid, 'comment': self.comment1})
-        # Remove that attribute and confirm the result
-        result=requests.put('%s/%s/%s' % (API_BASE_URL, self.p1type, self.p1uid), data={'comment': ""})
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json(), {'uid': self.p1uid, 'original_uid': self.p1uid, 'comment': ""})
-        # Delete the resource
-        self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL, self.p1type, self.p1uid)).status_code, 204)
-        print('Remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
         print('Test: schema should be empty')
         self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
 

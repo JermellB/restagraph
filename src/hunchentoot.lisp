@@ -250,20 +250,16 @@
                  (not (equal resourcetype ""))
                  (not (equal resourcetype "NIL")))
              ;; Sanity test passed; store it
-             (let ((attrs
-                     (when (tbnl:post-parameter "attributes")
-                       (cl-ppcre:split ",[ ]*" (tbnl:post-parameter "attributes")))))
+             (let ()
                (log-message
                  :debug
-                 (format nil "Adding resource type ~A with notes '~A', dependent status '~A' and attributes ~{~A~^ ~}."
+                 (format nil "Adding resource type ~A with dependent status '~A' and notes '~A'."
                          resourcetype
-                         (tbnl:post-parameter "notes")
                          (tbnl:post-parameter "dependent")
-                         attrs))
+                         (tbnl:post-parameter "notes")))
                (add-resourcetype
                  (datastore tbnl:*acceptor*)
                  resourcetype
-                 :attrs attrs
                  :dependent (tbnl:post-parameter "dependent")
                  :notes (tbnl:post-parameter "notes"))
                ;; Return something useful
@@ -275,33 +271,6 @@
                (setf (tbnl:content-type*) "application/text")
                (setf (tbnl:return-code*) tbnl:+http-bad-request+)
                "At least give me the name of the resourcetype to create"))))
-        ;; Add attributes to a resource
-        ((and
-           (equal (tbnl:request-method*) :PUT)
-           ;; They've requested a change to a resourcetype
-           (equal (third uri-parts) "resourcetype")
-           ;; They've specified the resourcetype
-           (not (equal (fourth uri-parts) ""))
-           (not (equal (fourth uri-parts) "NIL")))
-         ;; Sanity-check: did they actually specify attributes?
-         (if (and (tbnl:post-parameter "attributes")
-                  (not (equal (tbnl:post-parameter "attributes") "")))
-           ;; They did; carry on.
-           (let ((resourcetype (fourth uri-parts))
-                 (attributes (cl-ppcre:split ",[ ]*" (tbnl:post-parameter "attributes"))))
-             (add-attributes-to-resourcetype
-               (datastore tbnl:*acceptor*)
-               resourcetype
-               attributes)
-             (setf (tbnl:content-type*) "application/text")
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             "Created")
-           ;; No attributes specified. Bail out.
-           (progn
-             (log-message :warn "Attempt made to update a resource without specifying attributes")
-             (setf (tbnl:content-type*) "application/text")
-             (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-             "No attributes parameter supplied")))
         ;; Delete a resource-type
         ((and
            (equal (tbnl:request-method*) :DELETE)
@@ -338,7 +307,6 @@
                (log-message :debug
                             (format nil "Adding relationship ~A from ~A to ~A"
                                     relationship source-type destination-type))
-               ;; Handle cardinality and dependent attributes
                ;; Make it go
                (add-resource-relationship
                  (datastore tbnl:*acceptor*)
@@ -432,30 +400,6 @@
                      (cl-json:encode-json-to-string result))))))
         ;; PUT -> Update something already present
         ;;
-        ;; Resource
-        ((and
-           (equal (tbnl:request-method*) :PUT)
-           (> (length uri-parts) 0)
-           (equal (mod (length uri-parts) 3) 2))
-         (handler-case
-           (progn
-             (log-message
-               :debug
-               (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
-             (update-resource-attributes
-               (datastore tbnl:*acceptor*)
-               uri-parts
-               (tbnl:post-parameters*))
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             ;; Return JSON representation of the newly-updated resource
-             (cl-json:encode-json-alist-to-string
-               (get-resources (datastore tbnl:*acceptor*) (tbnl:request-uri*))))
-           ;; Attempted violation of db integrity
-           (restagraph:integrity-error (e) (return-integrity-error (message e)))
-           ;; Generic client errors
-           (restagraph:client-error (e) (return-client-error (message e)))
-           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
         ;; POST -> Store something
         ;;
         ;; Resource
