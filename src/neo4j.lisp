@@ -79,6 +79,104 @@
       ;; Return a uniform response, either way.
       t)))
 
+(defmethod add-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
+                                          (resourcetype string)
+                                          &key name description)
+  ;; Perform some sanity checks before proceeding.
+  (cond
+    ;; Does the specified resourcetype exist?
+    ((not (resourcetype-exists-p db resourcetype))
+     (signal 'client-error :message "Resourcetype '~A' does not exist."))
+    ;; Was a name supplied for the attribute? As a string?
+    ((not (and name
+               (stringp name)))
+     (signal 'client-error :message "The 'name' attribute is mandatory."))
+    ;; If a description was supplied, is it a string?
+    ((and description
+          (not (stringp description)))
+     (signal 'client-error :message "The 'description' attribute must be a string."))
+    ;; All sanity-checks have passed; carry on.
+    (t
+     (log-message :debug (format nil "Attempting to add to resourcetype '~A' an attribute called '~A', with description '~A'."
+                                 resourcetype name (if description description "")))
+     ;; Now that we have all the attributes, proceed with creation
+     (neo4cl:neo4j-transaction
+       db
+       `((:STATEMENTS
+           ((:STATEMENT
+              . ,(format nil "MATCH (r:rgResource {name: '~A'}) CREATE (r)-[:rgHasAttribute]->(:rgAttribute {~{~{~A: '~A'~}~^, ~}});"
+                         resourcetype
+                         ;; Handle the optional attribute-attributes with an accumulator
+                         (append `(("name" ,name))
+                                 (when description
+                                   `(("description" ,description)))))))))))))
+
+(defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
+                                            (resourcetype string))
+  (neo4cl::extract-rows-from-get-request 
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS
+          ((:STATEMENT .
+            ,(format nil "MATCH (c:rgResource { name: '~A' })-[:rgHasAttribute]-(a:rgAttribute) RETURN a"
+                     resourcetype))))))))
+
+(defmethod update-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
+                                          (resourcetype string)
+                                          (attribute string)
+                                          &key description)
+  ;; Sanity checks
+  (cond
+    ;; Is the description a string?
+    ((or (not description) ; Client could have explicitly passed a null
+         (not (stringp description)))
+     (signal 'client-error :message "Description attribute must be in the form of a string"))
+    ;; Looks good; proceed.
+    (t
+     (log-message :debug (format nil "Updating attribute '~A' of resourcetype '~A' with description '~A'"
+                                 attribute resourcetype description))
+     (neo4cl:neo4j-transaction
+       db
+       `((:STATEMENTS
+           ((:STATEMENT
+              . ,(format nil "MATCH (r:rgResource {name: '~A'})-[:rgHasAttribute]->(a:rgAttribute {name: '~A'}) SET n.description = '~A';"
+                         resourcetype
+                         attribute
+                         description)))))))))
+
+(defmethod delete-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
+                                          (resourcetype string)
+                                          (name string))
+  (log-message :debug "Was requested to delete attribute '~A' from resourcetype '~A'"
+               name resourcetype)
+  ;; Sanity checks
+  (cond
+    ;; Resourcetype doesn't exist
+    ((not (resourcetype-exists-p db resourcetype))
+     (log-message :debug (format nil "Can't delete attributes from nonexistent resourcetype ~A"
+                                 resourcetype))
+     (signal 'client-error :message "No such resourcetype"))
+    ;; Attribute doesn't exist
+    ((not (member name
+                  (mapcar #'(lambda (attr) (cdr (assoc :name (car attr))))
+                          (get-resource-attributes-from-db db resourcetype))))
+     (log-message :debug
+                  (format nil "Can't delete nonexistent attribute '~A' from resourcetype '~A'"
+                          name resourcetype))
+     (signal 'client-error (format nil "Resourcetype '~A' has no attribute with name '~A'"
+                                   resourcetype name)))
+    ;; Looks OK; go ahead.
+    (t
+     (log-message :debug "Was requested to delete attribute '~A' from resourcetype '~A'"
+                  name resourcetype)
+     (neo4cl:neo4j-transaction
+       db
+       `((:STATEMENTS
+           ((:STATEMENT
+              . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(a:rgAttribute {name: '~A'}) DETACH DELETE a;"
+                         resourcetype
+                         name)))))))))
+
 (defmethod delete-resourcetype ((db neo4cl:neo4j-rest-server)
                                 (resourcetype string))
   ;; If it's not a dependent type, delete its uniqueness constraint.
@@ -189,16 +287,6 @@
                              ((:STATEMENT .
                                ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN type(r), r.dependent, r.cardinality, n.name"
                                         resourcetype))))))))))
-
-(defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
-                                            (resourcetype string))
-  (neo4cl::extract-rows-from-get-request 
-    (neo4cl:neo4j-transaction
-      db
-      `((:STATEMENTS
-          ((:STATEMENT .
-            ,(format nil "MATCH (c:rgResource { name: '~A' })-[:rgHasAttribute]-(a:rgAttribute) RETURN a"
-                     resourcetype))))))))
 
 (defmethod add-resource-relationship ((db neo4cl:neo4j-rest-server)
                                       (parent-type string)

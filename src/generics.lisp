@@ -23,6 +23,18 @@
 (defgeneric resourcetype-exists-p (db resourcetype)
   (:documentation "Verify whether we have a definition for a resourcetype by this name"))
 
+(defgeneric add-resourcetype-attribute (db resourcetype &key name description)
+  (:documentation "Add an attribute to an existing resourcetype"))
+
+(defgeneric get-resource-attributes-from-db (db resourcetype)
+  (:documentation "Extract the attributes from resource definitions from the database"))
+
+(defgeneric update-resourcetype-attribute (db resourcetype name &key description)
+  (:documentation "Update the attributes of a resourcetype's attributes."))
+
+(defgeneric delete-resourcetype-attribute (db resourcetype name)
+  (:documentation "Remove an attribute from a resourcetype. Don't delete existing data; leave it in place bu inaccessible via this API."))
+
 (defgeneric delete-resourcetype (db resourcetype)
   (:documentation "Delete a resource-type, and all its instances along with any relationships to other types."))
 
@@ -47,9 +59,6 @@
                    Entries include :name :attributes and :dependent.
                    The :recursive key is a boolean indicating whether to recursively traverse all the relationships
                    The :resources-seen key is used internally to break loops when recursing."))
-
-(defgeneric get-resource-attributes-from-db (db resourcetype)
-  (:documentation "Extract the attributes from resource definitions from the database"))
 
 (defgeneric relationship-valid-p (db from-resource relationship to-resource)
   (:documentation "Checks whether this type of relationship is permitted between these types of resources. Returns a boolean."))

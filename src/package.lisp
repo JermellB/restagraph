@@ -15,12 +15,16 @@
     sanitise-uid
     ;; Methods
     add-resourcetype
+    resourcetype-exists-p
+    add-resourcetype-attribute
+    get-resource-attributes-from-db
+    update-resourcetype-attribute
+    delete-resourcetype-attribute
     delete-resourcetype
     add-resource-relationship
     delete-resource-relationship
     get-resource-types
     describe-resource-type
-    get-resource-attributes-from-db
     relationship-valid-p
     enforce-db-schema
     dependent-resource-p

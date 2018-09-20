@@ -116,7 +116,6 @@
                 (add-resourcetype
                   db
                   resourcename
-                  :attrs (gethash "attributes" value)
                   :dependent (gethash "dependent" value)
                   :notes (gethash "notes" value)))
             (gethash "resourcetypes" schema))

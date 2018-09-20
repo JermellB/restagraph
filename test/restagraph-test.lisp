@@ -33,7 +33,7 @@
   (sort results
         #'string-lessp
         :key #'(lambda (f)
-                 (cdr (assoc :uid (car f) :test #'equal)))))
+                 (cdr (assoc :uid f :test #'equal)))))
 
 (fiveam:test
   resources-basic
@@ -41,7 +41,6 @@
   "Basic operations on resources"
   (let ((restype "routers")
         (uid "amchitka")
-        (comment "Test router #1")
         (invalid-type "interfaces")
         (invalid-uid "eth0"))
     ;; Set up the fixtures
@@ -54,15 +53,14 @@
     ;; Store the resource
     (restagraph:log-message :info "TEST Store the resource")
     (multiple-value-bind (result code message)
-      (restagraph:store-resource *server* restype `(("uid" . ,uid) ("comment" . ,comment)))
+      (restagraph:store-resource *server* restype `(("uid" . ,uid)))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm it's there
     (restagraph:log-message :info "TEST Confirm the resource is present")
     (fiveam:is (equal
                  `((:uid . ,uid)
-                   (:original--uid . ,(restagraph:sanitise-uid uid))
-                   (:comment . ,comment))
+                   (:original--uid . ,(restagraph:sanitise-uid uid)))
                  (restagraph:get-resources
                    *server* (format nil "/~A/~A" restype uid))))
     ;; Delete it
@@ -78,7 +76,7 @@
     ;; Ensure we can't create a dependent type
     (restagraph:log-message :info "TEST Ensure we can't create a dependent type")
     (fiveam:signals
-      (restagraph:integrity-error "This is a dependent resource; it must be created as a sub-resource of an existing resource.")
+      (restagraph:client-error "This is a dependent resource; it must be created as a sub-resource of an existing resource.")
       (restagraph:store-resource *server* invalid-type `(("uid" . ,invalid-uid))))
     ;; Remove the fixtures
     (restagraph:log-message :info "TEST Remove the fixtures")
@@ -331,17 +329,17 @@
     (restagraph:store-resource *server* resourcetype `(("uid" . ,res1uid)))
     ;; Confirm we now get a list containing exactly that resource
     (fiveam:is (equal
-                 `((((:uid . ,res1uid) (:original--uid . ,(restagraph:sanitise-uid res1uid)))))
+                 `(((:uid . ,res1uid) (:original--uid . ,(restagraph:sanitise-uid res1uid))))
                  (restagraph:get-resources *server* (format nil "/~A" resourcetype))))
     ;; Add a second of that kind of resource
     (restagraph:store-resource *server* resourcetype `(("uid" . ,res2uid)))
     ;; Confirm we now get a list containing both resources
     (fiveam:is (equal
                  (sort-results
-                   `((((:uid . ,res1uid)
-                       (:original--uid . ,(restagraph:sanitise-uid res1uid))))
-                     (((:uid . ,res2uid)
-                       (:original--uid . ,(restagraph:sanitise-uid res2uid))))))
+                   `(((:uid . ,res1uid)
+                      (:original--uid . ,(restagraph:sanitise-uid res1uid)))
+                     ((:uid . ,res2uid)
+                      (:original--uid . ,(restagraph:sanitise-uid res2uid)))))
                  (sort-results
                    (restagraph:get-resources *server* (format nil "/~A" resourcetype)))))
     ;; Add a third of that kind of resource
@@ -349,12 +347,12 @@
     ;; Confirm we now get a list containing both resources
     (fiveam:is (equal
                  (sort-results
-                   `((((:uid . ,res1uid)
-                       (:original--uid . ,(restagraph:sanitise-uid res1uid))))
-                     (((:uid . ,res2uid)
-                       (:original--uid . ,(restagraph:sanitise-uid res2uid))))
-                     (((:uid . ,res3uid)
-                       (:original--uid . ,(restagraph:sanitise-uid res3uid))))))
+                   `(((:uid . ,res1uid)
+                      (:original--uid . ,(restagraph:sanitise-uid res1uid)))
+                     ((:uid . ,res2uid)
+                      (:original--uid . ,(restagraph:sanitise-uid res2uid)))
+                     ((:uid . ,res3uid)
+                      (:original--uid . ,(restagraph:sanitise-uid res3uid)))))
                  (sort-results
                    (restagraph:get-resources *server* (format nil "/~A" resourcetype)))))
     ;; Delete all the resources we added
@@ -388,14 +386,14 @@
     ;; Search for it by type and exact UID
     (restagraph:log-message :info "TEST Searching for the primary resource")
     (fiveam:is (equal
-                 `((((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid))))
+                 `(((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid)))
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A" r1type)
                    `(("uid" . ,r1uid)))))
     ;; Search for it by type and partial UID
     (fiveam:is (equal
-                 `((((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid))))
+                 `(((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid)))
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A" r1type)
@@ -413,14 +411,14 @@
     ;; Search for it by relationship to parent and exact UID
     (restagraph:log-message :info "TEST Searching for the secondary resource")
     (fiveam:is (equal
-                 `((((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid))))
+                 `(((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid)))
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
                    `(("uid" . ,(restagraph:sanitise-uid r2uid))))))
     ;; Search for it by type and partial UID
     (fiveam:is (equal
-                 `((((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid))))
+                 `(((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid)))
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
@@ -570,13 +568,13 @@
     (restagraph:add-resourcetype *server* valid-resourcetype)
     ;; Create a resource of an invalid type
     (restagraph:log-message :info "TEST Creating a resource of an invalid type")
-    (fiveam:signals (restagraph:integrity-error
+    (fiveam:signals (restagraph:client-error
                       (format nil "Requested resource type ~A is not valid." invalid-resourcetype))
-                    (restagraph:store-resource *server* invalid-resourcetype '((:foo . "bar"))))
+      (restagraph:store-resource *server* invalid-resourcetype '((:foo . "bar"))))
     ;; Create a resource of a valid type, but without a UID
     (restagraph:log-message :info "TEST Creating a valid resource without a UID")
     (fiveam:signals (restagraph:client-error "UID must be supplied")
-                    (restagraph:store-resource *server* valid-resourcetype '(("foo" . "bar"))))
+      (restagraph:store-resource *server* valid-resourcetype '(("foo" . "bar"))))
     ;; Remove the fixtures
     (restagraph:log-message :info "TEST Remove the fixtures")
     (restagraph:delete-resourcetype *server* valid-resourcetype)))
