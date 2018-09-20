@@ -438,7 +438,7 @@
         ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
          (let ((offset (if negationp 1 0)))
            (log-message :debug
-                         "Regex detected; extracting the value from a starting offset of ~d."
+                         "Regex detected. Extracting the value from a starting offset of ~d."
                          offset)
            (format
              nil "n.~A =~~ '~A'" name
@@ -477,7 +477,8 @@
        (let ((query (format nil "MATCH ~A~A RETURN n"
                             (uri-node-helper uri-parts "" "n" :directional nil)
                             (process-filters filters))))
-         (log-message :debug (format nil "Querying database: ~A" query))
+         (log-message :debug (concatenate 'string "Querying database: "
+                                          (cl-ppcre:regex-replace "\~" query "~~")))
          (mapcar #'car
                  (neo4cl:extract-rows-from-get-request
                    (neo4cl:neo4j-transaction
@@ -489,7 +490,8 @@
        (log-message :debug (format nil "Fetching the resource matching the path ~A" uri))
        (let ((query (format nil "MATCH ~A RETURN n"
                             (uri-node-helper uri-parts "" "n" :directional nil))))
-         (log-message :debug (format nil "Querying database: ~A" query))
+         (log-message :debug (concatenate 'string "Querying database: "
+                                          (cl-ppcre:regex-replace "\~" query "~~")))
          (neo4cl:extract-data-from-get-request
            (neo4cl:neo4j-transaction
              db
@@ -497,28 +499,29 @@
                  ((:STATEMENT . ,query))))))))
       ;; All resources with a particular relationship to this one
       (t
-        (log-message
-          :debug
-          (format nil "Fetching all resources with relationship ~A to resource ~{/~A~}"
-                  (car (last uri-parts))
-                  (butlast uri-parts)))
-        ;; Get the raw data
-        (let ((query (format nil "MATCH ~A~A RETURN labels(n), n"
-                             (uri-node-helper uri-parts "" "n" :directional nil)
-                             (process-filters filters))))
-          (log-message :debug (format nil "Querying database: ~A" query))
-          (let* ((response
-                   (neo4cl:extract-rows-from-get-request
-                     (neo4cl:neo4j-transaction
-                       db
-                       `((:STATEMENTS
-                           ((:STATEMENT . ,query))))))))
-            (log-message
-              :debug
-              (format nil "Retrieved results: ~A" response))
-            ;; Reformat it so that (:type <type>) appears at the start of the list
-            (mapcar (lambda (r) (cons (cons :type (caar r)) (cadr r)))
-                    response)))))))
+       (log-message
+         :debug
+         (format nil "Fetching all resources with relationship ~A to resource ~{/~A~}"
+                 (car (last uri-parts))
+                 (butlast uri-parts)))
+       ;; Get the raw data
+       (let ((query (format nil "MATCH ~A~A RETURN labels(n), n"
+                            (uri-node-helper uri-parts "" "n" :directional nil)
+                            (process-filters filters))))
+         (log-message :debug (concatenate 'string "Querying database: "
+                                          (cl-ppcre:regex-replace "\~" query "~~")))
+         (let* ((response
+                  (neo4cl:extract-rows-from-get-request
+                    (neo4cl:neo4j-transaction
+                      db
+                      `((:STATEMENTS
+                          ((:STATEMENT . ,query))))))))
+           (log-message
+             :debug
+             (format nil "Retrieved results: ~A" response))
+           ;; Reformat it so that (:type <type>) appears at the start of the list
+           (mapcar (lambda (r) (cons (cons :type (caar r)) (cadr r)))
+                   response)))))))
 
 
 ;;;; Relationships
