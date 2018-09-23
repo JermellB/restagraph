@@ -1,6 +1,9 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
+# Expects python3
 
-# Test package for Restagraph's REST API.
+'''
+Test package for Restagraph's REST API.
+'''
 
 
 #   Copyright 2017 James Fleming <james@electronic-quill.net>
@@ -58,7 +61,11 @@ class TestSchemaApi(unittest.TestCase):
         self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 201)
         # Confirm it's the only one present
         self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(),
-                         [{'dependent': 'false', 'name': 'foo', 'notes': None}])
+                         [{'name': 'foo',
+                           'attributes': None,
+                           'dependent': 'false',
+                           'notes': '',
+                           'relationships': None}])
         # Delete it
         self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code,
                          204)
@@ -74,7 +81,11 @@ class TestSchemaApi(unittest.TestCase):
                          201)
         # Confirm it's the only one present
         self.assertEqual(requests.get('%s/' % SCHEMA_BASE_URL).json(),
-                         [{'dependent': 'true', 'name': 'foo', 'notes': None}])
+                         [{'name': 'foo',
+                           'attributes': None,
+                           'dependent': 'false',
+                           'notes': '',
+                           'relationships': None}])
         # Delete it
         self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code,
                          204)
@@ -197,30 +208,35 @@ class TestMultipleResources(unittest.TestCase):
                          201)
         # Check that we now get a list containing exactly that resource
         self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                         [[{'original_uid': sanitise_uid(self.resource1uid),
-                            'uid': self.resource1uid}]])
+                         [{'original_uid': sanitise_uid(self.resource1uid),
+                           'uid': self.resource1uid}])
         # Add the second resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resource2uid}).status_code,
                          201)
         # Check that we now get a list containing exactly both resources
-        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                         [[{'original_uid': sanitise_uid(self.resource1uid),
-                            'uid': self.resource1uid}],
-                          [{'original_uid': sanitise_uid(self.resource2uid),
-                            'uid': self.resource2uid}]])
+        self.assertEqual(
+            sorted(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
+                   key=lambda i: i['uid']),
+            sorted([{'original_uid': sanitise_uid(self.resource2uid),
+                     'uid': self.resource2uid},
+                    {'original_uid': sanitise_uid(self.resource1uid),
+                     'uid': self.resource1uid}],
+                   key=lambda i: i['uid']))
         # Add the third resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resource3uid}).status_code,
                          201)
-        # Check that we now get a list containing exactly both resources
-        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                         [[{'original_uid': sanitise_uid(self.resource1uid),
-                            'uid': self.resource1uid}],
-                          [{'original_uid': sanitise_uid(self.resource2uid),
-                            'uid': self.resource2uid}],
-                          [{'original_uid': sanitise_uid(self.resource3uid),
-                            'uid': self.resource3uid}]])
+        # Check that we now get a list containing all three resources
+        self.assertEqual(sorted(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
+                                key=lambda i: i['uid']),
+                         sorted([{'original_uid': sanitise_uid(self.resource3uid),
+                                  'uid': self.resource3uid},
+                                 {'original_uid': sanitise_uid(self.resource2uid),
+                                  'uid': self.resource2uid},
+                                 {'original_uid': sanitise_uid(self.resource1uid),
+                                  'uid': self.resource1uid}],
+                                key=lambda i: i['uid']))
         # Delete the resources
         print('Test: clean up afterward')
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
@@ -646,6 +662,7 @@ class TestInvalidRelationships(unittest.TestCase):
                                                     self.relationship_valid,
                                                     self.res2type))
         # Create two new resources
+        print('Test: create the resources to link')
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.res1type),
                                        data={'uid': self.res1uid}).status_code,
                          201)
@@ -654,6 +671,7 @@ class TestInvalidRelationships(unittest.TestCase):
                          201)
         # Attempt to create a relationship between them,
         # of a type that doesn't exist for the source resource-type
+        print('Test: create invalid relationship')
         self.assertEqual(requests.post('%s/%s/%s/%s'% (API_BASE_URL,
                                                        self.res1type,
                                                        self.res1uid,
@@ -662,6 +680,7 @@ class TestInvalidRelationships(unittest.TestCase):
                                                                    self.res2uid)}).status_code,
                          409)
         # Attempt to create a valid relationship between them
+        print('Test: create valid relationship')
         self.assertEqual(requests.post('%s/%s/%s/%s'% (API_BASE_URL,
                                                        self.res1type,
                                                        self.res1uid,
@@ -670,6 +689,7 @@ class TestInvalidRelationships(unittest.TestCase):
                                                                    self.res2uid)}).status_code,
                          201)
         # Delete the resources
+        print('Test: delete the resources')
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
                                                        self.res1type,
                                                        self.res1uid)).status_code,
@@ -708,7 +728,7 @@ class TestDbSchema(unittest.TestCase):
         # Attempt to create a duplicate.
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resourcename}).status_code,
-                         409)
+                         200)
         # Delete the resource
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
                                                        self.resourcetype,
@@ -819,7 +839,9 @@ class TestAnyType(unittest.TestCase):
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.t1type),
                                        data={'uid': self.t1uid}).status_code,
                          201)
-        # Create the relationship between them
+        # Attempt to create the relationship between them.
+        # This should fail, because we're trying to create a relationship
+        # that hasn't been defined.
         self.assertEqual(requests.post('%s/%s/%s/%s' % (API_BASE_URL,
                                                         self.p1type,
                                                         self.p1uid,
