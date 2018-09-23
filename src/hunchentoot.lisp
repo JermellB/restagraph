@@ -732,7 +732,7 @@
                                    :max-count max-count
                                    :sleep-time sleep-time))))))
 
-(defun startup (&key acceptor dispatchers docker schema)
+(defun startup (&key acceptor dispatchers docker schemapath)
   "Start up the appserver.
    Ensures the uniqueness constraint on resource-types is present in Neo4j.
    Keyword arguments:
@@ -740,8 +740,9 @@
    - dispatchers = extra dispatchers to add to tbnl:*dispatch-table* in addition to the defaults.
    - docker = whether to start up in a manner suitable to running under docker,
      i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up.
-   - schema = schema, as returned by applying cl-yaml:parse to a valid YAML file. If supplied,
-     check whether the version is newer than the one recorded in the database and, if so, apply it."
+   - schemapath = path to directory containing schema files, in YAML format, with .yaml extension.
+     If supplied, parse all .yaml files in alphabetical order, and apply each one that has a newer
+     version number than is recorded in the database."
   (log-message :info "Attempting to start up the restagraph application server")
   ;; Sanity-check: is an acceptor already running?
   ;;; We can't directly check whether this acceptor is running,
@@ -774,7 +775,10 @@
                                                (neo4cl:title e)
                                                (neo4cl:message e))))))
         ;; Update the schema, if one has been specified
-        (when schema (inject-schema (datastore acceptor) schema))
+        (when schemapath
+          (mapcar #'(lambda (schema)
+                      (inject-schema (datastore acceptor) schema))
+                  (read-schemas schemapath)))
         ;; Set the dispatch table
         (restagraph:log-message :info "Configuring the dispatch table")
         (setf tbnl:*dispatch-table*

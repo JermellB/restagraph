@@ -2,6 +2,27 @@
 
 (in-package #:restagraph)
 
+(defun read-schemas (parent-dir)
+  "Parse the .yaml files in the specified directory, in alphabetical order.
+  Return the result as a list of objects output by cl-yaml:parse,
+  expected to be hash objects."
+  ;; Safety first: is the directory even there?
+  (if (probe-file parent-dir)
+      ;; This is _really_ ugly, but guarantees alphabetical order.
+      (mapcar #'cl-yaml:parse
+              (mapcar #'pathname
+                      (sort
+                        (mapcar #'namestring
+                                (directory (make-pathname
+                                             :name :wild
+                                             :type "yaml"
+                                             :directory parent-dir)))
+                        #'string<)))
+      ;; Safety-check failed. Complain loudly.
+      (progn
+        (error (format nil "Schema directory ~A doesn't exist!" parent-dir))
+        (log-message :fatal (format nil "Schema directory ~A doesn't exist!" parent-dir)))))
+
 (defun ensure-schema-schema (db)
   "Bootstrap function to ensure the database contains the schema-related schema.
    Must be handled separately from the schema we're trying to inject."
@@ -177,10 +198,10 @@
                           :cardinality (gethash "cardinality" rel)
                           :notes (gethash "notes" rel))
                         (restagraph:integrity-error (e)
-                                                    (log-message :error (restagraph:message e))))))
-                ;; Sanity-check failed
-                (log-message :warning
-                             (format nil "Invalid entry ~A" rel)))
+                                                    (log-message :error (restagraph:message e)))))
+                    ;; Sanity-check failed
+                    (log-message :warning
+                                 (format nil "Invalid entry ~A" rel))))
             (gethash "relationships" schema))
           ;; Record the current version of the schema
           (log-message :info "Update schema version in database")
