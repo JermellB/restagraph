@@ -66,6 +66,8 @@ class TestSchemaApi(unittest.TestCase):
                            'dependent': 'false',
                            'notes': '',
                            'relationships': None}])
+        # Try to create a duplicate
+        self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 200)
         # Delete it
         self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code,
                          204)

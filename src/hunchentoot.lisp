@@ -299,6 +299,14 @@
                 (setf (tbnl:content-type*) "application/text")
                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
                 "At least give me the name of the attribute to add"))
+             ;; It's already there
+             ((resourcetype-attribute-exists-p (datastore tbnl:*acceptor*)
+             resourcetype
+             attribute)
+             (progn
+                (setf (tbnl:content-type*) "application/text")
+                (setf (tbnl:return-code*) tbnl:+http-ok+)
+                "OK"))
              ;; Sanity tests passed; add it
              (t
               (progn
@@ -464,8 +472,6 @@
                  (if (= (mod (length uri-parts) 3) 2)
                      (cl-json:encode-json-alist-to-string result)
                      (cl-json:encode-json-to-string result))))))
-        ;; PUT -> Update something already present
-        ;;
         ;; POST -> Store something
         ;;
         ;; Resource
@@ -474,25 +480,41 @@
            (equal (length uri-parts) 1)
            (tbnl:post-parameter "uid"))
          (log-message :debug (format nil "Attempting to dispatch a POST request for resource type ~A" resourcetype))
-         ;; Store it
-         (handler-case
+         ;; Do we already have one of these?
+         (if (get-resources
+               (datastore tbnl:*acceptor*)
+               (format nil "/~A/~A"
+                       (car uri-parts) (tbnl:post-parameter "uid")))
+           ;; It's already there; return 200/OK
            (progn
-             (store-resource (datastore tbnl:*acceptor*)
-                             resourcetype
-                             (tbnl:post-parameters*))
-             ;; Return it from the database, for confirmation
-             (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
-             (setf (tbnl:content-type*) "application/json")
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             (cl-json:encode-json-alist-to-string
-               (get-resources (datastore tbnl:*acceptor*)
-                              (format nil "/~A/~A"
-                                      resourcetype
-                                      (tbnl:post-parameter "uid")))))
-           ;; Handle integrity errors
-           (restagraph:integrity-error (e) (return-integrity-error (message e)))
-           ;; Handle general client errors
-           (restagraph:client-error (e) (return-client-error (message e)))))
+             (log-message
+               :debug
+               (format nil
+                       "Doomed attempt to re-create resource /~A/~A. Reassuring the client that it's already there."
+                       (car uri-parts)
+                       (tbnl:post-parameter "uid")))
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-ok+)
+             "Resource exists")
+           ;; We don't already have one of these; store it
+           (handler-case
+             (progn
+               (store-resource (datastore tbnl:*acceptor*)
+                               resourcetype
+                               (tbnl:post-parameters*))
+               ;; Return it from the database, for confirmation
+               (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
+               (setf (tbnl:content-type*) "application/json")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               (cl-json:encode-json-alist-to-string
+                 (get-resources (datastore tbnl:*acceptor*)
+                                (format nil "/~A/~A"
+                                        resourcetype
+                                        (tbnl:post-parameter "uid")))))
+             ;; Handle integrity errors
+             (restagraph:integrity-error (e) (return-integrity-error (message e)))
+             ;; Handle general client errors
+             (restagraph:client-error (e) (return-client-error (message e))))))
         ;;
         ;; Store a relationship
         ((and
