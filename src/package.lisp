@@ -17,6 +17,7 @@
     add-resourcetype
     resourcetype-exists-p
     add-resourcetype-attribute
+    resourcetype-attribute-exists-p
     get-resource-attributes-from-db
     update-resourcetype-attribute
     delete-resourcetype-attribute

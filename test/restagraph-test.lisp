@@ -97,27 +97,41 @@
     (restagraph:store-resource *server* restype `(("uid" . ,uid)))
     ;; Try to set an attribute that the resourcetype doesn't have
     (fiveam:signals restagraph:client-error
-      (restagraph:update-resource-attributes
-        *server*
-        (format nil "/~A/~A" restype uid)
-        `((,attrname ,attrval))))
-    ;; Add an attribute to the resourcetype
+                    (restagraph:update-resource-attributes
+                      *server*
+                      (list restype uid)
+                      `((,attrname . ,attrval))))
+    ;; Add the attribute to the resourcetype
     (restagraph:log-message :info "TEST Add an attribute to the resourcetype")
     (fiveam:is (restagraph:add-resourcetype-attribute
                  *server*
                  restype
                  :name attrname
                  :description attrdesc))
+    ;; Try again to set the attribute
+    (fiveam:is (restagraph:update-resource-attributes
+                 *server*
+                 (list restype uid)
+                 `((,attrname . ,attrval))))
+    ;; Confirm it's there
     (fiveam:is (equal
                  `((:uid . ,uid)
+                   (,(intern (string-upcase attrname) 'keyword) . ,attrval)
                    (:original--uid . ,(restagraph:sanitise-uid uid)))
                  (restagraph:get-resources
                    *server* (format nil "/~A/~A" restype uid))))
-    ;; Delete it
+    ;; Delete the attribute
+    ;; FIXME: not yet implemented
     ;; Confirm it's gone again
-    ;(restagraph:log-message :info "TEST Confirm the resource is gone")
-    ;(fiveam:is (null (restagraph:get-resources
-    ;                   *server* (format nil "/~A/~A" restype uid))))
+    ;; Remove the attribute from the resourcetype
+    (fiveam:is
+      (restagraph:delete-resourcetype-attribute *server* restype attrname))
+    ;; Confirm we can no longer add it
+    (fiveam:signals restagraph:client-error
+                    (restagraph:update-resource-attributes
+                      *server*
+                      (list restype uid)
+                      `((,attrname . ,attrval))))
     ;; Remove the fixtures
     (restagraph:log-message :info "TEST Remove the fixtures")
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" restype uid))

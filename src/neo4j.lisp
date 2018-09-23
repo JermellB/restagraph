@@ -144,6 +144,14 @@
                          attribute
                          description)))))))))
 
+(defmethod resourcetype-attribute-exists-p ((db neo4cl:neo4j-rest-server)
+                                            (resourcetype string)
+                                            (attribute string))
+  (member attribute
+          (mapcar #'(lambda (attr) (cdr (assoc :name (car attr))))
+                  (get-resource-attributes-from-db db resourcetype))
+          :test #'equal))
+
 (defmethod delete-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
                                           (resourcetype string)
                                           (name string))
@@ -157,9 +165,7 @@
                                  resourcetype))
      (signal 'client-error :message "No such resourcetype"))
     ;; Attribute doesn't exist
-    ((not (member name
-                  (mapcar #'(lambda (attr) (cdr (assoc :name (car attr))))
-                          (get-resource-attributes-from-db db resourcetype))))
+    ((not (resourcetype-attribute-exists-p db resourcetype name))
      (log-message :debug
                   (format nil "Can't delete nonexistent attribute '~A' from resourcetype '~A'"
                           name resourcetype))

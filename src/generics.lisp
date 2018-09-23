@@ -26,6 +26,9 @@
 (defgeneric add-resourcetype-attribute (db resourcetype &key name description)
   (:documentation "Add an attribute to an existing resourcetype"))
 
+(defgeneric resourcetype-attribute-exists-p (db resourcetype attribute)
+  (:documentation "Verify whether we have a definition for a resourcetype attribute by this name"))
+
 (defgeneric get-resource-attributes-from-db (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database"))
 
