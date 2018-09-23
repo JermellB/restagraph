@@ -31,7 +31,7 @@
     dependent-resource-p
     store-resource
     update-resource-attributes
-    update-resource-attributes
+    delete-resource-attributes
     store-dependent-resource
     move-dependent-resource
     get-resources

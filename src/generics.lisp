@@ -84,7 +84,10 @@ Return an error if
 - the client attempts to set attributes that aren't defined for this resourcetype."))
 
 (defgeneric update-resource-attributes (db path attributes)
-            (:documentation "Add, update or delete a set of attributes of a given resource."))
+  (:documentation "Add, update or delete a set of attributes of a given resource."))
+
+(defgeneric delete-resource-attributes (db path attributes)
+  (:documentation "Delete attributes from a resource."))
 
 (defgeneric store-dependent-resource (db uri attributes)
   (:documentation "Create a dependent resource, at the end of the path given by URI. Its parent resource must exist, and the relationship must be a valid dependent relationship."))

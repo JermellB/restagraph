@@ -88,9 +88,12 @@
   "Basic operations on resources"
   (let ((restype "hubs")
         (uid "knothole")
-        (attrname "colour")
-        (attrdesc "What colour the hub is.")
-        (attrval "green"))
+        (attr1name "colour")
+        (attr1desc "What colour the hub is.")
+        (attr2name "capacity")
+        (attr2desc "Volumetric capacity of the hub, in litres.")
+        (attr1val "green")
+        (attr2val "20"))
     ;; Set up the fixtures
     (restagraph:log-message :info "TEST Set up the fixtures")
     (restagraph:add-resourcetype *server* restype)
@@ -100,38 +103,63 @@
                     (restagraph:update-resource-attributes
                       *server*
                       (list restype uid)
-                      `((,attrname . ,attrval))))
+                      `((,attr1name . ,attr1val))))
     ;; Add the attribute to the resourcetype
     (restagraph:log-message :info "TEST Add an attribute to the resourcetype")
     (fiveam:is (restagraph:add-resourcetype-attribute
                  *server*
                  restype
-                 :name attrname
-                 :description attrdesc))
+                 :name attr1name
+                 :description attr1desc))
     ;; Try again to set the attribute
     (fiveam:is (restagraph:update-resource-attributes
                  *server*
                  (list restype uid)
-                 `((,attrname . ,attrval))))
+                 `((,attr1name . ,attr1val))))
     ;; Confirm it's there
     (fiveam:is (equal
                  `((:uid . ,uid)
-                   (,(intern (string-upcase attrname) 'keyword) . ,attrval)
+                   (,(intern (string-upcase attr1name) 'keyword) . ,attr1val)
                    (:original--uid . ,(restagraph:sanitise-uid uid)))
                  (restagraph:get-resources
                    *server* (format nil "/~A/~A" restype uid))))
     ;; Delete the attribute
-    ;; FIXME: not yet implemented
-    ;; Confirm it's gone again
-    ;; Remove the attribute from the resourcetype
     (fiveam:is
-      (restagraph:delete-resourcetype-attribute *server* restype attrname))
+      (restagraph:delete-resource-attributes *server*
+                                             (list restype uid)
+                                             (list attr1name)))
+    ;; Confirm it's gone again
+    (fiveam:is (equal
+                 `((:uid . ,uid)
+                   (:original--uid . ,(restagraph:sanitise-uid uid)))
+                 (restagraph:get-resources
+                   *server* (format nil "/~A/~A" restype uid))))
+    ;; Add another attribute to the resourcetype
+    (fiveam:is (restagraph:add-resourcetype-attribute
+                 *server*
+                 restype
+                 :name attr2name
+                 :description attr2desc))
+    ;; Add and remove two attributes at once,
+    ;; to confirm that bulk operations also work.
+    (fiveam:is (restagraph:update-resource-attributes
+                 *server*
+                 (list restype uid)
+                 `((,attr1name . ,attr1val)
+                   (,attr2name . ,attr2val))))
+    (fiveam:is
+      (restagraph:delete-resource-attributes *server*
+                                             (list restype uid)
+                                             (list attr1name attr2name)))
+    ;; Remove the first attribute from the resourcetype
+    (fiveam:is
+      (restagraph:delete-resourcetype-attribute *server* restype attr1name))
     ;; Confirm we can no longer add it
     (fiveam:signals restagraph:client-error
                     (restagraph:update-resource-attributes
                       *server*
                       (list restype uid)
-                      `((,attrname . ,attrval))))
+                      `((,attr1name . ,attr1val))))
     ;; Remove the fixtures
     (restagraph:log-message :info "TEST Remove the fixtures")
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" restype uid))

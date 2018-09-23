@@ -522,6 +522,20 @@
           (format nil "Applying statement ~A" query))
         (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT .  ,query)))))))))
 
+(defmethod delete-resource-attributes ((db neo4cl:neo4j-rest-server)
+                                       (path list)
+                                       (attributes list))
+  (log-message
+    :debug
+    "Attempting to delete attributes '~{~A~^, ~}' from the resource at path '~{~A~^/~}'"
+    attributes path)
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           . ,(format nil "MATCH ~A REMOVE ~{n.~A~^, ~};"
+                      (uri-node-helper path "" "n" :directional t) attribute)))))))
+
 (defun process-filter (filter)
   "Process a single filter from a GET parameter.
    Assumes uri-node-helper was called with its default marker, which is 'n'."
