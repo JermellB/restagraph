@@ -83,6 +83,47 @@
     (restagraph:delete-resourcetype *server* restype)))
 
 (fiveam:test
+  resources-basic-attributes
+  :depends-on 'resources-basic
+  "Basic operations on resources"
+  (let ((restype "hubs")
+        (uid "knothole")
+        (attrname "colour")
+        (attrdesc "What colour the hub is.")
+        (attrval "green"))
+    ;; Set up the fixtures
+    (restagraph:log-message :info "TEST Set up the fixtures")
+    (restagraph:add-resourcetype *server* restype)
+    (restagraph:store-resource *server* restype `(("uid" . ,uid)))
+    ;; Try to set an attribute that the resourcetype doesn't have
+    (fiveam:signals restagraph:client-error
+      (restagraph:update-resource-attributes
+        *server*
+        (format nil "/~A/~A" restype uid)
+        `((,attrname ,attrval))))
+    ;; Add an attribute to the resourcetype
+    (restagraph:log-message :info "TEST Add an attribute to the resourcetype")
+    (fiveam:is (restagraph:add-resourcetype-attribute
+                 *server*
+                 restype
+                 :name attrname
+                 :description attrdesc))
+    (fiveam:is (equal
+                 `((:uid . ,uid)
+                   (:original--uid . ,(restagraph:sanitise-uid uid)))
+                 (restagraph:get-resources
+                   *server* (format nil "/~A/~A" restype uid))))
+    ;; Delete it
+    ;; Confirm it's gone again
+    ;(restagraph:log-message :info "TEST Confirm the resource is gone")
+    ;(fiveam:is (null (restagraph:get-resources
+    ;                   *server* (format nil "/~A/~A" restype uid))))
+    ;; Remove the fixtures
+    (restagraph:log-message :info "TEST Remove the fixtures")
+    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" restype uid))
+    (restagraph:delete-resourcetype *server* restype)))
+
+(fiveam:test
   resources-dependent-simple
   :depends-on 'resources-basic
   "Basic operations on dependent resources"
