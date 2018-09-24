@@ -80,8 +80,8 @@
       t)))
 
 (defmethod add-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
-                                          (resourcetype string)
-                                          &key name description)
+                                       (resourcetype string)
+                                       &key name description)
   ;; Perform some sanity checks before proceeding.
   (cond
     ;; Does the specified resourcetype exist?
@@ -269,7 +269,7 @@
                                          resources-seen)
   (log-message :debug (format nil "Describing resources linked from '~A'" resourcetype))
   (mapcar #'(lambda (row)
-              (log-message :debug "Adding description for linked resourcetype '~A'" (fourth row))
+              (log-message :debug "Retrieving description for linked resourcetype '~A'" (fourth row))
               ;; Return an alist of the values, ready for rendering into Javascript
               `((:relationship . ,(first row))
                 (:dependent . ,(if (second row) "true" "false"))
@@ -299,6 +299,9 @@
                                       (relationship string)
                                       (dependent-type string)
                                       &key dependent cardinality notes)
+  (log-message :info
+               (format nil "Attempting to create relationship '~A' from '~A' to '~A'"
+                       relationship parent-type dependent-type))
   (cond
     ;; Sanity checks
     ((not (describe-resource-type db parent-type))
