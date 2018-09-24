@@ -26,7 +26,7 @@
 (defun ensure-schema-schema (db)
   "Bootstrap function to ensure the database contains the schema-related schema.
    Must be handled separately from the schema we're trying to inject."
-  (log-message :info "Attempting to apply schema")
+  (log-message :info "Ensuring the schema schema is present.")
   ;; Schema name.
   ;; Enables us to combine multiple schemas in a single system.
   (unless (resourcetype-exists-p db "rgSchemas")
@@ -103,24 +103,24 @@
   (ensure-schema-schema db)
   ;; Now do the actual thing
   ;; Get these values now because current-version is used repeatedly
-  (let* ((current-version (get-schema-version db (gethash "name" schema))))
+  (let* ((schema-name (gethash "name" schema))
+         (schema-version (gethash "version" schema))
+         (current-version (get-schema-version db schema-name)))
     ;; Sanity-check: is there already a schema in place,
     ;; of a version equal to or greater than the one we've read in?
     (if (and current-version
-             (>= current-version (gethash "version" schema)))
+             (>= current-version schema-version))
         ;; Schema is already in place, and this one isn't newer.
         (log-message
           :info
-          "Schema version ~A is present. Not attempting to supersede it with version ~A."
-          current-version
-          (gethash "version" schema))
+          "Schema '~A' version ~A is present. Not attempting to supersede it with version ~A."
+          schema-name current-version schema-version)
         ;; This schema is newer than the existing one. Carry on.
         (progn
           (log-message
             :info
             "Superseding existing schema version ~A with version ~A."
-            current-version
-            (gethash "version" schema))
+            current-version schema-version)
           ;; Update resourcetypes
           (log-message :info "Adding resources")
           (maphash
@@ -204,5 +204,6 @@
                                  (format nil "Invalid entry ~A" rel))))
             (gethash "relationships" schema))
           ;; Record the current version of the schema
-          (log-message :info "Update schema version in database")
-          (set-schema-version db (gethash "name" schema) (gethash "version" schema))))))
+          (log-message :info "Update version number for schema '~A' in database to ~A"
+                       schema-name schema-version)
+          (set-schema-version db schema-name schema-version)))))
