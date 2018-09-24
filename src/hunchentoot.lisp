@@ -249,10 +249,24 @@
            (equal (tbnl:request-method*) :POST)
            (equal (third uri-parts) "resourcetype"))
          (let ((resourcetype (fourth uri-parts)))
-           (if (and
-                 (not (equal resourcetype ""))
-                 (not (equal resourcetype "NIL")))
-               ;; Sanity test passed; store it
+           (cond
+             ;; Sanity-check: was the resource-type supplied as a non-empty string?
+             ((or
+                (equal resourcetype "")
+                (equal resourcetype "NIL"))
+              (progn
+                (setf (tbnl:content-type*) "text/plain")
+                (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+                "At least give me the name of the resourcetype to create"))
+             ;; Sanity-check: is the resource-type already present?
+             ((resourcetype-exists-p (datastore tbnl:*acceptor*)
+                                     resourcetype)
+              (progn
+                (setf (tbnl:content-type*) "text/plain")
+                (setf (tbnl:return-code*) tbnl:+http-ok+)
+                "Resourcetype already exists"))
+             ;; Sanity tests passed; store it
+             (t
                (progn
                  (log-message
                    :debug
@@ -266,14 +280,9 @@
                    :dependent (tbnl:post-parameter "dependent")
                    :notes (tbnl:post-parameter "notes"))
                  ;; Return something useful
-                 (setf (tbnl:content-type*) "application/text")
+                 (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-created+)
-                 "Created")
-               ;; Sanity test failed; report the problem
-               (progn
-                 (setf (tbnl:content-type*) "application/text")
-                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-                 "At least give me the name of the resourcetype to create"))))
+                 "Created")))))
         ;; Add an attribute to a resource-type
         ((and
            (equal (tbnl:request-method*) :POST)
