@@ -296,7 +296,7 @@
                 (equal resourcetype "")
                 (equal resourcetype "NIL"))
               (progn
-                (setf (tbnl:content-type*) "application/text")
+                (setf (tbnl:content-type*) "text/plain")
                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
                 "At least give me the name of the resourcetype to modify"))
              ;; Missing/nil attribute parameter.
@@ -305,37 +305,37 @@
                 (equal attribute "")
                 (equal attribute "NIL"))
               (progn
-                (setf (tbnl:content-type*) "application/text")
+                (setf (tbnl:content-type*) "text/plain")
                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
                 "At least give me the name of the attribute to add"))
              ;; It's already there
              ((resourcetype-attribute-exists-p (datastore tbnl:*acceptor*)
-             resourcetype
-             attribute)
-             (progn
-                (setf (tbnl:content-type*) "application/text")
+                                               resourcetype
+                                               attribute)
+              (progn
+                (setf (tbnl:content-type*) "text/plain")
                 (setf (tbnl:return-code*) tbnl:+http-ok+)
                 "OK"))
              ;; Sanity tests passed; add it
              (t
-              (progn
-                (log-message :debug (format nil "Adding attribute '~A' to resource type '~A'."
-                                            attribute
-                                            resourcetype))
-                ;; Accumulate the parameters to make for a clean function-call
-                (let ((attr-details
-                        (append
-                          (list
-                            (datastore tbnl:*acceptor*)
-                            resourcetype
-                            :name attribute)
-                          (when (tbnl:post-parameter "description")
-                            (list `(:description ,(tbnl:post-parameter "description")))))))
-                  (apply #'add-resourcetype-attribute attr-details)
-                  ;; Return something useful
-                  (setf (tbnl:content-type*) "application/text")
-                  (setf (tbnl:return-code*) tbnl:+http-created+)
-                  "Created"))))))
+               (progn
+                 (log-message :debug (format nil "Adding attribute '~A' to resource type '~A'."
+                                             attribute
+                                             resourcetype))
+                 ;; Accumulate the parameters to make for a clean function-call
+                 (let ((attr-details
+                         (append
+                           (list
+                             (datastore tbnl:*acceptor*)
+                             resourcetype
+                             :name attribute)
+                           (when (tbnl:post-parameter "description")
+                             (list `(:description ,(tbnl:post-parameter "description")))))))
+                   (apply #'add-resourcetype-attribute attr-details)
+                   ;; Return something useful
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-created+)
+                   "Created"))))))
         ;; Delete a resource-type
         ((and
            (equal (tbnl:request-method*) :DELETE)
@@ -345,7 +345,7 @@
            (log-message :debug (format nil "Deleting resource type ~A" resourcetype))
            (delete-resourcetype (datastore tbnl:*acceptor*) resourcetype)
            ;; Return something useful
-           (setf (tbnl:content-type*) "application/text")
+           (setf (tbnl:content-type*) "text/plain")
            (setf (tbnl:return-code*) tbnl:+http-no-content+)
            ""))
         ;; Delete an attribute from a resource-type
@@ -359,7 +359,7 @@
                                        attribute resourcetype))
            (delete-resourcetype-attribute (datastore tbnl:*acceptor*) resourcetype attribute)
            ;; Return something useful
-           (setf (tbnl:content-type*) "application/text")
+           (setf (tbnl:content-type*) "text/plain")
            (setf (tbnl:return-code*) tbnl:+http-no-content+)
            ""))
         ;; Add a relationship
@@ -380,27 +380,27 @@
                  destination-type
                  (not (equal relationship ""))
                  (not (equal relationship "NIL")))
-               ;; Store it
-               (progn
-                 (log-message :debug
-                              (format nil "Adding relationship ~A from ~A to ~A"
-                                      relationship source-type destination-type))
-                 ;; Make it go
-                 (add-resource-relationship
-                   (datastore tbnl:*acceptor*)
-                   source-type
-                   relationship
-                   destination-type
-                   :dependent (tbnl:post-parameter "dependent")
-                   :cardinality (tbnl:post-parameter "cardinality"))
-                 ;; Return something useful
-                 (setf (tbnl:content-type*) "application/text")
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 "Created")
-               (progn
-                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-                 (setf (tbnl:content-type*) "application/text")
-                 "All parameters are required: /<source-type>/<relationship>/<destination-type>"))))
+             ;; Store it
+             (progn
+               (log-message :debug
+                            (format nil "Adding relationship ~A from ~A to ~A"
+                                    relationship source-type destination-type))
+               ;; Make it go
+               (add-resource-relationship
+                 (datastore tbnl:*acceptor*)
+                 source-type
+                 relationship
+                 destination-type
+                 :dependent (tbnl:post-parameter "dependent")
+                 :cardinality (tbnl:post-parameter "cardinality"))
+               ;; Return something useful
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               "Created")
+             (progn
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               (setf (tbnl:content-type*) "text/plain")
+               "All parameters are required: /<source-type>/<relationship>/<destination-type>"))))
         ;; Delete a relationship
         ((and
            (equal (tbnl:request-method*) :DELETE)
@@ -417,7 +417,7 @@
                                          relationship
                                          destination-type)
            ;; Return something useful
-           (setf (tbnl:content-type*) "application/text")
+           (setf (tbnl:content-type*) "text/plain")
            (setf (tbnl:return-code*) tbnl:+http-no-content+)
            ""))
         ;;
@@ -476,7 +476,7 @@
                  (format nil "No resources found for ~A" sub-uri))
                ;; It worked; return what we found
                (progn
-                 (setf (tbnl:content-type*) "application/json")
+                 (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-ok+)
                  (if (= (mod (length uri-parts) 3) 2)
                      (cl-json:encode-json-alist-to-string result)
@@ -513,7 +513,7 @@
                                (tbnl:post-parameters*))
                ;; Return it from the database, for confirmation
                (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
-               (setf (tbnl:content-type*) "application/json")
+               (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
                (cl-json:encode-json-alist-to-string
                  (get-resources (datastore tbnl:*acceptor*)
@@ -616,7 +616,7 @@
                (datastore tbnl:*acceptor*)
                uri-parts
                (tbnl:post-parameters*))
-             (setf (tbnl:content-type*) "application/json")
+             (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; Return JSON representation of the newly-updated resource
              (cl-json:encode-json-alist-to-string
