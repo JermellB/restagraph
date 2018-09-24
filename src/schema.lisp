@@ -4,48 +4,37 @@
 
 (defun ensure-schema-schema (db)
   "Bootstrap function to ensure the database contains the schema-related schema.
-  Must be handled separately from the schema we're trying to inject."
+   Must be handled separately from the schema we're trying to inject."
   (log-message :info "Attempting to apply schema")
   ;; Schema name.
   ;; Enables us to combine multiple schemas in a single system.
-  (log-message :info "Attempting to add resourcetype rgSchemas")
-  (handler-case
-    (add-resourcetype
-      db
-      "rgSchemas"
-      :notes "Schema-management schema.")
-    ;; If it's an integrity error, i.e. it already exists, carry on.
-    (neo4cl:client-error
-      (e)
-      (when (and (equal (neo4cl:title e) "Schema")
-                 (equal (neo4cl:message e) "ConstraintValidationFailed"))
-        (log-message :warn "Failed to create rgSchemas resource: ConstraintValidationFailed")
-        nil)))
+  (unless (resourcetype-exists-p db "rgSchemas")
+    (progn
+      (log-message :info "Attempting to add resourcetype rgSchemas")
+      (add-resourcetype
+        db
+        "rgSchemas"
+        :notes "Schema-management schema.")))
   ;; Schema version object.
   ;; Allows us to track the history of schema updates in this installation.
-  (log-message :info "Attempting to add resourcetype rgSchemaVersions")
-  (handler-case
-    (add-resourcetype
+  (unless (resourcetype-exists-p db "rgSchemaVersions")
+    (progn
+      (log-message :info "Attempting to add resourcetype rgSchemaVersions")
+      (add-resourcetype
+        db
+        "rgSchemaVersions"
+        :dependent t
+        :notes "Schema version-management atom.")))
+  ;; Define the relationship between schemas and their versions
+  (unless (get-relationship-attrs db "rgSchemas" "Versions" "rgSchemaVersions")
+    (log-message :info "Attempting to link rgSchemas with rgSchemaVersions")
+    (add-resource-relationship
       db
+      "rgSchemas"
+      "Versions"
       "rgSchemaVersions"
       :dependent t
-      :notes "Schema version-management atom.")
-    ;; If it's an integrity error, i.e. it already exists, carry on.
-    (neo4cl:client-error
-      (e)
-      (when (and (equal (neo4cl:title e) "Schema")
-                 (equal (neo4cl:message e) "ConstraintValidationFailed"))
-        (log-message :warn "Failed to create rgSchemaVersions resource: ConstraintValidationFailed")
-        nil)))
-  ;; Define the relationship between schemas and their versions
-  (log-message :info "Attempting to link rgSchemas with rgSchemaVersions")
-  (add-resource-relationship
-    db
-    "rgSchemas"
-    "Versions"
-    "rgSchemaVersions"
-    :dependent t
-    :cardinality "1:many"))
+      :cardinality "1:many")))
 
 (defun get-schema-version (db name &key all-versions)
   "Extract the highest version number in the database for the named schema.
@@ -101,37 +90,97 @@
         ;; Schema is already in place, and this one isn't newer.
         (log-message
           :info
-          "Schema version ~a is present. Not attempting to supersede it with version ~A."
-          current-version (gethash "version" schema))
+          "Schema version ~A is present. Not attempting to supersede it with version ~A."
+          current-version
+          (gethash "version" schema))
         ;; This schema is newer than the existing one. Carry on.
         (progn
           (log-message
             :info
             "Superseding existing schema version ~A with version ~A."
-            current-version (gethash "version" schema))
+            current-version
+            (gethash "version" schema))
           ;; Update resourcetypes
           (log-message :info "Adding resources")
           (maphash
             #'(lambda (resourcename value)
-                (add-resourcetype
-                  db
-                  resourcename
-                  :dependent (gethash "dependent" value)
-                  :notes (gethash "notes" value)))
+                (log-message
+                  :debug
+                  (format nil "Attempting to add resource '~A'" resourcename))
+                ;; Build the resource definition,
+                ;; including only the attributes actually supplied
+                (let ((resource
+                        (append
+                          (list db resourcename)
+                          (when (gethash "dependent" value)
+                            (list :dependent (gethash "dependent" value)))
+                          (when (gethash "notes" value)
+                            (list :notes (gethash "notes" value))))))
+                  (apply #'add-resourcetype resource))
+                ;; Now add the attributes.
+                ;; Looks like a really clunky way to go about it,
+                ;; but is designed to be extended with other attribute-attributes,
+                ;; such as type and input validation.
+                (when
+                  ;; Only do this if the resourcetype has an 'attributes' subhash
+                  (gethash "attributes" value)
+                  ;; Process each attribute-attribute in turn
+                  (log-message
+                    :debug
+                    (format nil "Processing attributes for resourcetype ~A"
+                            resourcename))
+                  (maphash #'(lambda (attrname attrdetails)
+                               (log-message
+                                 :debug
+                                 (format nil "Processing attribute ~A"
+                                         attrname))
+                               (let ((attribute
+                                       (append
+                                         ;; Each attr-attr has at least this much
+                                         (list db resourcename :name attrname)
+                                         (when (and
+                                                 attrdetails
+                                                 (hash-table-p attrdetails)
+                                                 (gethash "description" attrdetails))
+                                           (log-message
+                                             :debug
+                                             (format
+                                               nil "Adding description ~A"
+                                               (gethash "description" attrdetails)))
+                                           (list :description
+                                                 (gethash "description" attrdetails))))))
+                                 (apply #'add-resourcetype-attribute attribute)))
+                           (gethash "attributes" value))))
             (gethash "resourcetypes" schema))
           ;; Update relationships between resourcetypes
           (log-message :info "Adding relationships between resources")
           (mapcar
             #'(lambda (rel)
-                (let ((relparts (cl-ppcre:split "/" (gethash "uri" rel))))
-                  (add-resource-relationship
-                    db
-                    (second relparts)   ; parent-type
-                    (third relparts)    ; relationship
-                    (fourth relparts)   ; dependent-type
-                    :dependent (gethash "dependent" rel)
-                    :cardinality (gethash "cardinality" rel)
-                    :notes (gethash "notes" rel))))
+                ;; Sanity-check
+                (if (and
+                      rel
+                      (hash-table-p rel)
+                      (gethash "uri" rel))
+                    ;; We're OK; carry on
+                    (let ((relparts (cl-ppcre:split "/" (gethash "uri" rel))))
+                      (log-message
+                        :debug
+                        "Requesting to add relationship '~A' from '~A' to '~A'"
+                        (third relparts) (second relparts) (fourth relparts))
+                      (handler-case
+                        (add-resource-relationship
+                          db
+                          (second relparts)   ; parent-type
+                          (third relparts)    ; relationship
+                          (fourth relparts)   ; dependent-type
+                          :dependent (gethash "dependent" rel)
+                          :cardinality (gethash "cardinality" rel)
+                          :notes (gethash "notes" rel))
+                        (restagraph:integrity-error (e)
+                                                    (log-message :error (restagraph:message e))))))
+                ;; Sanity-check failed
+                (log-message :warning
+                             (format nil "Invalid entry ~A" rel)))
             (gethash "relationships" schema))
           ;; Record the current version of the schema
           (log-message :info "Update schema version in database")
