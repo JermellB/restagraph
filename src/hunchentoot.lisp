@@ -284,17 +284,17 @@
              ;; Missing/nil resourcetype parameter.
              ;; If it's invalid, add-resourcetype-attribute will catch it.
              ((or
-                (not (equal resourcetype ""))
-                (not (equal resourcetype "NIL")))
+                (equal resourcetype "")
+                (equal resourcetype "NIL"))
               (progn
                 (setf (tbnl:content-type*) "application/text")
                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
-                "At least give me the name of the resourcetype to create"))
+                "At least give me the name of the resourcetype to modify"))
              ;; Missing/nil attribute parameter.
              ;; If it's invalid, add-resourcetype-attribute will catch it.
              ((or
-                (not (equal attribute ""))
-                (not (equal attribute "NIL")))
+                (equal attribute "")
+                (equal attribute "NIL"))
               (progn
                 (setf (tbnl:content-type*) "application/text")
                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
@@ -586,6 +586,32 @@
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; FIXME: find a good JSON representation of what was just created
              "CREATED")
+           ;; Attempted violation of db integrity
+           (restagraph:integrity-error (e) (return-integrity-error (message e)))
+           ;; Generic client errors
+           (restagraph:client-error (e) (return-client-error (message e)))
+           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
+        ;; PUT -> update something
+        ;;
+        ;; Resource attributes
+        ((and
+           (equal (tbnl:request-method*) :PUT)
+           (> (length uri-parts) 0)
+           (equal (mod (length uri-parts) 3) 2))
+         (handler-case
+           (progn
+             (log-message
+               :debug
+               (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
+             (update-resource-attributes
+               (datastore tbnl:*acceptor*)
+               uri-parts
+               (tbnl:post-parameters*))
+             (setf (tbnl:content-type*) "application/json")
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             ;; Return JSON representation of the newly-updated resource
+             (cl-json:encode-json-alist-to-string
+               (get-resources (datastore tbnl:*acceptor*) (tbnl:request-uri*))))
            ;; Attempted violation of db integrity
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
            ;; Generic client errors

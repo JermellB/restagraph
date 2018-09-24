@@ -188,6 +188,89 @@ class TestResources(unittest.TestCase):
         print('Test: schema should be empty')
         self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
 
+class TestResourceAttributes(unittest.TestCase):
+    '''
+    Basic CRUD functions for resource attributes
+    '''
+    resourcetype = 'whatchamacallit'
+    resourceuid = 'whatsisface'
+    attr1type = 'whosit'
+    attr1val = 'thingy'
+    attr2type = 'whatsit'
+    attr2val = 'hoodacky'
+    def test_create_and_remove_resourcetypeattrs(self):
+        print('Test: create the fixtures')
+        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
+        requests.post('%s/%s' % (API_BASE_URL, self.resourcetype), data={'uid': self.resourceuid})
+        print('Test: fail to add an attribute')
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.resourceuid),
+                                      data={self.attr1type: self.attr1val}).status_code,
+                         400)
+        print('Test: Add the first attribute to the resourcetype')
+        self.assertEqual(requests.post('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
+                                                               self.resourcetype,
+                                                               self.attr1type)).status_code,
+                         201)
+        print('Test: Successfully add the first attribute to the resource')
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.resourceuid),
+                                      data={self.attr1type: self.attr1val}).status_code,
+                         201)
+        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.resourceuid)).json(),
+                         {'original_uid': sanitise_uid(self.resourceuid),
+                          'uid': self.resourceuid,
+                          self.attr1type: self.attr1val})
+        print('Test: Add the second attribute to the resourcetype')
+        self.assertEqual(requests.post('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
+                                                               self.resourcetype,
+                                                               self.attr2type)).status_code,
+                         201)
+        print('Test: Successfully add two attributes to the resource at once')
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
+        requests.post('%s/%s' % (API_BASE_URL, self.resourcetype), data={'uid': self.resourceuid})
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.resourceuid),
+                                      data={self.attr1type: self.attr1val,
+                                            self.attr2type: self.attr2val}).status_code,
+                         201)
+        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.resourceuid)).json(),
+                         {'original_uid': sanitise_uid(self.resourceuid),
+                          'uid': self.resourceuid,
+                          self.attr1type: self.attr1val,
+                          self.attr2type: self.attr2val})
+        print('Test: Remove the attributes from the resourcetype')
+        self.assertEqual(requests.delete('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
+                                                                 self.resourcetype,
+                                                                 self.attr1type)).status_code,
+                         204)
+        self.assertEqual(requests.delete('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
+                                                                 self.resourcetype,
+                                                                 self.attr2type)).status_code,
+                         204)
+        print('Test: fail to add the first attribute')
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.resourceuid),
+                                      data={self.attr1type: self.attr1val}).status_code,
+                         400)
+        print('Test: fail to add the second attribute')
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.resourceuid),
+                                      data={self.attr1type: self.attr1val}).status_code,
+                         400)
+        print('Test: delete the fixtures')
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
+        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
+
 class TestMultipleResources(unittest.TestCase):
     '''
     Retrieve details of all resources of a given type.
