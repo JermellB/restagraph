@@ -49,37 +49,39 @@
 
 (defun get-uri-parts (uri)
   "Break the URI into parts for processing by uri-node-helper"
-  (cdr
-    (ppcre:split "/"
-                 (cl-ppcre:regex-replace (getf *config-vars* :api-uri-base) uri ""))))
+  (mapcar
+    #'sanitise-uid
+    (cdr
+      (ppcre:split "/"
+                   (cl-ppcre:regex-replace (getf *config-vars* :api-uri-base) uri "")))))
 
 (defun uri-node-helper (uri-parts &key (path "") (marker "n") (directional t))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."
   (cond
     ((null uri-parts)
-     (format nil "~A(~A)" path marker))
+     (format nil "~A(~A)" path (escape-neo4j marker)))
     ((equal (length uri-parts) 1)
-     (format nil "~A(~A:~A)" path marker (first uri-parts)))
+     (format nil "~A(~A:~A)" path (escape-neo4j marker) (first uri-parts)))
     ((equal (length uri-parts) 2)
      (format nil "~A(~A:~A { uid: '~A' })"
-             path marker (first uri-parts) (second uri-parts)))
+             path (escape-neo4j marker) (first uri-parts) (second uri-parts)))
     ((equal (length uri-parts) 3)
      (format nil "~A(:~A { uid: '~A' })-[:~A]~A(~A)"
              path
-             (first uri-parts)
-             (second uri-parts)
-             (third uri-parts)
+             (sanitise-uid (first uri-parts))
+             (sanitise-uid (second uri-parts))
+             (sanitise-uid (third uri-parts))
              (if directional "->" "-")
-             marker))
+             (escape-neo4j marker)))
     (t
       (uri-node-helper
         (cdddr uri-parts)
         :path (format nil "~A(:~A { uid: '~A' })-[:~A]~A"
                       path
-                      (first uri-parts)
-                      (second uri-parts)
-                      (third uri-parts)
+                      (sanitise-uid (first uri-parts))
+                      (sanitise-uid (second uri-parts))
+                      (sanitise-uid (third uri-parts))
                       (if directional "->" "-"))
         :marker marker
         :directional directional))))
@@ -97,20 +99,20 @@
         (cdddr uri-parts)
         :path (format nil "~A(:~A {uid: '~A'})-[:~A]~A"
                       path
-                      (first uri-parts)
-                      (second uri-parts)
-                      (third uri-parts)
+                      (sanitise-uid (first uri-parts))
+                      (sanitise-uid (second uri-parts))
+                      (sanitise-uid (third uri-parts))
                       (if directional "->" "-"))
-        :marker marker
+        :marker (escape-neo4j marker)
         :directional directional)
       ;; End of the path.
       ;; Return this along with whatever came before.
       (format nil "~A(:~A {uid: '~A'})-[~A:~A]"
               path
-              (first uri-parts)
-              (second uri-parts)
-              marker
-              (third uri-parts)))
+              (sanitise-uid (first uri-parts))
+              (sanitise-uid (second uri-parts))
+              (escape-neo4j marker)
+              (sanitise-uid (third uri-parts))))
     ;; This isn't a path to a relationship
     (error 'client-error :message "Path length must be a multiple of 3.")))
 
@@ -204,7 +206,8 @@
 
 (defun sanitise-uid (uid)
   "Replace UID-unfriendly characters in UIDs with something safe"
-  (cl-ppcre:regex-replace-all "[/ ]" uid "_"))
+  (escape-neo4j
+    (cl-ppcre:regex-replace-all "[/ ]" uid "_")))
 
 (defun get-sub-uri (uri base-uri)
   "Extract the URI from the full request string,

@@ -18,6 +18,16 @@
 (in-package #:restagraph)
 
 
+;;;; Utility functions
+
+(defun escape-neo4j (str)
+  "Escape any undesirable characters in a string, e.g. the single-quote."
+  (cl-ppcre:regex-replace-all
+    "'"
+    str
+    "´"))
+
+
 ;;;; Schema methods and functions
 
 (defmethod resourcetype-exists-p ((db neo4cl:neo4j-rest-server)
@@ -30,7 +40,8 @@
       db
       `((:STATEMENTS
           ((:STATEMENT
-             . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n" resourcetype))))))))
+             . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n"
+             (sanitise-uid resourcetype)))))))))
 
 (defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
                              (resourcetype string)
@@ -53,12 +64,12 @@
         `((:STATEMENTS
             ((:STATEMENT
                . ,(format nil "CREATE (r:rgResource {name: '~A'~A~A});"
-                          resourcetype
+                          (sanitise-uid resourcetype)
                           (if dependent
                             ", dependent: 'true'"
                             "")
                           (if notes
-                            (format nil ", notes: '~A'" notes)
+                            (format nil ", notes: '~A'" (escape-neo4j notes))
                             "")))))))
       (log-message :debug "Add a uniqueness constraint in the database, but only if it's a primary resource.")
       (unless dependent
@@ -67,7 +78,8 @@
             db
             `((:STATEMENTS
                 ((:STATEMENT
-                   . ,(format nil "CREATE CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE" resourcetype))))))
+                   . ,(format nil "CREATE CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE"
+                   (sanitise-uid resourcetype)))))))
           (neo4cl:database-error (e)
                                  (if (equal (neo4cl:title e) "ConstraintCreateFailed")
                                    nil   ; This is OK - do nothing
@@ -105,11 +117,11 @@
        `((:STATEMENTS
            ((:STATEMENT
               . ,(format nil "MATCH (r:rgResource {name: '~A'}) CREATE (r)-[:rgHasAttribute]->(:rgAttribute {~{~{~A: '~A'~}~^, ~}});"
-                         resourcetype
+                         (sanitise-uid resourcetype)
                          ;; Handle the optional attribute-attributes with an accumulator
-                         (append `(("name" ,name))
+                         (append `(("name" ,(escape-neo4j name)))
                                  (when description
-                                   `(("description" ,description)))))))))))))
+                                   `(("description" ,(escape-neo4j description))))))))))))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))
@@ -119,7 +131,7 @@
       `((:STATEMENTS
           ((:STATEMENT .
             ,(format nil "MATCH (c:rgResource { name: '~A' })-[:rgHasAttribute]-(a:rgAttribute) RETURN a"
-                     resourcetype))))))))
+                     (sanitise-uid resourcetype)))))))))
 
 (defmethod update-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
                                           (resourcetype string)
@@ -140,16 +152,16 @@
        `((:STATEMENTS
            ((:STATEMENT
               . ,(format nil "MATCH (r:rgResource {name: '~A'})-[:rgHasAttribute]->(a:rgAttribute {name: '~A'}) SET n.description = '~A';"
-                         resourcetype
-                         attribute
-                         description)))))))))
+                         (sanitise-uid resourcetype)
+                         (sanitise-uid attribute)
+                         (sanitise-uid description))))))))))
 
 (defmethod resourcetype-attribute-exists-p ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string)
                                             (attribute string))
-  (member attribute
+  (member (escape-neo4j attribute)
           (mapcar #'(lambda (attr) (cdr (assoc :name (car attr))))
-                  (get-resource-attributes-from-db db resourcetype))
+                  (get-resource-attributes-from-db db (sanitise-uid resourcetype)))
           :test #'equal))
 
 (defmethod delete-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
@@ -180,8 +192,8 @@
        `((:STATEMENTS
            ((:STATEMENT
               . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(a:rgAttribute {name: '~A'}) DETACH DELETE a;"
-                         resourcetype
-                         name)))))))))
+                         (sanitise-uid resourcetype)
+                         (escape-neo4j name))))))))))
 
 (defmethod delete-resourcetype ((db neo4cl:neo4j-rest-server)
                                 (resourcetype string))
@@ -195,7 +207,8 @@
         db
         `((:STATEMENTS
             ((:STATEMENT
-               .  ,(format nil "DROP CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE" resourcetype))))))
+               .  ,(format nil "DROP CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE"
+               (sanitise-uid resourcetype)))))))
       (neo4cl:database-error (e)
                              (if (equal (neo4cl:title e) "ConstraintDropFailed")
                                  nil   ; This is OK - do nothing
@@ -209,18 +222,20 @@
     db
     `((:STATEMENTS
         ((:STATEMENT
-           . ,(format nil "MATCH (n:~A) DETACH DELETE n;" resourcetype))))))
+           . ,(format nil "MATCH (n:~A) DETACH DELETE n;" (sanitise-uid resourcetype)))))))
   (log-message :debug "Delete this type, along with any relationships it has to other types.")
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
         ((:STATEMENT
-           . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(r) DETACH DELETE r;" resourcetype))))))
+           . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(r) DETACH DELETE r;"
+           (sanitise-uid resourcetype)))))))
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
         ((:STATEMENT
-           . ,(format nil "MATCH (r:rgResource {name: '~A'}) DETACH DELETE r;" resourcetype)))))))
+           . ,(format nil "MATCH (r:rgResource {name: '~A'}) DETACH DELETE r;"
+           (sanitise-uid resourcetype))))))))
 
 (defmethod get-resource-types ((db neo4cl:neo4j-rest-server))
   (mapcar #'car
@@ -240,7 +255,7 @@
   (let ((node))
     (when (resourcetype-exists-p db resourcetype)
       ;; Construct the return values
-      `((:NAME . ,resourcetype)
+      `((:NAME . ,(sanitise-uid resourcetype))
         (:ATTRIBUTES
           . ,(sort
                (mapcar
@@ -251,15 +266,17 @@
                      `((:STATEMENTS
                          ((:STATEMENT
                             . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n"
-                                       resourcetype))))))))
+                                       (sanitise-uid resourcetype)))))))))
                #'string-lessp))
         (:DEPENDENT . ,(if (assoc :DEPENDENT node)
                            "true"
                            "false"))
-        (:NOTES . ,(if (cdr (assoc :NOTES node)) (cdr (assoc :NOTES node)) ""))
+        (:NOTES . ,(if (cdr (assoc :NOTES node))
+                       (cdr (assoc :NOTES node))
+                       ""))
         (:RELATIONSHIPS . ,(describe-dependent-resources
                              db
-                             resourcetype
+                             (sanitise-uid resourcetype)
                              :recursive recursive
                              :resources-seen resources-seen))))))
 
@@ -281,7 +298,10 @@
                            (log-message :debug (format nil "Adding '~A' to the list of resources already seen" (fourth row)))
                            (pushnew (fourth row) resources-seen)
                            ;; Now recurse through this process
-                           (describe-resource-type db (fourth row) :recursive t :resources-seen resources-seen))
+                           (describe-resource-type db
+                                                   (fourth row)
+                                                   :recursive t
+                                                   :resources-seen resources-seen))
                          (fourth row)))))
           ;; Skip any resources we've already seen, to break loops
           (remove-if #'(lambda (row)
@@ -292,7 +312,7 @@
                          `((:STATEMENTS
                              ((:STATEMENT .
                                ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN type(r), r.dependent, r.cardinality, n.name"
-                                        resourcetype))))))))))
+                                        (sanitise-uid resourcetype)))))))))))
 
 (defmethod add-resource-relationship ((db neo4cl:neo4j-rest-server)
                                       (parent-type string)
@@ -322,7 +342,7 @@
          (pushnew (format nil "cardinality: '~A'" cardinality)
                   attrs))
        (when notes
-         (pushnew (format nil "notes: '~A'" notes) attrs))
+         (pushnew (format nil "notes: '~A'" (escape-neo4j notes)) attrs))
        ;; Create it
        (neo4cl:neo4j-transaction
          db
@@ -347,15 +367,15 @@
           ,(format
              nil
              "MATCH (s:rgResource { name: '~A' })-[r:~A]->(d:rgResource { name: '~A'}) DELETE r"
-             parent-type
-             relationship
-             dependent-type)))))))
+             (sanitise-uid parent-type)
+             (sanitise-uid relationship)
+             (sanitise-uid dependent-type))))))))
 
 (defun format-post-params-as-properties (params)
   "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map that Neo4J expects in the :PROPERTIES section of a query."
   (mapcar #'(lambda (param)
-              (cons (intern (string-downcase (car param)) :keyword)
-                    (cdr param)))
+              (cons (intern (escape-neo4j (string-downcase (car param))) :keyword)
+                    (escape-neo4j (cdr param))))
           params))
 
 (defmethod validate-resource-before-creating ((db neo4cl:neo4j-rest-server)
@@ -370,7 +390,8 @@
     ;; Were attributes specified and, if so, are they all valid for this resource-type?
     (let
       ((requested-attributes
-         (remove-if #'(lambda (param) (equal (car param) "uid")) params)))
+         (remove-if #'(lambda (param) (equal (car param) "uid"))
+                    params)))
       (if (or
             ;; If no attributes were specified other than "uid", we're good
             (not requested-attributes)
@@ -389,7 +410,7 @@
                                                       (string-downcase (car par))
                                                       valid-attributes
                                                       :test 'equal)
-                                              (string-downcase (car par))))
+                                              (escape-neo4j (string-downcase (car par)))))
                                         requested-attributes))))
               ;; Record the valid possibilities, if we're debugging.
               (if valid-attributes
@@ -430,7 +451,7 @@
       `((:STATEMENTS
           ((:STATEMENT .
             ,(format nil "MATCH (c:rgResource { name: '~A' }) RETURN c.dependent"
-                     resourcetype))))))))
+                     (sanitise-uid resourcetype)))))))))
 
 (defmethod dependent-relationship-p ((db neo4cl:neo4j-rest-server)
                                      (source-type string)
@@ -445,7 +466,9 @@
       `((:STATEMENTS
           ((:STATEMENT
              . ,(format nil "MATCH (a:rgResource { name: '~A' })-[r:~A { dependent: 'true' } ]->(b:rgResource { name: '~A', dependent: 'true' }) WHERE r.dependent = 'true' RETURN type(r)"
-                        source-type relationship dest-type))))))))
+                        (sanitise-uid source-type)
+                        (sanitise-uid relationship)
+                        (sanitise-uid dest-type)))))))))
 
 (defmethod store-resource ((db neo4cl:neo4j-rest-server)
                            (resourcetype string)
@@ -473,7 +496,8 @@
               (neo4cl:neo4j-transaction
                 db
                 `((:STATEMENTS
-                    ((:STATEMENT . ,(format nil "CREATE (:~A { properties })" resourcetype))
+                    ((:STATEMENT . ,(format nil "CREATE (:~A { properties })"
+                                            (sanitise-uid resourcetype)))
                      (:PARAMETERS . ((:PROPERTIES . ,attributes)))))))
               ;; Catch selected errors as they come up
               (neo4cl::client-error
@@ -525,6 +549,7 @@
           (format nil "Applying statement ~A" query))
         (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT .  ,query)))))))))
 
+;;; FIXME: validate the attrs, at least to ensure they're escaped
 (defmethod delete-resource-attributes ((db neo4cl:neo4j-rest-server)
                                        (path list)
                                        (attributes list))
@@ -549,8 +574,8 @@
          ;; Does the value start with "!" to indicate negation?
          (negationp (string= "!" value :end2 1)))
     (if negationp
-    (log-message :debug "Negation detected. negationp = ~A" negationp)
-    (log-message :debug "Negation not detected. Double-negative in progress."))
+        (log-message :debug "Negation detected. negationp = ~A" negationp)
+        (log-message :debug "Negation not detected. Double-negative in progress."))
     ;; Prepend negation if applicable
     (format
       nil
@@ -563,9 +588,9 @@
         ;; Simple format: relationship/path/to/target
         ((equal name "outbound")
          (let* ((parts (cl-ppcre:split "/" value))
-                (relationship (first parts))
-                (target-type (second parts))
-                (target-uid (third parts)))
+                (relationship (sanitise-uid (first parts)))
+                (target-type (sanitise-uid (second parts)))
+                (target-uid (sanitise-uid (third parts))))
            (log-message :debug "Outbound link detected: ~A" value)
            (format nil "(n)-[:~A]-(:~A {uid: '~A'})" relationship target-type target-uid)))
         ;; Regex match
@@ -573,21 +598,22 @@
         ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
          (let ((offset (if negationp 1 0)))
            (log-message :debug
-                         "Regex detected. Extracting the value from a starting offset of ~d."
-                         offset)
+                        "Regex detected. Extracting the value from a starting offset of ~d."
+                        offset)
            (format
-             nil "n.~A =~~ '~A'" name
+             nil "n.~A =~~ '~A'"
+             (escape-neo4j name)
              ;; Drop the first character if we're negating the match,
              ;; otherwise use the whole string.
-             (subseq value offset))))
+             (escape-neo4j (subseq value offset)))))
         ;;
         ;; Simple existence check
-        ((string= "exists" value)
-         (format nil "exists(n.~A)" name))
+        ((string= "exists" (escape-neo4j value))
+         (format nil "exists(n.~A)" (escape-neo4j name)))
         ;;
         ;; Default case: exact text match
         (t
-         (format nil "n.~A = '~A'" name value))))))
+         (format nil "n.~A = '~A'" (escape-neo4j name) (escape-neo4j value)))))))
 
 (defun process-filters (filters)
   "Take GET parameters, and turn them into a string of Neo4j WHERE clauses."
@@ -600,6 +626,8 @@
           response)
         "")))
 
+;;; FIXME: turn &optional into &key, and add :directional
+;;; so GET requests can accept a directional parameter from the client
 (defmethod get-resources ((db neo4cl:neo4j-rest-server)
                           (uri string)
                           &optional filters)
@@ -680,13 +708,18 @@
       `((:STATEMENTS
           ((:STATEMENT
              . ,(format nil "MATCH (a:rgResource)-[r:~A]->(b:rgResource {name: '~A'}) WHERE a.name IN ['~A', 'any'] RETURN a, type(r), b"
-                        reltype dest-type source-type))))))))
+                        (sanitise-uid reltype)
+                        (sanitise-uid dest-type)
+                        (sanitise-uid source-type)))))))))
 
 (defmethod get-relationship-attrs ((db neo4cl:neo4j-rest-server)
                                    (source-type string)
                                    (relationship string)
                                    (dest-type string))
-  (log-message :debug (format nil "Retrieving the dependency and cardinality attributes of relationship ~A from ~A to ~A" relationship source-type dest-type))
+  (log-message
+    :debug
+    (format nil "Retrieving the dependency and cardinality attributes of relationship ~A from ~A to ~A"
+            relationship source-type dest-type))
   (car
     (neo4cl:extract-rows-from-get-request
       (neo4cl:neo4j-transaction
@@ -694,7 +727,9 @@
         `((:STATEMENTS
             ((:STATEMENT
                .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r.dependent, r.cardinality"
-                           source-type relationship dest-type)))))))))
+                           (sanitise-uid source-type)
+                           (sanitise-uid relationship)
+                           (sanitise-uid dest-type))))))))))
 
 (defmethod create-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (sourcepath string)
@@ -811,7 +846,10 @@
          (new-relationship (car (last dest-parts)))
          (new-parent-type (car (last (butlast dest-parts 2))))
          ;; Define this here because we use it at both the start and the end
-         (new-path (format nil "~A/~A/~A" newparent target-type target-uid)))
+         (new-path (format nil "~{/~A~}/~A/~A"
+                           (get-uri-parts newparent)  ; Sanitise it
+                           target-type
+                           target-uid)))
     (cond
       ;; Sanity-check: does this path already exist?
       ((get-resources db new-path)
@@ -894,7 +932,7 @@
          (parent-parts (butlast uri-parts 2))
          (parent-type (nth (- (length parent-parts) 2) parent-parts))
          (dest-type (car (last uri-parts)))
-         (dest-uid (cdr (assoc "uid" attributes :test 'equal)))
+         (dest-uid (sanitise-uid (cdr (assoc "uid" attributes :test 'equal))))
          (relationship-attrs (get-relationship-attrs db parent-type relationship dest-type)))
     (cond
       ;; Sanity check: required parameters
@@ -989,7 +1027,9 @@
               `((:STATEMENTS
                   ((:STATEMENT .
                     ,(format nil "MATCH (a:~A {uid: '~A' })-[:~A]->(b) RETURN labels(b), b.uid"
-                             resourcetype uid relationship)))))))))
+                             (sanitise-uid resourcetype)
+                             (sanitise-uid uid)
+                             (sanitise-uid relationship))))))))))
 
 (defmethod get-dependent-resources ((db neo4cl:neo4j-rest-server)
                                     (sourcepath list))
@@ -1032,12 +1072,12 @@
       ;; Does the target even depend on this relationship?
       (if (dependent-relationship-p
             db
-            (nth (- (length path) 5) path)    ; source-type
-            (nth (- (length path) 3) path)    ; relationship
-            (nth (- (length path) 2) path))   ; target-type
+            (sanitise-uid (nth (- (length path) 5) path))    ; source-type
+            (sanitise-uid (nth (- (length path) 3) path))    ; relationship
+            (sanitise-uid (nth (- (length path) 2) path)))   ; target-type
           ;; Extract all _other_ links to the target resource,
           ;; and determine whether at least one is a dependent relationship.
-          (let ((target-type (nth (- (length path) 2) path))
+          (let ((target-type (sanitise-uid (nth (- (length path) 2) path)))
                 (candidates
                   (neo4cl:extract-rows-from-get-request
                     (neo4cl:neo4j-transaction
@@ -1096,7 +1136,9 @@
   (let* ((parts (get-uri-parts relpath))
          (rel-path (butlast parts))
          (relationship (car (last parts)))
-         (target-parts (get-uri-parts targetpath)))
+         (target-parts (get-uri-parts targetpath))
+         (source-type (nth (- (length parts) 2) parts))
+         (dest-type (nth (- (length target-parts) 1) target-parts)))
     ;; Initial sanity checks
     (cond
       ((not (equal (mod (length parts) 3) 0))
@@ -1106,11 +1148,7 @@
       (t
        ;; Check also for dependent relationships
        (let ((relationship-attrs
-               (get-relationship-attrs
-                 db
-                 (nth (- (length parts) 2) parts) ; source-type
-                 relationship
-                 (nth (- (length target-parts) 1) target-parts))))    ; dest-type
+               (get-relationship-attrs db source-type relationship dest-type)))
          (cond
            ;; 1-parent dependent resource; bounce the client back to delete-resource
            ((and (first relationship-attrs)
