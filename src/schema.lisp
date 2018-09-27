@@ -126,7 +126,7 @@
           (maphash
             #'(lambda (resourcename value)
                 (log-message
-                  :debug
+                  :info
                   (format nil "Attempting to add resource '~A'" resourcename))
                 ;; Build the resource definition,
                 ;; including only the attributes actually supplied
