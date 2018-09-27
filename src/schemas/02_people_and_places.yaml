@@ -2,6 +2,9 @@ name: people_and_places
 version: 1
 
 resourcetypes:
+  places:
+    dependent: 'false'
+    notes: The generic idea of a specific place, independent of its geographical location. E.g, an office or somebody's home.
   cities:
     dependent: 'true'
     notes: The geographic kind.
@@ -69,10 +72,20 @@ relationships:
   dependent: 'true'
   uri: /people/ContactMethod/emailAddresses
 - cardinality: 1:many
-  dependent: 'true'
   uri: /people/ContactMethod/phoneNumbers
+  dependent: 'true'
 - uri: /people/Addresses/streetNumbers
   cardinality: 1:many
+- uri: /places/Locations/streetNumbers
+  cardinality: many:1
+- uri: /places/Locations/streets
+  cardinality: many:1
+- uri: /places/Locations/cities
+  cardinality: many:1
+- uri: /places/Locations/states
+  cardinality: many:1
+- uri: /places/Locations/countries
+  cardinality: many:1
 - url: /people/Address/thisShouldFail
 - uri: /people/Address/thisShouldFailAsWell
 - uri: /thisTooShouldFail/Address/streetNumbers
