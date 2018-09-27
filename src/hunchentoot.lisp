@@ -694,17 +694,26 @@
 
 (defun make-default-acceptor ()
   (make-instance 'restagraph-acceptor
-                 :address (getf *config-vars* :listen-address)
-                 :port (getf *config-vars* :listen-port)
+                 :address (or (sb-ext:posix-getenv "LISTEN_ADDR")
+                              (getf *config-vars* :listen-address))
+                 :port (or (when (sb-ext:posix-getenv "LISTEN_PORT")
+                             (parse-integer (sb-ext:posix-getenv "LISTEN_PORT")))
+                           (getf *config-vars* :listen-port))
                  :url-base (getf *config-vars* ::url-base)
                  ;; Send all logs to STDOUT, and let Docker sort 'em out
                  :access-log-destination (make-synonym-stream 'cl:*standard-output*)
                  :message-log-destination (make-synonym-stream 'cl:*standard-output*)
                  ;; Datastore object - for specialising all the db methods on
-                 :datastore (make-instance 'neo4cl:neo4j-rest-server
-                                           :hostname (getf *config-vars* :dbhostname)
-                                           :dbpasswd (getf *config-vars* :dbpasswd)
-                                           :dbuser (getf *config-vars* :dbusername))))
+                 :datastore (make-instance
+                              'neo4cl:neo4j-rest-server
+                              :hostname (or (sb-ext:posix-getenv "NEO4J_HOSTNAME")
+                                            (getf *config-vars* :dbhostname))
+                              :port (or (sb-ext:posix-getenv "NEO4J_PORT")
+                                        (getf *config-vars* :dbport))
+                              :dbuser (or (sb-ext:posix-getenv "NEO4J_USER")
+                                          (getf *config-vars* :dbusername))
+                              :dbpasswd (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
+                                            (getf *config-vars* :dbpasswd)))))
 
 (defun ensure-db-passwd (server)
   "Check the credentials for the database.
