@@ -1,16 +1,23 @@
 with import <nixpkgs> {};
 
 stdenv.mkDerivation rec {
-    name = "syscat";
+    name = "restagraph";
 
     buildInputs = [
+        # General utilities
+        pkgs.bash
+        # Neo4j
+        pkgs.neo4j
+        # Lisp env
         pkgs.gcc_multi
         pkgs.gcc
         pkgs.libyaml
         pkgs.openssl
         pkgs.sbcl
-        pkgs.neo4j
-        pkgs.bash
+        # Python env
+        pkgs.python36Packages.requests
+        pkgs.python36Packages.pylint
+        pkgs.python3
     ];
 
     env = buildEnv {
