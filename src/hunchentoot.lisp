@@ -833,17 +833,17 @@
                                            (neo4cl:title e)
                                            (neo4cl:message e))))))
       ;; Update the schema, if one has been specified
-      (when schemadir
-        (log-message :info
-                     (if schemadir
+      (if schemadir
+        (progn
+          (log-message :info
                        (format
                          nil
                          "Attempting to apply any/all schemas specified in directory '~A'"
-                         schemadir)
-                       "No schema directory specified; skipping this step."))
-        (mapcar #'(lambda (schema)
-                    (inject-schema (datastore acceptor) schema))
-                (read-schemas schemadir)))
+                         schemadir))
+          (mapcar #'(lambda (schema)
+                      (inject-schema (datastore acceptor) schema))
+                  (read-schemas schemadir)))
+        (log-message :info "No schema directory specified; skipping this step."))
       ;; Set the dispatch table
       (restagraph:log-message :info "Configuring the dispatch table")
       (setf tbnl:*dispatch-table*
@@ -874,8 +874,10 @@
                                (tbnl:acceptor-port acceptor))))
             (sb-thread:list-all-threads)))))))
 
-(defun dockerstart ()
-  (startup :docker t))
+(defun dockerstart (&key schemapath)
+  (if schemapath
+    (startup :docker t :schemapath schemapath)
+    (startup :docker t)))
 
 (defun save-image (&optional (path "/tmp/restagraph"))
   (sb-ext:save-lisp-and-die path :executable t :toplevel 'restagraph::dockerstart))
