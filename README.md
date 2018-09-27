@@ -20,11 +20,22 @@ There is explicit support for dependent resources, i.e. resources that only make
 
 There are two ways of managing the schema, which can be combined as desired:
 
-- pass a schema object to the `startup` function
-    - this object is expected to be the output of `(cl-yaml:parse)`, and must include
-        - `name` with a string value
-        - `version` with an integer value. If this is greater than the existing version for the schema with this name, or there's no record of a schema with that name, the schema will be applied, and then this number will be set as a version. The "current" version is assumed to be the highest number of a version linked to the schema name, so there's no "currentVersion" link or attribute to manage.
-    - an example of a valid schema is found in the [Syscat sources](https://bitbucket.org/equill/syscat/src/master/).
+- define one or more schemas in YAML format, in files. These can be in any directory, but must all be in the same one. They're read in alphanumeric order, so you can prepend serial numbers to control the sequence in which they're applied, enabling later schemas to depend on resources defined in previous ones. These are also version-controlled, and version updates will be applied on startup.
+    - inform the startup function of the path to this directory in one of two ways:
+        - explicitly pass the `:schemapath` parameter to `startup`
+        - set an environment variable `SCHEMAPATH`
+    - their contents must be in the form of a dict with the following entries:
+        - `name`
+            - value must be a string
+            - this is the name that will be recorded in the database for version-control purposes; the filename will be ignored.
+        - `version`
+            - value should be a number, preferably an integer. The code has only been used with integers; behavious with other types of value is undefined and unsupported.
+            - If this is greater than the existing version for the schema with this name, or there's no record of a schema with that name, the schema will be applied, and then this number will be set as a version. The "current" version is assumed to be the highest number of a version linked to the schema name, so there's no "currentVersion" link or attribute to manage.
+            - `resourcetypes`
+                - a list of dicts
+            - `relationships`
+                - a list of sets
+    - examples of valid schemas are found in the [Syscat sources](https://bitbucket.org/equill/syscat/src/schemas/master/). These include examples of backward references to resources defined in previously-applied schemas.
 - its dedicated API at `/schema/v1`.
 
 

@@ -769,80 +769,98 @@
 
 (defun startup (&key acceptor dispatchers docker schemapath)
   "Start up the appserver.
-   Ensures the uniqueness constraint on resource-types is present in Neo4j.
-   Keyword arguments:
-   - acceptor = prebuilt acceptor, to use instead of the default.
-   - dispatchers = extra dispatchers to add to tbnl:*dispatch-table* in addition to the defaults.
-   - docker = whether to start up in a manner suitable to running under docker,
-     i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up.
-   - schemapath = path to directory containing schema files, in YAML format, with .yaml extension.
-     If supplied, parse all .yaml files in alphabetical order, and apply each one that has a newer
-     version number than is recorded in the database."
+  Ensures the uniqueness constraint on resource-types is present in Neo4j.
+  Keyword arguments:
+  - acceptor = prebuilt acceptor, to use instead of the default.
+  - dispatchers = extra dispatchers to add to tbnl:*dispatch-table* in addition to the defaults.
+  - docker = whether to start up in a manner suitable to running under docker,
+  i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up.
+  - schemapath = path to directory containing schema files, in YAML format, with .yaml extension. If this is absent, a check will be made for the environment variable SCHEMAPATH.
+  If supplied, parse all .yaml files in alphabetical order, and apply each one that has a newer
+  version number than is recorded in the database."
   (log-message :info "Attempting to start up the restagraph application server")
   ;; Sanity-check: is an acceptor already running?
   ;;; We can't directly check whether this acceptor is running,
   ;;; so we're using the existence of its special variable as a proxy.
   (if (boundp '*restagraph-acceptor*)
-      ;; There's an acceptor already in play; bail out.
-      (log-message :warn "Acceptor already exists; refusing to create a new one.")
-      ;; No existing acceptor; we're good to go.
-      (progn
-        ;; Ensure we have an acceptor to work with
-        (unless acceptor (setf acceptor (make-default-acceptor)))
-        ;; Make it available as a dynamic variable, for shutdown to work on
-        (defparameter *restagraph-acceptor* acceptor)
-        ;; Sanity-check whether the database is available
-        (unless (confirm-db-is-running (datastore acceptor) :max-count 25)
-          (error "Database is not available"))
-        ;; Ensure we have a uniqueness constraint on resource-types
-        (handler-case
-          (neo4cl:neo4j-transaction
-            (datastore acceptor)
-            `((:STATEMENTS
-                ((:STATEMENT . "CREATE CONSTRAINT ON (r:rgResource) ASSERT r.name IS UNIQUE")))))
-          ;; If this fails because we already did it, that's fine.
-          (neo4cl:database-error (e)
-                                 (if (equal (neo4cl:title e) "ConstraintCreateFailed")
-                                     nil   ; This is OK - do nothing
-                                     (return-database-error
-                                       (format nil "~A.~A: ~A"
-                                               (neo4cl:category e)
-                                               (neo4cl:title e)
-                                               (neo4cl:message e))))))
-        ;; Update the schema, if one has been specified
-        (when schemapath
-          (mapcar #'(lambda (schema)
-                      (inject-schema (datastore acceptor) schema))
-                  (read-schemas schemapath)))
-        ;; Set the dispatch table
-        (restagraph:log-message :info "Configuring the dispatch table")
-        (setf tbnl:*dispatch-table*
-              (append
-                ;; Restagraph defaults
-                (list (tbnl:create-prefix-dispatcher
-                        (getf *config-vars* :api-uri-base) 'api-dispatcher-v1)
-                      (tbnl:create-prefix-dispatcher
-                        (getf *config-vars* :schema-uri-base) 'schema-dispatcher-v1))
-                ;; Include the additional dispatchers here
-                dispatchers
-                ;; Default fallback
-                (list (tbnl:create-prefix-dispatcher "/" 'four-oh-four))))
-        ;; Start up the server
-        (log-message :info "Starting up Hunchentoot to serve HTTP requests")
-        (handler-case
-          (tbnl:start acceptor)
-          (usocket:address-in-use-error
-            () (log-message :error
-                            (format nil "Attempted to start an already-running instance!"))))
-        (when docker
-          (sb-thread:join-thread
-            (find-if
-                    (lambda (th)
-                      (string= (sb-thread:thread-name th)
-                               (format nil "hunchentoot-listener-~A:~A"
-                                       (tbnl:acceptor-address acceptor)
-                                       (tbnl:acceptor-port acceptor))))
-                    (sb-thread:list-all-threads)))))))
+    ;; There's an acceptor already in play; bail out.
+    (log-message :warn "Acceptor already exists; refusing to create a new one.")
+    ;; No existing acceptor; we're good to go.
+    ;; Figure out whether we have a schema directory to work with
+    (let ((schemadir
+            (cond
+              ;; Were we passed one explicitly?
+              (schemapath
+                schemapath)
+              ;; Is one set via an environment variable?
+              ((sb-ext:posix-getenv "SCHEMAPATH")
+               (sb-ext:posix-getenv "SCHEMAPATH"))
+              ;; Default case
+              (t
+                nil))))
+      ;; Ensure we have an acceptor to work with
+      (unless acceptor (setf acceptor (make-default-acceptor)))
+      ;; Make it available as a dynamic variable, for shutdown to work on
+      (defparameter *restagraph-acceptor* acceptor)
+      ;; Sanity-check whether the database is available
+      (unless (confirm-db-is-running (datastore acceptor) :max-count 25)
+        (error "Database is not available"))
+      ;; Ensure we have a uniqueness constraint on resource-types
+      (handler-case
+        (neo4cl:neo4j-transaction
+          (datastore acceptor)
+          `((:STATEMENTS
+              ((:STATEMENT . "CREATE CONSTRAINT ON (r:rgResource) ASSERT r.name IS UNIQUE")))))
+        ;; If this fails because we already did it, that's fine.
+        (neo4cl:database-error (e)
+                               (if (equal (neo4cl:title e) "ConstraintCreateFailed")
+                                 nil   ; This is OK - do nothing
+                                 (return-database-error
+                                   (format nil "~A.~A: ~A"
+                                           (neo4cl:category e)
+                                           (neo4cl:title e)
+                                           (neo4cl:message e))))))
+      ;; Update the schema, if one has been specified
+      (when schemadir
+        (log-message :info
+                     (if schemadir
+                       (format
+                         nil
+                         "Attempting to apply any/all schemas specified in directory '~A'"
+                         schemadir)
+                       "No schema directory specified; skipping this step."))
+        (mapcar #'(lambda (schema)
+                    (inject-schema (datastore acceptor) schema))
+                (read-schemas schemadir)))
+      ;; Set the dispatch table
+      (restagraph:log-message :info "Configuring the dispatch table")
+      (setf tbnl:*dispatch-table*
+            (append
+              ;; Restagraph defaults
+              (list (tbnl:create-prefix-dispatcher
+                      (getf *config-vars* :api-uri-base) 'api-dispatcher-v1)
+                    (tbnl:create-prefix-dispatcher
+                      (getf *config-vars* :schema-uri-base) 'schema-dispatcher-v1))
+              ;; Include the additional dispatchers here
+              dispatchers
+              ;; Default fallback
+              (list (tbnl:create-prefix-dispatcher "/" 'four-oh-four))))
+      ;; Start up the server
+      (log-message :info "Starting up Hunchentoot to serve HTTP requests")
+      (handler-case
+        (tbnl:start acceptor)
+        (usocket:address-in-use-error
+          () (log-message :error
+                          (format nil "Attempted to start an already-running instance!"))))
+      (when docker
+        (sb-thread:join-thread
+          (find-if
+            (lambda (th)
+              (string= (sb-thread:thread-name th)
+                       (format nil "hunchentoot-listener-~A:~A"
+                               (tbnl:acceptor-address acceptor)
+                               (tbnl:acceptor-port acceptor))))
+            (sb-thread:list-all-threads)))))))
 
 (defun dockerstart ()
   (startup :docker t))
