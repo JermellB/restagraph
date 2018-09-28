@@ -43,6 +43,24 @@
              . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n"
              (sanitise-uid resourcetype)))))))))
 
+(defmethod resourcetype-relationship-exists-p ((db neo4cl:neo4j-rest-server)
+                                  (source string)
+                                  (relationship string)
+                                  (dest string))
+  (log-message :debug
+               (format nil "Checking for relationship '~A'-'~A'->'~A'" source relationship dest))
+  (when
+    (neo4cl:extract-data-from-get-request
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT
+               . ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r"
+                          (sanitise-uid source)
+                          (sanitise-uid relationship)
+                          (sanitise-uid dest))))))))
+    t))
+
 (defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
                              (resourcetype string)
                              &key dependent notes)
@@ -330,7 +348,9 @@
     ((not (describe-resource-type db dependent-type))
      (error 'restagraph:integrity-error :message
             (format nil "Dependent resource type ~A does not exist" dependent-type)))
-    ;; FIXME catch the case where this relationship already exists
+    ;; catch the case where this relationship already exists
+    ((resourcetype-relationship-exists-p db parent-type relationship dependent-type)
+     t)
     ;; FIXME catch attempts to create dependent relationships to non-dependent types
     ;; All sanity checks have passed. Create it.
     (t

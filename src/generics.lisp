@@ -21,7 +21,10 @@
   (:documentation "Create a resource, add its attributes, and update the database's uniqueness constraints. Attributes are supplied as a list of strings, naming them. If :dependent evaluates to True, it will be created as a dependent type. Notes provide the opportunity to explain the intent of each resourcetype."))
 
 (defgeneric resourcetype-exists-p (db resourcetype)
-  (:documentation "Verify whether we have a definition for a resourcetype by this name"))
+  (:documentation "Verify whether we have a definition for a resourcetype by this name."))
+
+(defgeneric resourcetype-relationship-exists-p (db source relationship dest)
+  (:documentation "Verify whether a specific relationship is present. Return a boolean."))
 
 (defgeneric add-resourcetype-attribute (db resourcetype &key name description)
   (:documentation "Add an attribute to an existing resourcetype"))
