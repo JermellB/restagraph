@@ -64,8 +64,8 @@
 (defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
                              (resourcetype string)
                              &key dependent notes)
-  (log-message :debug
-               (format nil "Create resourcetype '~A'" resourcetype))
+  (log-message :info
+               (format nil "Attempting to create resourcetype '~A'" resourcetype))
   ;; Do we already have one of these?
   (if (resourcetype-exists-p db resourcetype)
     ;; Already have one; return early
@@ -862,17 +862,20 @@
                                                :path ""
                                                :marker "b"
                                                :directional t))
+         ;; It's a dependent resource, so the length of this path
+         ;; will always be longer than 2:
          (current-relationship (car (last (butlast uri-parts 2))))
          (target-type (car (last (butlast uri-parts))))
          (target-uid (car (last uri-parts)))
          (dest-parts (get-uri-parts newparent))
          (new-relationship (car (last dest-parts)))
-         (new-parent-type (car (last (butlast dest-parts 2))))
+         ;; The new parent may have a 2-element path,
+         ;; in which case we don't need to extract the last 2 elements:
+         (new-parent-type (car (if (> (length dest-parts) 2)
+                                   (last (butlast dest-parts 2))
+                                   dest-parts)))
          ;; Define this here because we use it at both the start and the end
-         (new-path (format nil "~{/~A~}/~A/~A"
-                           (get-uri-parts newparent)  ; Sanitise it
-                           target-type
-                           target-uid)))
+         (new-path (format nil "~{/~A~}/~A/~A" dest-parts target-type target-uid)))
     (cond
       ;; Sanity-check: does this path already exist?
       ((get-resources db new-path)
@@ -883,26 +886,28 @@
        (log-message :debug (format nil "Target resource ~A does not exist" uri))
        (error 'client-error :message "Target resource does not exist"))
       ;; Sanity-check: does the new parent exist?
-      ((null (get-resources db (format nil "/~{~A~^/~}" (butlast dest-parts))))
-       (log-message :debug (format nil "Parent resource ~A does not exist"
-                                   (format nil "/~{~A~^/~}" (butlast dest-parts))))
-       (error 'client-error :message "Parent resource does not exist"))
+      ((null (get-resources db (format nil "~{/~A~}" (butlast dest-parts))))
+       (progn
+         (log-message :debug (format nil "Parent resource ~A does not exist" newparent))
+         (error 'client-error :message "Parent resource does not exist")))
       ;; Sanity-check: is the new relationship a valid dependent one?
       ((not (dependent-relationship-p db new-parent-type new-relationship target-type))
-       (log-message
-         :debug
-         (format
-           nil
-           "Target resource ~A does not depend on the new parent-type ~A for relationship ~A"
-           target-type new-parent-type new-relationship))
-       (error 'client-error
-              :message
-              (format
-                nil
-                "Target resource-type ~A doesn't depend on the parent type ~A"
-                target-type new-parent-type)))
+       (progn
+         (log-message
+           :debug
+           (format
+             nil
+             "Target resource ~A does not depend on the new parent-type ~A for relationship ~A"
+             target-type new-parent-type new-relationship))
+         (error 'client-error
+                :message
+                (format
+                  nil
+                  "Target resource-type ~A doesn't depend on the parent type ~A"
+                  target-type new-parent-type))))
       ;; Sanity-checks passed; let's do it
       (t
+       (log-message :debug "Sanity-checks have passed. Attempting to move the resource.")
        (let* ((new-parent-path (build-cypher-path (butlast dest-parts)))
               (sourcepath
                 (uri-node-helper (append

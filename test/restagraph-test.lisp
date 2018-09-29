@@ -261,8 +261,61 @@
     (restagraph:delete-resourcetype *server* child-type)))
 
 (fiveam:test
-  resources-dependent-compound
+  resources-dependent-errors
   :depends-on 'resources-dependent-simple
+  "Error conditions around creating/moving dependent resources"
+  (let ((parent1-type "makes")
+        (parent1-uid "Weyland-Yutani")
+        (parent1-rel "Produces")
+        (child1-type "models")
+        (child1-uid "Synthetics")
+        (bad-parent1-type "groups")
+        (bad-parent1-uid "Replicants"))
+    (restagraph:log-message :info "TEST Create the fixtures")
+    ;; Initial dependent parent/child
+    (restagraph:add-resourcetype *server* parent1-type)
+    (restagraph:add-resourcetype *server* child1-type :dependent t)
+    (restagraph:add-resource-relationship
+      *server*
+      parent1-type parent1-rel child1-type
+      :dependent 1
+      :cardinality "1:many")
+    (restagraph:store-resource *server* parent1-type `(("uid" . ,parent1-uid)))
+    (restagraph:store-dependent-resource
+      *server*
+      (format
+        nil
+        "/~A/~A/~A/~A"
+        parent1-type parent1-uid parent1-rel child1-type)
+      `(("uid" . ,child1-uid)))
+    ;; Infeasible parent
+    (restagraph:add-resourcetype *server* bad-parent1-type)
+    (restagraph:store-resource *server* bad-parent1-type `(("uid" . ,bad-parent1-uid)))
+    (restagraph:log-message :info "TEST Try to move the child to an invalid parent")
+    (fiveam:signals
+      restagraph:client-error
+      (restagraph:move-dependent-resource
+        *server*
+        (format
+          nil
+          "/~A/~A/~A/~A/~A"
+          parent1-type parent1-uid parent1-rel child1-type child1-uid)
+        (format nil "/~A/~A" bad-parent1-type bad-parent1-uid)))
+    (restagraph:log-message :info "TEST Delete the fixtures")
+    (restagraph:delete-resource-by-path
+      *server*
+      (format nil "/~A/~A" parent1-type parent1-uid)
+      :recursive t)
+    (restagraph:delete-resourcetype *server* parent1-type)
+    (restagraph:delete-resourcetype *server* child1-type)
+    (restagraph:delete-resource-by-path
+      *server*
+      (format nil "/~A/~A" bad-parent1-type bad-parent1-uid))
+    (restagraph:delete-resourcetype *server* bad-parent1-type)))
+
+(fiveam:test
+  resources-dependent-compound
+  :depends-on 'resources-dependent-errors
   "Basic operations on 2-layered dependent resources"
   (let ((parent-type "routers")
         (parent-uid "bikini")
@@ -355,17 +408,22 @@
       (format nil "/~A/~A/~A/~A" p1-type p1-uid p1-target-rel target-type)
       `(("uid" . ,target-uid)))
     ;; Move the resource
-    (fiveam:is
-      (null
-        (neo4cl:extract-data-from-get-request
-          (restagraph:move-dependent-resource
-            *server*
-            ;; URI
-            (format nil "/~A/~A/~A/~A/~A"
-                    p1-type p1-uid p1-target-rel target-type target-uid)
-            ;; New parent
-            (format nil "/~A/~A/~A/~A/~A/~A"
-                    p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel)))))
+    (restagraph:log-message
+      :info
+      (format nil "TEST Move dependent resource /~A/~A/~A/~A/~A to new parent /~A/~A/~A/~A/~A/~A"
+              p1-type p1-uid p1-target-rel target-type target-uid
+              p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel))
+    (let ((result (neo4cl:extract-data-from-get-request
+                    (restagraph:move-dependent-resource
+                      *server*
+                      ;; URI
+                      (format nil "/~A/~A/~A/~A/~A"
+                              p1-type p1-uid p1-target-rel target-type target-uid)
+                      ;; New parent
+                      (format nil "/~A/~A/~A/~A/~A/~A"
+                              p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel)))))
+      (restagraph:log-message :debug (format nil "Result was: ~A" result))
+      (fiveam:is (null result)))
     ;; Confirm the target resource is now at the new target path
     (fiveam:is
       (equal
