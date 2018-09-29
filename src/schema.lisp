@@ -85,7 +85,8 @@
   (if (get-resources db (format nil "/rgSchemas/~A" name))
       ;; Schema is already represented; sanity-check the version
       (let ((existing-version (get-schema-version db name)))
-        (when (not (> version existing-version))
+        (when (and existing-version
+                   (not (> version existing-version)))
           (error "Attempting to store a version that is not greater than the existing highest.")))
       ;; Not already there; create it.
       (store-resource db "rgSchemas" `(("uid" . ,name))))
