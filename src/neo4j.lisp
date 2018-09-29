@@ -115,12 +115,15 @@
   ;; Perform some sanity checks before proceeding.
   (cond
     ;; Does the specified resourcetype exist?
-    ((not (resourcetype-exists-p db resourcetype))
+    ((not (resourcetype-exists-p db (sanitise-uid resourcetype)))
      (signal 'client-error :message "Resourcetype '~A' does not exist."))
     ;; Was a name supplied for the attribute? As a string?
     ((not (and name
                (stringp name)))
      (signal 'client-error :message "The 'name' attribute is mandatory."))
+    ;; Has this attribute already been added?
+    ((resourcetype-attribute-exists-p db (sanitise-uid resourcetype) (sanitise-uid name))
+     t)
     ;; If a description was supplied, is it a string?
     ((and description
           (not (stringp description)))
@@ -137,7 +140,7 @@
               . ,(format nil "MATCH (r:rgResource {name: '~A'}) CREATE (r)-[:rgHasAttribute]->(:rgAttribute {~{~{~A: '~A'~}~^, ~}});"
                          (sanitise-uid resourcetype)
                          ;; Handle the optional attribute-attributes with an accumulator
-                         (append `(("name" ,(escape-neo4j name)))
+                         (append `(("name" ,(sanitise-uid name)))
                                  (when description
                                    `(("description" ,(escape-neo4j description))))))))))))))
 
