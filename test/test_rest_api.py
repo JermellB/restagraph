@@ -163,7 +163,22 @@ class TestResources(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
                                                     self.resuid)).status_code,
-                         404)
+                         200)
+        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                    self.restype,
+                                                    self.resuid)).text,
+                         "null")
+        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                    self.restype,
+                                                    self.resuid)).json(),
+                         None)
+        # Ensure we have none of that kind of resource
+        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL,
+                                                    self.restype)).status_code,
+                         200)
+        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL,
+                                                    self.restype)).json(),
+                         [])
         # Create it
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.restype),
                                        data={'uid': self.resuid}).status_code,
@@ -181,7 +196,11 @@ class TestResources(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
                                                     self.resuid)).status_code,
-                         404)
+                         200)
+        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                    self.restype,
+                                                    self.resuid)).json(),
+                         None)
         # Remove the fixtures
         print('Test: Clean up the fixtures')
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.restype))
@@ -284,9 +303,10 @@ class TestMultipleResources(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
         print('Test: test_create_and_retrieve_multiple_resources')
         # Confirm we're starting with an empty set
-        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).status_code, 404)
-        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).text,
-                         'No resources found for /routers')
+        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).status_code,
+                         200)
+        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
+                         [])
         # Add the first resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resource1uid}).status_code,
@@ -461,8 +481,8 @@ class TestDependentResources(unittest.TestCase):
         # Ensure the dependent resource is gone
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.depres1type,
-                                                    self.depres1uid)).status_code,
-                         404)
+                                                    self.depres1uid)).json(),
+                         None)
         print('Test: remove the fixtures')
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type))
@@ -555,8 +575,8 @@ class TestMoveDependentResources(unittest.TestCase):
                                                              self.p1uid,
                                                              self.p1targetrel,
                                                              self.targettype,
-                                                             self.targetuid)).status_code,
-                         404)
+                                                             self.targetuid)).json(),
+                         None)
         # Delete the parent resource, which should take the rest with it
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL, self.p1type, self.p1uid),
                                          data={'recursive': 'true'}).status_code,
@@ -633,8 +653,8 @@ class TestValidRelationships(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s/%s' % (API_BASE_URL,
                                                        self.res1type,
                                                        self.res1uid,
-                                                       self.relationship)).status_code,
-                         404)
+                                                       self.relationship)).json(),
+                         [])
         # Delete the destination resource
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
                                                        self.res2type,
@@ -864,7 +884,10 @@ class TestAnyType(unittest.TestCase):
     t1uid = 'Tagged'
     def test_rejection(self):
         print('Test: test_any_type')
-        self.assertEqual(requests.get('%s/any/foo' % API_BASE_URL).status_code, 404)
+        self.assertEqual(requests.get('%s/any/foo' % API_BASE_URL).status_code,
+                         200)
+        self.assertEqual(requests.get('%s/any/foo' % API_BASE_URL).json(),
+                         None)
     def test_create_valid_any_rel(self):
         print('Test: test_create_valid_any_rel')
         print('Test: create the fixtures')

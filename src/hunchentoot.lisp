@@ -470,20 +470,26 @@
                 (result (get-resources (datastore tbnl:*acceptor*)
                                        sub-uri
                                        (tbnl:get-parameters*))))
-           ;; Handle the null result
-           (if (or (null result)
-                   (equal result ""))
-               (progn
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-not-found+)
-                 (format nil "No resources found for ~A" sub-uri))
-               ;; It worked; return what we found
-               (progn
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-ok+)
-                 (if (= (mod (length uri-parts) 3) 2)
-                     (cl-json:encode-json-alist-to-string result)
-                     (cl-json:encode-json-to-string result))))))
+           ;; Return what we found
+           (progn
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-ok+)
+             (cond
+               ;; Single resource was requested, and nothing was found.
+               ((and (= (mod (length uri-parts) 3) 2)
+                     (or (null result)
+                         (equal result "")))
+                "null")
+               ;; Single resource was requested, and something was found.
+               ((= (mod (length uri-parts) 3) 2)
+                (cl-json:encode-json-alist-to-string result))
+               ;; Class of resources was requested, and nothing was found.
+               ((or (null result)
+                    (equal result ""))
+                "[]")
+               ;; Class of resources was requested, and something was found.
+               (t
+                 (cl-json:encode-json-to-string result))))))
         ;; POST -> Store something
         ;;
         ;; Resource
