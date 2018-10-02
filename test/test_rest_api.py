@@ -100,12 +100,12 @@ class TestSchemaApi(unittest.TestCase):
         requests.post('%s/resourcetype/cheeseburger' % (SCHEMA_BASE_URL))
         # Connect them
         print('Add a relationship between resourcetypes foo and bar.')
-        self.assertEqual(requests.post('%s/relationship/lolcat/canHaz/cheeseburger'
+        self.assertEqual(requests.post('%s/relationships/lolcat/canHaz/cheeseburger'
                                        % (SCHEMA_BASE_URL)).status_code,
                          201)
         # Disconnect them
         print('Delete the relationship between resourcetypes foo and bar.')
-        self.assertEqual(requests.delete('%s/relationship/lolcat/canHaz/cheeseburger'
+        self.assertEqual(requests.delete('%s/relationships/lolcat/canHaz/cheeseburger'
                                          % (SCHEMA_BASE_URL)).status_code,
                          204)
         # Remove the fixtures
@@ -118,10 +118,10 @@ class TestSchemaApi(unittest.TestCase):
         # Create the resources to connect
         requests.post('%s/resourcetype/dangler' % (SCHEMA_BASE_URL))
         # Fail to connect it to nonexistent things
-        self.assertEqual(requests.post('%s/relationship/dangler/holds/subdangler'
+        self.assertEqual(requests.post('%s/relationships/dangler/holds/subdangler'
                                        % SCHEMA_BASE_URL).status_code,
                          409)
-        self.assertEqual(requests.post('%s/relationship/superdangler/holds/dangler'
+        self.assertEqual(requests.post('%s/relationships/superdangler/holds/dangler'
                                        % SCHEMA_BASE_URL).status_code,
                          409)
         # Remove the fixtures
@@ -135,12 +135,12 @@ class TestSchemaApi(unittest.TestCase):
         requests.post('%s/resourcetype/hunger' % (SCHEMA_BASE_URL))
         # Connect them
         print('Add a relationship between resourcetypes foo and bar.')
-        self.assertEqual(requests.post('%s/relationship/lolcat/canHaz/hunger' % (SCHEMA_BASE_URL),
+        self.assertEqual(requests.post('%s/relationships/lolcat/canHaz/hunger' % (SCHEMA_BASE_URL),
                                        data={'dependent': 'true'}).status_code,
                          201)
         # Disconnect them
         print('Delete the relationship between resourcetypes foo and bar.')
-        self.assertEqual(requests.delete('%s/relationship/lolcat/canHaz/hunger'
+        self.assertEqual(requests.delete('%s/relationships/lolcat/canHaz/hunger'
                                          % (SCHEMA_BASE_URL)).status_code,
                          204)
         # Remove the fixtures
@@ -372,7 +372,7 @@ class TestDependentResources(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
                       data={'dependent': 'true'})
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.res1type,
                                                     self.relationship1,
                                                     self.depres1type),
@@ -443,7 +443,7 @@ class TestDependentResources(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
                       data={'dependent': 'true'})
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.res1type,
                                                     self.relationship1,
                                                     self.depres1type),
@@ -506,19 +506,19 @@ class TestMoveDependentResources(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p2type),
                       data={'dependent': 'true'})
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.p1type,
                                                     self.p1p2rel,
                                                     self.p2type),
                       data={'dependent': 'true'})
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.targettype),
                       data={'dependent': 'true'})
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.p1type,
                                                     self.p1targetrel,
                                                     self.targettype),
                       data={'dependent': 'true'})
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.p2type,
                                                     self.p2targetrel,
                                                     self.targettype),
@@ -609,7 +609,7 @@ class TestValidRelationships(unittest.TestCase):
         print('Test: create the fixtures')
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.res1type,
                                                     self.relationship,
                                                     self.res2type))
@@ -677,12 +677,12 @@ class TestValidRelationships(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res3type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
                       data={'dependent': 'true'})
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.res1type,
                                                     self.res1todepres1rel,
                                                     self.depres1type),
                       data={'dependent': 'true'})
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.res3type,
                                                     self.depres1deprel,
                                                     self.depres1type),
@@ -762,7 +762,7 @@ class TestInvalidRelationships(unittest.TestCase):
         print('Test: create the fixtures')
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
-        requests.post('%s/relationship/%s/%s/%s' % (SCHEMA_BASE_URL,
+        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                     self.res1type,
                                                     self.relationship_valid,
                                                     self.res2type))
@@ -894,7 +894,7 @@ class TestAnyType(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.t1type))
         requests.post('%s/resourcetype/any' % (SCHEMA_BASE_URL))
-        requests.post('%s/relationship/any/%s/%s' % (SCHEMA_BASE_URL, self.p1rel, self.t1type))
+        requests.post('%s/relationships/any/%s/%s' % (SCHEMA_BASE_URL, self.p1rel, self.t1type))
         # Create the resources
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.p1type),
                                        data={'uid': self.p1uid}).status_code,
@@ -939,7 +939,7 @@ class TestAnyType(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.t1type))
         requests.post('%s/resourcetype/any' % (SCHEMA_BASE_URL))
-        requests.post('%s/relationship/any/%s/%s' % (SCHEMA_BASE_URL, self.p1rel, self.t1type))
+        requests.post('%s/relationships/any/%s/%s' % (SCHEMA_BASE_URL, self.p1rel, self.t1type))
         # Create the resources
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.p1type),
                                        data={'uid': self.p1uid}).status_code,

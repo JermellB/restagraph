@@ -368,7 +368,7 @@
         ;; Add a relationship
         ((and
            (equal (tbnl:request-method*) :POST)
-           (equal (third uri-parts) "relationship"))
+           (equal (third uri-parts) "relationships"))
          (let ((source-type (fourth uri-parts))
                (relationship (fifth uri-parts))
                (destination-type (sixth uri-parts)))
@@ -407,7 +407,7 @@
         ;; Delete a relationship
         ((and
            (equal (tbnl:request-method*) :DELETE)
-           (equal (third uri-parts) "relationship"))
+           (equal (third uri-parts) "relationships"))
          (let ((source-type (fourth uri-parts))
                (relationship (fifth uri-parts))
                (destination-type (sixth uri-parts)))
