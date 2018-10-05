@@ -1,5 +1,10 @@
 # Restagraph
 
+> For the simplicity on this side of complexity, I wouldn't give you a fig. But for the simplicity on the other side of complexity, for that I would give you anything I have.
+> ~ Oliver Wendell Holmes, senior
+
+Restagraph is a good step in that direction.
+
 ## What it is, what it does and what it's for
 
 Restagraph is an application that dynamically generates a REST API in front of a graph database, based on a schema defined within that same database. This includes features such as:
