@@ -357,13 +357,13 @@
     ;; FIXME catch attempts to create dependent relationships to non-dependent types
     ;; All sanity checks have passed. Create it.
     (t
-     (let ((attrs ())) ; The attributes, if any, to include in the relationship
-       ;; Add whatever attributes apply
-       (when dependent
-         (pushnew "dependent: 'true'" attrs))
-       (when (member cardinality '("1:1" "many:1" "1:many" "many:many") :test #'equal)
-         (pushnew (format nil "cardinality: '~A'" cardinality)
-                  attrs))
+     (let ((attrs (list
+                    (format nil "dependent: '~A'" (if dependent "true" "false"))
+                    (format nil "cardinality: '~A'"
+                            (if (member cardinality '("1:1" "many:1" "1:many" "many:many") :test #'equal)
+                                cardinality
+                                "many:many")))))
+       ;; Add notes if they were supplied
        (when notes
          (pushnew (format nil "notes: '~A'" (escape-neo4j notes)) attrs))
        ;; Create it
@@ -374,9 +374,9 @@
                ,(format
                   nil
                   "MATCH (s:rgResource { name: '~A' }), (d:rgResource { name: '~A'}) CREATE (s)-[:~A {~{~A~^, ~}}]->(d)"
-                  parent-type
-                  dependent-type
-                  relationship
+                  (sanitise-uid parent-type)
+                  (sanitise-uid dependent-type)
+                  (sanitise-uid relationship)
                   attrs))))))))))
 
 (defmethod delete-resource-relationship ((db neo4cl:neo4j-rest-server)
@@ -888,7 +888,8 @@
       ;; Sanity-check: does the new parent exist?
       ((null (get-resources db (format nil "~{/~A~}" (butlast dest-parts))))
        (progn
-         (log-message :debug (format nil "Parent resource ~A does not exist" newparent))
+         (log-message :debug (format nil "Parent resource ~{/~A~} does not exist"
+                                     (butlast dest-parts)))
          (error 'client-error :message "Parent resource does not exist")))
       ;; Sanity-check: is the new relationship a valid dependent one?
       ((not (dependent-relationship-p db new-parent-type new-relationship target-type))
