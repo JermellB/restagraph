@@ -610,7 +610,10 @@
         ;; Outbound links
         ;; Simple format: relationship/path/to/target
         ((equal name "outbound")
-         (let* ((parts (cl-ppcre:split "/" value))
+         (let* ((parts (remove-if #'(lambda (n)
+                                      (or (null n)
+                                          (equal n "")))
+                                  (cl-ppcre:split "/" value)))
                 (relationship (sanitise-uid (first parts)))
                 (target-type (sanitise-uid (second parts)))
                 (target-uid (sanitise-uid (third parts))))
