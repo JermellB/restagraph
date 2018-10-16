@@ -495,20 +495,20 @@
 
 (defmethod store-resource ((db neo4cl:neo4j-rest-server)
                            (resourcetype string)
-                           (post-params list))
+                           (attributes list))
   (cond
     ;; Catch any critical deficiencies in the definition asap
-    ((or (null (assoc "uid" post-params :test 'equal))
-         (equal (cdr (assoc "uid" post-params :test 'equal)) ""))
+    ((or (null (assoc "uid" attributes :test 'equal))
+         (equal (cdr (assoc "uid" attributes :test 'equal)) ""))
      (error 'client-error
-            :message "The UID must be a string"))
+            :message "The UID must be a non-empty string"))
   ;; If this is a dependent resource, bail out now
     ((dependent-resource-p db resourcetype)
      (error 'integrity-error
             :message "This is a dependent resource; it must be created as a sub-resource of an existing resource."))
     ;; OK so far: carry on
     (t
-      (let ((attributes (validate-resource-before-creating db resourcetype post-params)))
+      (let ((attributes (validate-resource-before-creating db resourcetype attributes)))
         (if attributes
           (progn
             ;; If we got this far, we have a valid resource type and valid attribute names.
