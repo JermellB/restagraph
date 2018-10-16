@@ -396,9 +396,12 @@
 
 (defun format-post-params-as-properties (params)
   "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map that Neo4J expects in the :PROPERTIES section of a query."
+  (log-message :debug "Formatting a set of POST parameters for use as Neo4j properties.")
   (mapcar #'(lambda (param)
               (cons (intern (escape-neo4j (string-downcase (car param))) :keyword)
-                    (escape-neo4j (cdr param))))
+                    (if (stringp (cdr param))
+                      (escape-neo4j (cdr param))
+                      (cdr param))))
           params))
 
 (defmethod validate-resource-before-creating ((db neo4cl:neo4j-rest-server)
