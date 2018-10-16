@@ -788,7 +788,9 @@
          (cond
            ;; No such relationship
            ((not relationship-attrs)
-            (let ((message "This is not a valid relationship between these resource types"))
+            (let ((message
+                    (format nil "'~A' is not a valid relationship from type '~A' to type '~A'"
+                            relationship source-type dest-type)))
               (log-message :debug message)
               (error 'integrity-error :message message)))
            ;; 1:1 dependent relationship
