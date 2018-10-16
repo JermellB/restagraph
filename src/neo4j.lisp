@@ -418,6 +418,9 @@
       ((requested-attributes
          (remove-if #'(lambda (param) (equal (car param) "uid"))
                     params)))
+      ;; Implicit logic for deciding what to return:
+      ;; - if this conditional sequence passes, format the validated parameters.
+      ;; - if it doesn't, return nil.
       (if (or
             ;; If no attributes were specified other than "uid", we're good
             (not requested-attributes)
