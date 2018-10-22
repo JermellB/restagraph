@@ -662,7 +662,8 @@
 ;;; so GET requests can accept a directional parameter from the client
 (defmethod get-resources ((db neo4cl:neo4j-rest-server)
                           (uri string)
-                          &optional filters)
+                          &key filters
+                          directional)
   (log-message :debug (format nil "Fetching resources for URI ~A" uri))
   (let ((uri-parts (get-uri-parts uri)))
     (cond
@@ -673,7 +674,7 @@
                             (uri-node-helper uri-parts
                                              :path ""
                                              :marker "n"
-                                             :directional nil)
+                                             :directional directional)
                             (process-filters filters))))
          (log-message :debug (concatenate 'string "Querying database: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))
@@ -690,7 +691,7 @@
                             (uri-node-helper uri-parts
                                              :path ""
                                              :marker"n"
-                                             :directional nil))))
+                                             :directional directional))))
          (log-message :debug (concatenate 'string "Querying database: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))
          (neo4cl:extract-data-from-get-request
@@ -710,7 +711,7 @@
                             (uri-node-helper uri-parts
                                              :path ""
                                              :marker "n"
-                                             :directional nil)
+                                             :directional directional)
                             (process-filters filters))))
          (log-message :debug (concatenate 'string "Querying database: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))

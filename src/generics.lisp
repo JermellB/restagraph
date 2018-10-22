@@ -98,7 +98,7 @@ Return an error if
 (defgeneric move-dependent-resource (db uri newparent)
   (:documentation "Take an existing dependent resource, and give it a new parent, where both are identified by their URI paths."))
 
-(defgeneric get-resources (db uri &optional filters)
+(defgeneric get-resources (db uri &key filters directional)
   (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI.
                   The optional 'filters parameter is for refining the search results."))
 

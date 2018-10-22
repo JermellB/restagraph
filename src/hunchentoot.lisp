@@ -469,7 +469,11 @@
                 ;; Get the search result
                 (result (get-resources (datastore tbnl:*acceptor*)
                                        sub-uri
-                                       (tbnl:get-parameters*))))
+                                       :directional (when (tbnl:get-parameter "directional") t)
+                                       :filters (remove-if
+                                                  #'(lambda (par)
+                                                      (equal (car par) "directional"))
+                                                  (tbnl:get-parameters*)))))
            ;; Return what we found
            (progn
              (setf (tbnl:content-type*) "text/plain")
@@ -497,12 +501,14 @@
            (equal (tbnl:request-method*) :POST)
            (equal (length uri-parts) 1)
            (tbnl:post-parameter "uid"))
-         (log-message :debug (format nil "Attempting to dispatch a POST request for resource type ~A" resourcetype))
+         (log-message :debug
+                      (format nil
+                              "Attempting to dispatch a POST request for resource type ~A"
+                              resourcetype))
          ;; Do we already have one of these?
          (if (get-resources
                (datastore tbnl:*acceptor*)
-               (format nil "/~A/~A"
-                       (car uri-parts) (tbnl:post-parameter "uid")))
+               (format nil "/~A/~A" (car uri-parts) (tbnl:post-parameter "uid")))
            ;; It's already there; return 200/OK
            (progn
              (log-message
