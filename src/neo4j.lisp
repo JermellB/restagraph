@@ -1235,8 +1235,7 @@
 
 (defmethod delete-resource-by-path ((db neo4cl:neo4j-rest-server)
                                     (targetpath string)
-                                    &key delete-dependent
-                                    recursive)
+                                    &key recursive)
   (log-message :debug (format nil "Attempting to delete resource ~A" targetpath))
   (let ((parts (get-uri-parts targetpath)))
     ;; The special case turns out to be a link to another resource
@@ -1247,109 +1246,37 @@
     ;;
     ;; Expected to use critical-dependency-p to answer some of these questions
     (if (equal (mod (length parts) 3) 2)
-        ;; Is this a first-class resource?
-        (if (= (length parts) 2)
-            ;; First-class resource
-            ;; Do any other resources depend critically on this one?
-            (let ((dependents (get-dependent-resources db parts)))
-              (if dependents
-                  ;; Yes: it's a first-class resource with dependents.
-                  ;; Was the recursive argument supplied?
-                  (if recursive
-                      ;; Yes. Delete the dependents, passing both the delete-dependent
-                      ;; and recursive arguments.
-                      (progn
-                        (mapcar
-                          #'(lambda (d)
-                              (let ((newpath (format nil "/~{~A~^/~}" (append parts d))))
-                                (log-message
-                                  :debug
-                                  (format nil "Recursing through delete-resource-by-path with new path ~A"
-                                          newpath))
-                                (delete-resource-by-path
-                                  db
-                                  newpath
-                                  :delete-dependent t
-                                  :recursive t)))
-                          dependents)
-                        ;; Having deleted the dependents, delete the resource itself
-                        (neo4cl:neo4j-transaction
-                          db
-                          `((:STATEMENTS
-                              ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
-                                                      (first parts) (second parts))))))))
-                      ;; Dependents, but no recursive argument. Bail out.
-                      ;; FIXME: return a list of the dependents, to help the client.
-                      (error 'integrity-error
-                             :message
-                             "Other resources depend critically on this one, and recursive was not specified."))
-                  ;; First-class resource with no dependents: remove it.
-                  (neo4cl:neo4j-transaction
-                    db
-                    `((:STATEMENTS
-                        ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
-                                                (first parts) (second parts)))))))))
-            ;; Either a dependent resource, or a link to another resource.
-            ;; Does this resource's existence depend on the presence of this link?
-            (if (critical-dependency-p db parts)
-                ;; Yes: this is a critical dependency for this resource.
-                ;; Did the client expect that?
-                (if delete-dependent
-                    ;; Client wants to delete a dependent resource.
-                    ;; Do any other resources depend on this one?
-                    (let ((dependents (get-dependent-resources db parts)))
-                      (if dependents
-                          ;; There are dependent resources.
-                          ;; Was recursive specified?
-                          (if recursive
-                              ;; Yes. Delete the dependents,
-                              ;; passing the delete-dependent and recursive arguments
-                              (progn
-                                (mapcar #'(lambda (d)
-                                            (delete-resource-by-path
-                                              db
-                                              (format nil "~{/~A~}"
-                                                      (append parts d))
-                                              :delete-dependent t
-                                              :recursive t))
-                                        dependents)
-                                ;; Having deleted the dependents, delete the resources itself
-                                (let ((delpath (format nil "MATCH ~A DETACH DELETE n"
-                                                       (uri-node-helper parts
-                                                                        :path ""
-                                                                        :marker "n"
-                                                                        :directional t))))
-                                  (neo4cl:neo4j-transaction
-                                    db
-                                    `((:STATEMENTS ((:STATEMENT .  ,delpath)))))))
-                              ;; Dependents, but no recursive argument. Bail out.
-                              ;; FIXME: return a list of the depdendents, to help the client.
-                              (error 'integrity-error
-                                     :message
-                                     "Other resources depend critically on this one, and recursive was not specified."))
-                          ;; Dependent resource with no dependents of its own. Delete it.
-                          (let ((delpath (format nil "MATCH ~A DETACH DELETE n"
-                                                 (uri-node-helper parts
-                                                                  :path ""
-                                                                  :marker "n"
-                                                                  :directional t))))
-                            (neo4cl:neo4j-transaction
-                              db
-                              `((:STATEMENTS ((:STATEMENT .  ,delpath))))))))
-                    ;; This is a critical dependency, and delete-dependent is absent
-                    (error 'integrity-error :message "This would delete the resource itself, and delete-dependent was not specified."))
-                ;; No critical dependency; we're just deleting a relationship. Do it.
-                (let* ((parent-path (uri-rel-helper (butlast parts 2)
-                                                    :path ""
-                                                    :marker "n"
-                                                    :directional t))
-                       (restype (car (last parts 2)))
-                       (uid (car (last parts)))
-                       (query (format nil "MATCH ~A->(:~A {uid: '~A'}) DELETE n"
-                                      parent-path restype uid)))
-                  (log-message
-                    :debug
-                    (format nil "Attempting to delete relationship with query '~A'" query))
-                  (neo4cl:neo4j-transaction
-                    db `((:STATEMENTS ((:STATEMENT .  ,query))))))))
-        (error 'client-error :message "This is not a valid deletion request"))))
+      ;; Do any other resources depend critically on this one?
+      (let ((dependents (get-dependent-resources db parts)))
+        (when dependents
+          ;; Yes: it's a first-class resource with dependents.
+          ;; Was the recursive argument supplied?
+          (if recursive
+            ;; Yes. Delete the dependents, passing the value of the recursive argument
+            (progn
+              (mapcar
+                #'(lambda (d)
+                    (let ((newpath (format nil "~{/~A~}" (append parts d))))
+                      (log-message
+                        :debug
+                        (format nil "Recursing through delete-resource-by-path with new path ~A"
+                                newpath))
+                      (delete-resource-by-path db newpath :recursive t)))
+                dependents)
+              ;; Having deleted the dependents, delete the resource itself
+              (neo4cl:neo4j-transaction
+                db
+                `((:STATEMENTS
+                    ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
+                                            (first parts) (second parts))))))))
+            ;; Dependents, but no recursive argument. Bail out.
+            ;; FIXME: return a list of the dependents, to help the client.
+            (error 'integrity-error
+                   :message
+                   "Other resources depend critically on this one, and recursive was not specified.")))
+        ;; First-class resource with no dependents: remove it.
+        (neo4cl:neo4j-transaction
+          db
+          `((:STATEMENTS
+              ((:STATEMENT . ,(format nil "MATCH ~A DETACH DELETE n" (uri-node-helper parts))))))))
+      (error 'client-error :message "This is not a valid deletion request"))))

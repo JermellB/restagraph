@@ -86,6 +86,10 @@ Return an error if
 - the resource type is not present in the schema
 - the client attempts to set attributes that aren't defined for this resourcetype."))
 
+(defgeneric delete-resource-by-path (db path &key recursive)
+  (:documentation "Delete a relationship or resource according to the URI supplied.
+  :recursive confirms that you intend to delete all resources depending on the one identified in the path."))
+
 (defgeneric update-resource-attributes (db path attributes)
   (:documentation "Add, update or delete a set of attributes of a given resource."))
 
@@ -135,11 +139,3 @@ Return an error if
 
 (defgeneric get-relationship-attrs (db source-type relationship dest-type)
   (:documentation "Extract the attributes of interest for a given relationship. Fields currently returned as the elements of a list are 'dependent' and 'cardinality'"))
-
-
-;;;; Both
-
-(defgeneric delete-resource-by-path (db path &key delete-dependent recursive)
-  (:documentation "Delete a relationship or resource according to the URI supplied.
-  :delete-dependent confirms that you intend to delete a dependent resource.
-  :recursive confirms that you intend to delete all resources depending on the one identified in the path."))

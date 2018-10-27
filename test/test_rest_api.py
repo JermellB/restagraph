@@ -411,15 +411,6 @@ class TestDependentResources(unittest.TestCase):
                                                     self.depres1uid)).status_code,
                          200)
         # Delete the dependent resource
-        # First, fail by skipping the delete-dependent parameter
-        self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                                self.res1type,
-                                                                self.res1uid,
-                                                                self.relationship1,
-                                                                self.depres1type,
-                                                                self.depres1uid)).status_code,
-                         409)
-        # Now get it right
         self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                                 self.res1type,
                                                                 self.res1uid,

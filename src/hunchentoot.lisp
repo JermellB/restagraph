@@ -654,7 +654,6 @@
              (delete-resource-by-path
                (datastore tbnl:*acceptor*)
                sub-uri
-               :delete-dependent (tbnl:post-parameter "delete-dependent")
                :recursive (tbnl:post-parameter "recursive"))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)

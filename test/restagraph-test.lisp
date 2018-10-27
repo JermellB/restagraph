@@ -205,28 +205,20 @@
                       (restagraph:get-resources
                         *server*
                         (format nil "/~A/~A/~A" parent-type parent-uid relationship))))
-    ;; Fail to delete the dependent resource
-    (restagraph:log-message :debug "TEST: Fail to delete the dependent resource")
-    (fiveam:signals
-      (restagraph:integrity-error "This would delete the resource itself, and delete-dependent was not specified.")
-      (restagraph:delete-resource-by-path
-        *server*
-        (format nil "/~A/~A/~A/~A/~A"
-                parent-type parent-uid relationship child-type child-uid)))
     ;; Delete the dependent resource
-    (restagraph:log-message :debug "TEST: Successfully delete the dependent resource")
+    (restagraph:log-message :debug "TEST; Delete the dependent resource")
     (multiple-value-bind (result code message)
       (restagraph:delete-resource-by-path
         *server*
         (format nil "/~A/~A/~A/~A/~A"
-                parent-type parent-uid relationship child-type child-uid)
-        :delete-dependent t)
+                parent-type parent-uid relationship child-type child-uid))
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm the dependent resource is gone
-    (restagraph:log-message :debug "TEST: Confirm the dependent resource is gone.")
-    (fiveam:is (null (restagraph:get-resources
-                       *server* (format nil "/~A/~A" child-type child-uid))))
+    (restagraph:log-message :debug "TEST; Confirm the dependent resource is gone.")
+    (fiveam:is (null (restagraph:get-resources *server*
+                                (format nil "/~A/~A/~A/~A/~A"
+                                        parent-type parent-uid relationship child-type child-uid))))
     ;; Attempt to create a child resource that isn't of a dependent type
     (restagraph:log-message :debug "TEST: Fail to create a non-dependent child resource.")
     (fiveam:signals (restagraph:client-error "This is not a dependent resource type")
