@@ -523,14 +523,14 @@
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A" r1type)
-                   `(("uid" . ,r1uid)))))
+                   :filters `(("uid" . ,r1uid)))))
     ;; Search for it by type and partial UID
     (fiveam:is (equal
                  `(((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid)))
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A" r1type)
-                   `(("uid" . ,r1partial)))))
+                   :filters `(("uid" . ,r1partial)))))
     ;; Add a dependent resource to search for
     (restagraph:log-message :info "TEST Creating the secondary resource")
     (restagraph:store-dependent-resource
@@ -548,14 +548,14 @@
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
-                   `(("uid" . ,(restagraph:sanitise-uid r2uid))))))
+                   :filters `(("uid" . ,(restagraph:sanitise-uid r2uid))))))
     ;; Search for it by type and partial UID
     (fiveam:is (equal
                  `(((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid)))
                  (restagraph:get-resources
                    *server*
                    (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
-                   `(("uid" . ,r2partial)))))
+                   :filters `(("uid" . ,r2partial)))))
     ;; Clean up: delete the primary and dependent resources.
     (restagraph:log-message :info "TEST Cleanup: removing the resources")
     (restagraph:delete-resource-by-path
