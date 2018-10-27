@@ -1183,9 +1183,9 @@
     ;; Initial sanity checks
     (cond
       ((not (equal (mod (length parts) 3) 0))
-       (error 'client-error :message "Relationship path does not specify a relationship"))
+       (error 'client-error :message "Relationship path does not specify a relationship."))
       ((not (equal (mod (length target-parts) 3) 2))
-       (error 'client-error :message "Target path does not specify a relationship"))
+       (error 'client-error :message "Target path does not specify a resource."))
       (t
        ;; Check also for dependent relationships
        (let ((relationship-attrs
