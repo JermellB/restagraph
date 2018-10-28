@@ -134,8 +134,13 @@ Return an error if
   (:documentation "Confirm whether this relationship exists between these resources.
                    A special-case method for avoiding the ambiguity that can catch out get-resources."))
 
-(defgeneric delete-relationship-by-path (db relpath targetpath)
-  (:documentation "Delete a relationship based on its path, and that of its target. More precise than delete-path, especially when a node has the same relationship to 2+ identical dependent resources."))
+(defgeneric delete-relationship-by-path (db relationship-uri target-resource)
+  (:documentation "Delete a relationship based on its path, and that of its target.
+                  Arguments:
+                  - relationship-uri = URI of the relationship itself
+                  - target-resource = /<type>/<uid> of the resource at the end of the relationship.
+                  This form is required to distinguish between deleting the relationship, and the resource itself."))
 
 (defgeneric get-relationship-attrs (db source-type relationship dest-type)
-  (:documentation "Extract the attributes of interest for a given relationship. Fields currently returned as the elements of a list are 'dependent' and 'cardinality'"))
+  (:documentation "Extract the attributes of interest for a given relationship.
+                  Return a 'relationship-attrs struct."))

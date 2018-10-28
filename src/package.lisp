@@ -44,4 +44,8 @@
     delete-relationship-by-path
     get-relationship-attrs
     delete-resource-by-path
+    ;; Structures and their constructors and accessors
+    make-relationship-attrs
+    relationship-attrs-dependent
+    relationship-attrs-cardinality
     ))
