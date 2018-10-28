@@ -8,20 +8,20 @@
   expected to be hash objects."
   ;; Safety first: is the directory even there?
   (if (probe-file parent-dir)
-      ;; This is _really_ ugly, but guarantees alphabetical order.
-      (mapcar #'cl-yaml:parse
-              (mapcar #'pathname
-                      (sort
-                        (mapcar #'namestring
-                                (directory (make-pathname
-                                             :name :wild
-                                             :type "yaml"
-                                             :directory parent-dir)))
-                        #'string<)))
-      ;; Safety-check failed. Complain loudly.
-      (progn
-        (error (format nil "Schema directory ~A doesn't exist!" parent-dir))
-        (log-message :fatal (format nil "Schema directory ~A doesn't exist!" parent-dir)))))
+    ;; This is _really_ ugly, but guarantees alphabetical order.
+    (mapcar #'cl-yaml:parse
+            (mapcar #'pathname
+                    (sort
+                      (mapcar #'namestring
+                              (directory (make-pathname
+                                           :name :wild
+                                           :type "yaml"
+                                           :directory parent-dir)))
+                      #'string<)))
+    ;; Safety-check failed. Complain loudly.
+    (let ((message (format nil "Schema directory ~A doesn't exist!" parent-dir)))
+      (log-message :fatal message)
+      (error message))))
 
 (defun ensure-schema-schema (db)
   "Bootstrap function to ensure the database contains the schema-related schema.
