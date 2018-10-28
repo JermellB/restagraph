@@ -184,7 +184,8 @@
     ;; Create the parent resource
     (restagraph:store-resource *server* parent-type `(("uid" . ,parent-uid)))
     ;; Create the dependent resource
-    (restagraph:log-message :debug ";TEST Create the dependent resource")
+    (restagraph:log-message :debug ";TEST Create the dependent resource /~A/~A/~A/~A"
+                            parent-type parent-uid relationship child-type)
     (multiple-value-bind (result code message)
       (restagraph:store-dependent-resource
         *server*
@@ -220,7 +221,10 @@
                                 (format nil "/~A/~A/~A/~A/~A"
                                         parent-type parent-uid relationship child-type child-uid))))
     ;; Attempt to create a child resource that isn't of a dependent type
-    (restagraph:log-message :debug ";TEST Fail to create a non-dependent child resource.")
+    (restagraph:log-message
+      :debug
+      (format nil ";TEST Fail to create a non-dependent child resource /~A/~A/~A/~A"
+              parent-type parent-uid relationship invalid-child-type))
     (fiveam:signals (restagraph:client-error "This is not a dependent resource type")
       (restagraph:store-dependent-resource
         *server*
@@ -587,7 +591,8 @@
     ;; Create the interface
     (restagraph:store-resource *server* to-type `(("uid" . ,to-uid)))
     ;; Create a relationship between them
-    (restagraph:log-message :info ";TEST Create the relationship")
+    (restagraph:log-message :info ";TEST Create the relationship /~A/~A/~A/~A/~A"
+                            from-type from-uid relationship to-type to-uid)
     (multiple-value-bind (result code message)
       (restagraph:create-relationship-by-path
         *server*
@@ -596,12 +601,16 @@
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm the relationship is there
-    (restagraph:log-message :info ";TEST Confirm the relationship")
+    (restagraph:log-message
+      :info
+      (format nil ";TEST Confirm the list of resources at the end of /~A/~A/~A"
+              from-type from-uid relationship))
     (fiveam:is (equal
                  `((("resource-type" . ,to-type) ("uid" . ,to-uid)))
                  (restagraph:get-resources-with-relationship *server* from-type from-uid relationship)))
     ;; Delete the relationship
-    (restagraph:log-message :info ";TEST Delete the relationship")
+    (restagraph:log-message :info ";TEST Delete the relationship from /~A/~A/~A to /~A/~A"
+                            from-type from-uid relationship to-type to-uid)
     (multiple-value-bind (result code message)
       (restagraph:delete-relationship-by-path
         *server*
