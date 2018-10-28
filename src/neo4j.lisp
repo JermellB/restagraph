@@ -785,18 +785,17 @@
         (dest-parts (get-uri-parts destpath)))
     (cond
       ((not (equal (mod (length source-part-list) 3) 0))
-       (let ((message "This is not a valid path to a relationship"))
+       (let ((message (format nil "~A is not a valid path to a relationship" sourcepath)))
          (log-message :debug message)
          (error 'client-error :message message)))
       ((not (equal (mod (length dest-parts) 3) 2))
-       (let ((message (format nil "/~{~A~^/~} is not a valid path to a resource"
-                              dest-parts)))
+       (let ((message (format nil "~A is not a valid path to a resource" destpath)))
          (log-message :debug message)
          (error 'client-error :message message)))
       ;; Having made it that far, make checks that call to the database
       (t
        (let* ((relationship (car (last source-part-list)))
-              (source-parts (butlast source-part-list))
+              (source-parts (butlast source-part-list)) ; Path to the source resource
               (source-type (nth (- (length source-parts) 2) source-parts))
               (dest-type (nth (- (length dest-parts) 2) dest-parts))
               (relationship-attrs
@@ -1000,6 +999,7 @@
       ;; Sanity-check: is there a relationship between the parent and child resource types?
       ((null relationship-attrs)
        (error 'client-error
+              :message
               (format nil "There is no relationship ~A from ~A to ~A"
                       relationship parent-type dest-type)))
       ;; Sanity check: dependency between parent and child resource types
