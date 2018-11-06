@@ -6,6 +6,7 @@
   "Parse the .yaml files in the specified directory, in alphabetical order.
   Return the result as a list of objects output by cl-yaml:parse,
   expected to be hash objects."
+  (log-message :info (format nil "Attempting to read schemas in directory ~A" parent-dir))
   ;; Safety first: is the directory even there?
   (if (probe-file parent-dir)
     ;; This is _really_ ugly, but guarantees alphabetical order.
@@ -100,6 +101,7 @@
   "Apply the supplied schema, if it's a newer version than the one already present,
    or if there isn't one already there.
    schema is expected to be the output of cl-yaml:parse."
+  (log-message :info (format nil "Attempting to inject schema '~A'" (gethash "name" schema)))
   ;; Ensure the schema-schema is in place
   (ensure-schema-schema db)
   ;; Now do the actual thing
@@ -124,87 +126,98 @@
             current-version schema-version)
           ;; Update resourcetypes
           (log-message :info "Adding resources")
-          (maphash
-            #'(lambda (resourcename value)
-                (log-message
-                  :info
-                  (format nil "Attempting to add resource '~A'" resourcename))
-                ;; Build the resource definition,
-                ;; including only the attributes actually supplied
-                (let ((resource
-                        (append
-                          (list db resourcename)
-                          (when (gethash "dependent" value)
-                            (list :dependent (gethash "dependent" value)))
-                          (when (gethash "notes" value)
-                            (list :notes (gethash "notes" value))))))
-                  (apply #'add-resourcetype resource))
-                ;; Now add the attributes.
-                ;; Looks like a really clunky way to go about it,
-                ;; but is designed to be extended with other attribute-attributes,
-                ;; such as type and input validation.
-                (when
-                  ;; Only do this if the resourcetype has an 'attributes' subhash
-                  (gethash "attributes" value)
-                  ;; Process each attribute-attribute in turn
+          (when (gethash "resourcetypes" schema)
+            (maphash
+              #'(lambda (resourcename value)
                   (log-message
-                    :debug
-                    (format nil "Processing attributes for resourcetype ~A"
-                            resourcename))
-                  (maphash #'(lambda (attrname attrdetails)
-                               (log-message
-                                 :debug
-                                 (format nil "Processing attribute ~A"
-                                         attrname))
-                               (let ((attribute
-                                       (append
-                                         ;; Each attr-attr has at least this much
-                                         (list db resourcename :name attrname)
-                                         (when (and
-                                                 attrdetails
-                                                 (hash-table-p attrdetails)
-                                                 (gethash "description" attrdetails))
-                                           (log-message
-                                             :debug
-                                             (format
-                                               nil "Adding description ~A"
-                                               (gethash "description" attrdetails)))
-                                           (list :description
-                                                 (gethash "description" attrdetails))))))
-                                 (apply #'add-resourcetype-attribute attribute)))
-                           (gethash "attributes" value))))
-            (gethash "resourcetypes" schema))
+                    :info
+                    (format nil "Attempting to add resource '~A'" resourcename))
+                  ;; Build the resource definition,
+                  ;; including only the attributes actually supplied
+                  (let ((resource
+                          (append
+                            (list db resourcename)
+                            (when (gethash "dependent" value)
+                              (list :dependent (gethash "dependent" value)))
+                            (when (gethash "notes" value)
+                              (list :notes (gethash "notes" value))))))
+                    (apply #'add-resourcetype resource))
+                  ;; Now add the attributes.
+                  ;; Looks like a really clunky way to go about it,
+                  ;; but is designed to be extended with other attribute-attributes,
+                  ;; such as type and input validation.
+                  (when
+                    ;; Only do this if the resourcetype has an 'attributes' subhash
+                    (gethash "attributes" value)
+                    ;; Process each attribute-attribute in turn
+                    (log-message
+                      :debug
+                      (format nil "Processing attributes for resourcetype ~A"
+                              resourcename))
+                    (maphash #'(lambda (attrname attrdetails)
+                                 (log-message
+                                   :debug
+                                   (format nil "Processing attribute ~A"
+                                           attrname))
+                                 (let ((attribute
+                                         (append
+                                           ;; Each attr-attr has at least this much
+                                           (list db resourcename :name attrname)
+                                           (when (and
+                                                   attrdetails
+                                                   (hash-table-p attrdetails)
+                                                   (gethash "description" attrdetails))
+                                             (log-message
+                                               :debug
+                                               (format
+                                                 nil "Adding description ~A"
+                                                 (gethash "description" attrdetails)))
+                                             (list :description
+                                                   (gethash "description" attrdetails))))))
+                                   (apply #'add-resourcetype-attribute attribute)))
+                             (gethash "attributes" value))))
+              (gethash "resourcetypes" schema)))
           ;; Update relationships between resourcetypes
           (log-message :info "Adding relationships between resources")
-          (mapcar
-            #'(lambda (rel)
-                ;; Sanity-check
-                (if (and
-                      rel
-                      (hash-table-p rel)
-                      (gethash "uri" rel))
-                    ;; We're OK; carry on
-                    (let ((relparts (cl-ppcre:split "/" (gethash "uri" rel))))
-                      (log-message
-                        :debug
-                        "Requesting to add relationship '~A' from '~A' to '~A'"
-                        (third relparts) (second relparts) (fourth relparts))
-                      (handler-case
-                        (add-resource-relationship
-                          db
-                          (second relparts)   ; parent-type
-                          (third relparts)    ; relationship
-                          (fourth relparts)   ; dependent-type
-                          :dependent (gethash "dependent" rel)
-                          :cardinality (gethash "cardinality" rel)
-                          :notes (gethash "notes" rel))
-                        (restagraph:integrity-error (e)
-                                                    (log-message :error (restagraph:message e)))))
-                    ;; Sanity-check failed
-                    (log-message :warning
-                                 (format nil "Invalid entry ~A" rel))))
-            (gethash "relationships" schema))
+          (when (gethash "relationships" schema)
+            (mapcar
+              #'(lambda (rel)
+                  ;; Sanity-check
+                  (if (and
+                        rel
+                        (hash-table-p rel)
+                        (gethash "uri" rel))
+                      ;; We're OK; carry on
+                      (let ((relparts (cl-ppcre:split "/" (gethash "uri" rel))))
+                        (log-message
+                          :debug
+                          "Requesting to add relationship '~A' from '~A' to '~A'"
+                          (third relparts) (second relparts) (fourth relparts))
+                        (handler-case
+                          (add-resource-relationship
+                            db
+                            (second relparts)   ; parent-type
+                            (third relparts)    ; relationship
+                            (fourth relparts)   ; dependent-type
+                            :dependent (gethash "dependent" rel)
+                            :cardinality (gethash "cardinality" rel)
+                            :notes (gethash "notes" rel))
+                          (restagraph:integrity-error (e)
+                                                      (log-message :error (restagraph:message e)))))
+                      ;; Sanity-check failed
+                      (log-message :warning
+                                   (format nil "Invalid entry ~A" rel))))
+              (gethash "relationships" schema)))
           ;; Record the current version of the schema
           (log-message :info "Update version number for schema '~A' in database to ~A"
                        schema-name schema-version)
           (set-schema-version db schema-name schema-version)))))
+
+(defun inject-all-schemas (db parent-dir)
+  "Read all .yaml files in parent-dir in alphabetical order,
+   and inject the schema described in each one, in turn."
+  (log-message :info
+               (format nil "Attempting to apply any/all schemas specified in directory '~A'" parent-dir))
+  (mapcar #'(lambda (schema)
+              (inject-schema db schema))
+          (read-schemas parent-dir)))

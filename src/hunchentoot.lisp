@@ -845,15 +845,7 @@
                                            (neo4cl:message e))))))
       ;; Update the schema, if one has been specified
       (if schemadir
-        (progn
-          (log-message :info
-                       (format
-                         nil
-                         "Attempting to apply any/all schemas specified in directory '~A'"
-                         schemadir))
-          (mapcar #'(lambda (schema)
-                      (inject-schema (datastore acceptor) schema))
-                  (read-schemas schemadir)))
+        (inject-all-schemas (datastore acceptor) schemadir)
         (log-message :info "No schema directory specified; skipping this step."))
       ;; Set the dispatch table
       (restagraph:log-message :info "Configuring the dispatch table")
