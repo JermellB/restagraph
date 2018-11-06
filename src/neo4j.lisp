@@ -306,34 +306,48 @@
                                          &key recursive
                                          resources-seen)
   (log-message :debug (format nil "Describing resources linked from '~A'" resourcetype))
-  (mapcar #'(lambda (row)
-              (log-message :debug "Retrieving description for linked resourcetype '~A'" (fourth row))
+  (mapcar #'(lambda (rel)
+              (log-message :debug "Retrieving description for linked resourcetype '~A'"
+                           (relationship-attrs-name (cdr rel)))
               ;; Return an alist of the values, ready for rendering into Javascript
-              `((:relationship . ,(first row))
-                (:dependent . ,(if (second row) "true" "false"))
-                (:cardinality . ,(third row))
+              `((:RELATIONSHIP . ,(relationship-attrs-name (car rel)))
+                (:DEPENDENT . ,(if (relationship-attrs-dependent (car rel)) "true" "false"))
+                (:CARDINALITY . ,(relationship-attrs-cardinality (car rel)))
+                (:NOTES . ,(relationship-attrs-notes (car rel)))
                 (:resourcetype
                   . ,(if recursive
                          (progn
                            ;; Add this resource-type to the list of those seen
-                           (log-message :debug (format nil "Adding '~A' to the list of resources already seen" (fourth row)))
-                           (pushnew (fourth row) resources-seen)
+                           (log-message :debug (format nil "Adding '~A' to the list of resources already seen"
+                                                       (cdr rel)))
+                           (pushnew (cdr rel) resources-seen)
                            ;; Now recurse through this process
                            (describe-resource-type db
-                                                   (fourth row)
+                                                   (cdr rel)
                                                    :recursive t
                                                    :resources-seen resources-seen))
-                         (fourth row)))))
+                         (cdr rel)))))
           ;; Skip any resources we've already seen, to break loops
-          (remove-if #'(lambda (row)
-                         (member (fourth row) resources-seen :test #'equal))
-                     (neo4cl:extract-rows-from-get-request
-                       (neo4cl:neo4j-transaction
-                         db
-                         `((:STATEMENTS
-                             ((:STATEMENT .
-                               ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN type(r), r.dependent, r.cardinality, n.name"
-                                        (sanitise-uid resourcetype)))))))))))
+          (remove-if #'null
+                     (mapcar
+                       #'(lambda (row)
+                           (when (not (member (fourth row) resources-seen :test #'equal))
+                             ;; If you think this looks cumbersome, you should have tried to reason through
+                             ;; this code _without_ using the struct to keep things clear.
+                             (cons
+                               (make-relationship-attrs
+                                 :name (first row)
+                                 :dependent (when (second row) t)
+                                 :cardinality (third row)
+                                 :notes (if (fourth row) (fourth row) ""))
+                               (fifth row))))
+                       (neo4cl:extract-rows-from-get-request
+                         (neo4cl:neo4j-transaction
+                           db
+                           `((:STATEMENTS
+                               ((:STATEMENT .
+                                 ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN type(r), r.dependent, r.cardinality, r.notes, n.name"
+                                          (sanitise-uid resourcetype))))))))))))
 
 (defmethod add-resource-relationship ((db neo4cl:neo4j-rest-server)
                                       (parent-type string)
@@ -749,8 +763,10 @@
   "Describes the attributes of a relationship:
   relationship-attrs-dependent = boolean, indication whether this is a dependent relationship
   relationship-attrs-cardinality = string, returning the cardinality of the relationship"
+  (name nil :type string :read-only t)
   (dependent nil :type boolean :read-only t)
-  (cardinality "many:many" :type string :read-only t))
+  (cardinality "many:many" :type string :read-only t)
+  (notes "" :type string :read-only t))
 
 (defmethod get-relationship-attrs ((db neo4cl:neo4j-rest-server)
                                    (source-type string)
@@ -767,13 +783,17 @@
                 db
                 `((:STATEMENTS
                     ((:STATEMENT
-                       .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r.dependent, r.cardinality"
+                       .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r.dependent, r.cardinality, r.notes"
                                    (sanitise-uid source-type)
                                    (sanitise-uid relationship)
                                    (sanitise-uid dest-type)))))))))))
     (when result
-      (make-relationship-attrs :dependent (when (equal (first result) "true") t)
-                               :cardinality (second result)))))
+      (make-relationship-attrs :name (sanitise-uid relationship)
+                               :dependent (when (equal (first result) "true") t)
+                               :cardinality (second result)
+                               :notes (if (and (third result) (stringp (third result)))
+                                        (third result)
+                                        "")))))
 
 (defmethod create-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (sourcepath string)
