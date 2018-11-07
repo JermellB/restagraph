@@ -232,8 +232,7 @@
            (cl-json:encode-json-alist-to-string
              (describe-resource-type
                (datastore tbnl:*acceptor*)
-               (third uri-parts)
-               :recursive (tbnl:get-parameter "recursive")))))
+               (third uri-parts)))))
         ;; Get a description of the whole schema
         ((equal (tbnl:request-method*) :GET)
          (progn
@@ -244,8 +243,7 @@
                #'(lambda (r)
                    (describe-resource-type
                      (datastore tbnl:*acceptor*)
-                     (cdr (assoc :name r))
-                     :recursive (tbnl:get-parameter "recursive")))
+                     (cdr (assoc :name r))))
                (get-resource-types (datastore tbnl:*acceptor*))))))
         ;; Add a resource-type
         ((and
