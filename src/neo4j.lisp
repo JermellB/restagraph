@@ -268,8 +268,7 @@
 
 (defmethod describe-resource-type ((db neo4cl:neo4j-rest-server)
                                    (resourcetype string)
-                                   &key recursive
-                                   resources-seen)
+                                   &key resources-seen)
   (log-message :debug (format nil "Describing resource-type '~A'" resourcetype))
   ;; Confirm whether this resourcetype exists at all.
   ;; If it doesn't, automatically return NIL.
@@ -298,35 +297,20 @@
         (:RELATIONSHIPS . ,(describe-dependent-resources
                              db
                              (sanitise-uid resourcetype)
-                             :recursive recursive
                              :resources-seen resources-seen))))))
 
 (defmethod describe-dependent-resources ((db neo4cl:neo4j-rest-server)
                                          (resourcetype string)
-                                         &key recursive
-                                         resources-seen)
+                                         &key resources-seen)
   (log-message :debug (format nil "Describing resources linked from '~A'" resourcetype))
   (mapcar #'(lambda (rel)
-              (log-message :debug "Retrieving description for linked resourcetype '~A'"
-                           (relationship-attrs-name (cdr rel)))
+              (log-message :debug "Retrieving description for linked resourcetype '~A'" (cdr rel))
               ;; Return an alist of the values, ready for rendering into Javascript
               `((:RELATIONSHIP . ,(relationship-attrs-name (car rel)))
                 (:DEPENDENT . ,(if (relationship-attrs-dependent (car rel)) "true" "false"))
                 (:CARDINALITY . ,(relationship-attrs-cardinality (car rel)))
                 (:NOTES . ,(relationship-attrs-notes (car rel)))
-                (:resourcetype
-                  . ,(if recursive
-                         (progn
-                           ;; Add this resource-type to the list of those seen
-                           (log-message :debug (format nil "Adding '~A' to the list of resources already seen"
-                                                       (cdr rel)))
-                           (pushnew (cdr rel) resources-seen)
-                           ;; Now recurse through this process
-                           (describe-resource-type db
-                                                   (cdr rel)
-                                                   :recursive t
-                                                   :resources-seen resources-seen))
-                         (cdr rel)))))
+                (:resourcetype (cdr rel))))
           ;; Skip any resources we've already seen, to break loops
           (remove-if #'null
                      (mapcar
@@ -336,17 +320,17 @@
                              ;; this code _without_ using the struct to keep things clear.
                              (cons
                                (make-relationship-attrs
-                                 :name (first row)
-                                 :dependent (when (second row) t)
-                                 :cardinality (third row)
-                                 :notes (if (fourth row) (fourth row) ""))
-                               (fifth row))))
+                                 :name (second row)
+                                 :dependent (when (third row) t)
+                                 :cardinality (fourth row)
+                                 :notes (if (fifth row) (fifth row) ""))
+                               (first row))))
                        (neo4cl:extract-rows-from-get-request
                          (neo4cl:neo4j-transaction
                            db
                            `((:STATEMENTS
                                ((:STATEMENT .
-                                 ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN type(r), r.dependent, r.cardinality, r.notes, n.name"
+                                 ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN n.name, type(r), r.dependent, r.cardinality, r.notes"
                                           (sanitise-uid resourcetype))))))))))))
 
 (defmethod add-resource-relationship ((db neo4cl:neo4j-rest-server)
