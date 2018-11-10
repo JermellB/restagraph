@@ -525,7 +525,9 @@
                 `((:STATEMENTS
                     ((:STATEMENT . ,(format nil "CREATE (:~A { properties })"
                                             (sanitise-uid resourcetype)))
-                     (:PARAMETERS . ((:PROPERTIES . ,attributes)))))))
+                     (:PARAMETERS . ((:PROPERTIES
+                                       . ,(append attributes
+                                       `(("createddate" . ,(get-universal-time)))))))))))
               ;; Catch selected errors as they come up
               (neo4cl::client-error
                 (e)
@@ -553,13 +555,15 @@
                                        (attributes list))
   (log-message :debug (format nil "Updating attributes for resource ~{/~A~}" path))
   (let ((attrs
-          (remove-if #'(lambda (f)
-                         (or (equal (car f) :|uid|)
-                             (equal (car f) :|original_uid|)))
-                     (validate-resource-before-creating
-                       db
-                       (car (last (butlast path)))
-                       attributes))))
+          (append
+            (remove-if #'(lambda (f)
+                           (or (equal (car f) :|uid|)
+                               (equal (car f) :|original_uid|)))
+                       (validate-resource-before-creating
+                         db
+                         (car (last (butlast path)))
+                         attributes))
+            `(("updateddate" . ,(get-universal-time))))))
     (when attrs
       (log-message
         :debug
@@ -1080,7 +1084,9 @@
                                                            :directional t)
                                           relationship
                                           dest-type))
-                     (:PARAMETERS . ((:PROPERTIES . ,validated-attributes))))))))
+                     (:PARAMETERS . ((:PROPERTIES
+                     . ,(append validated-attributes
+                     `(("createddate" . ,(get-universal-time))))))))))))
             ;; We already have one of these
             (error 'integrity-error :message (format nil "Resource ~A already exists" resource-path))))))))
 
