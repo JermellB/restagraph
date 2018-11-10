@@ -567,9 +567,15 @@
       (let ((query (format nil "MATCH ~A SET ~{~A~^, ~}"
                            (uri-node-helper path :path "" :marker "n" :directional t)
                            (mapcar #'(lambda (a)
-                                       (if (null (cdr a))
-                                           (format nil "n.~A = NULL" (car a))
-                                           (format nil "n.~A = '~A'" (car a) (cdr a))))
+                                       (let ((attrname (car a))
+                                             (attrvalue (cdr a)))
+                                         (if (null attrvalue)
+                                             (format nil "n.~A = NULL" attrname)
+                                             (format nil
+                                                     (if (numberp attrvalue)
+                                                         "n.~A = ~A"
+                                                         "n.~A = '~A'")
+                                                     attrname attrvalue))))
                                    attrs))))
         (log-message
           :debug
