@@ -596,54 +596,56 @@
   "Process a single filter from a GET parameter.
    Assumes uri-node-helper was called with its default marker, which is 'n'."
   (log-message :debug "Attempting to process filter ~A" filter)
-  (let* ((name (car filter))
-         (value (cdr filter))
-         ;; Does the value start with "!" to indicate negation?
-         (negationp (string= "!" value :end2 1)))
+  (let ((name (car filter))
+        ;; Does the value start with "!" to indicate negation?
+        (negationp (string= "!" (cdr filter) :end2 1)))
     (if negationp
         (log-message :debug "Negation detected. negationp = ~A" negationp)
         (log-message :debug "Negation not detected. Double-negative in progress."))
     ;; Prepend negation if applicable
-    (format
-      nil
-      "~A~A"
-      ;; Are we negating it?
-      (if negationp "NOT " "")
-      ;; Infer the operator
-      (cond
-        ;; Outbound links
-        ;; Simple format: relationship/path/to/target
-        ((equal name "outbound")
-         (let* ((parts (remove-if #'(lambda (n)
-                                      (or (null n)
-                                          (equal n "")))
-                                  (cl-ppcre:split "/" value)))
-                (relationship (sanitise-uid (first parts)))
-                (target-type (sanitise-uid (second parts)))
-                (target-uid (sanitise-uid (third parts))))
-           (log-message :debug "Outbound link detected: ~A" value)
-           (format nil "(n)-[:~A]-(:~A {uid: '~A'})" relationship target-type target-uid)))
-        ;; Regex match
-        ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
-        ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
-         (let ((offset (if negationp 1 0)))
-           (log-message :debug
-                        "Regex detected. Extracting the value from a starting offset of ~d."
-                        offset)
-           (format
-             nil "n.~A =~~ '~A'"
-             (escape-neo4j name)
-             ;; Drop the first character if we're negating the match,
-             ;; otherwise use the whole string.
-             (escape-neo4j (subseq value offset)))))
-        ;;
-        ;; Simple existence check
-        ((string= "exists" (escape-neo4j value))
-         (format nil "exists(n.~A)" (escape-neo4j name)))
-        ;;
-        ;; Default case: exact text match
-        (t
-         (format nil "n.~A = '~A'" (escape-neo4j name) (escape-neo4j value)))))))
+    (let ((value (if negationp
+                     (subseq (cdr filter) 1)
+                     (cdr filter))))
+      (format
+        nil
+        "~A~A"
+        ;; Are we negating it?
+        (if negationp "NOT " "")
+        ;; Infer the operator
+        (cond
+          ;; Outbound links
+          ;; Simple format: relationship/path/to/target
+          ((equal name "outbound")
+           (let* ((parts (remove-if #'(lambda (n)
+                                        (or (null n)
+                                            (equal n "")))
+                                    (cl-ppcre:split "/" value)))
+                  (relationship (sanitise-uid (first parts)))
+                  (target-type (sanitise-uid (second parts)))
+                  (target-uid (sanitise-uid (third parts))))
+             (log-message :debug "Outbound link detected: ~A" value)
+             (format nil "(n)-[:~A]-(:~A {uid: '~A'})" relationship target-type target-uid)))
+          ;; Regex match
+          ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
+          ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
+           (let ((offset (if negationp 1 0)))
+             (log-message :debug
+                          "Regex detected. Extracting the value from a starting offset of ~d."
+                          offset)
+             (format
+               nil "n.~A =~~ '~A'"
+               (escape-neo4j name)
+               ;; Drop the first character if we're negating the match,
+               ;; otherwise use the whole string.
+               (escape-neo4j (subseq value offset)))))
+          ;;
+          ;; Simple existence check
+          ((string= "exists" (escape-neo4j value))
+           (format nil "exists(n.~A)" (escape-neo4j name)))
+          ;;
+          ;; Default case: exact text match
+          (t
+           (format nil "n.~A = '~A'" (escape-neo4j name) (escape-neo4j value))))))))
 
 (defun process-filters (filters)
   "Take GET parameters, and turn them into a string of Neo4j WHERE clauses."
