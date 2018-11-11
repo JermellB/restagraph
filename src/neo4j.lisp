@@ -668,8 +668,6 @@
           response)
         "")))
 
-;;; FIXME: turn &optional into &key, and add :directional
-;;; so GET requests can accept a directional parameter from the client
 (defmethod get-resources ((db neo4cl:neo4j-rest-server)
                           (uri string)
                           &key filters
