@@ -52,8 +52,8 @@
   (mapcar
     #'sanitise-uid
     (cdr
-      (ppcre:split "/"
-                   (cl-ppcre:regex-replace (getf *config-vars* :api-uri-base) uri "")))))
+        (ppcre:split "/"
+                     (cl-ppcre:regex-replace (getf *config-vars* :api-uri-base) uri "")))))
 
 (defun uri-node-helper (uri-parts &key (path "") (marker "n") (directional t))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.

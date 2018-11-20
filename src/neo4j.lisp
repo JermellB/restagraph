@@ -723,12 +723,12 @@
                             (process-filters filters))))
          (log-message :debug (concatenate 'string "Querying database: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))
-         (let* ((response
-                  (neo4cl:extract-rows-from-get-request
-                    (neo4cl:neo4j-transaction
-                      db
-                      `((:STATEMENTS
-                          ((:STATEMENT . ,query))))))))
+         (let ((response
+                 (neo4cl:extract-rows-from-get-request
+                   (neo4cl:neo4j-transaction
+                     db
+                     `((:STATEMENTS
+                         ((:STATEMENT . ,query))))))))
            (log-message
              :debug
              (format nil "Retrieved results: ~A" response))
