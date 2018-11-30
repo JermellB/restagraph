@@ -58,11 +58,14 @@
       (fiveam:is (equal 200 code)))
     ;; Confirm it's there
     (restagraph:log-message :info ";TEST Confirm the resource is present")
-    (fiveam:is (equal
-                 `((:uid . ,uid)
-                   (:original--uid . ,(restagraph:sanitise-uid uid)))
-                 (restagraph:get-resources
-                   *server* (format nil "/~A/~A" restype uid))))
+    (let ((result (restagraph:get-resources
+                    *server* (format nil "/~A/~A" restype uid))))
+      (fiveam:is (assoc :UID result))
+      (fiveam:is (equal (restagraph:sanitise-uid uid)
+                        (cdr (assoc :UID result))))
+      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (equal uid
+                        (cdr (assoc :ORIGINAL--UID result)))))
     ;; Delete it
     (restagraph:log-message :info ";TEST Delete the resource")
     (multiple-value-bind (result code message)
@@ -117,23 +120,31 @@
                  (list restype uid)
                  `((,attr1name . ,attr1val))))
     ;; Confirm it's there
-    (fiveam:is (equal
-                 `((:uid . ,uid)
-                   (,(intern (string-upcase attr1name) 'keyword) . ,attr1val)
-                   (:original--uid . ,(restagraph:sanitise-uid uid)))
-                 (restagraph:get-resources
-                   *server* (format nil "/~A/~A" restype uid))))
+    (let ((result (restagraph:get-resources
+                    *server* (format nil "/~A/~A" restype uid)))
+          (attr1kw (intern (string-upcase attr1name) 'keyword)))
+      (fiveam:is (assoc :UID result))
+      (fiveam:is (equal (restagraph:sanitise-uid uid)
+                        (cdr (assoc :UID result))))
+      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (equal uid
+                        (cdr (assoc :ORIGINAL--UID result))))
+      (fiveam:is (assoc attr1kw result))
+      (fiveam:is (equal attr1val (cdr (assoc attr1kw result)))))
     ;; Delete the attribute
     (fiveam:is
       (restagraph:delete-resource-attributes *server*
                                              (list restype uid)
                                              (list attr1name)))
     ;; Confirm it's gone again
-    (fiveam:is (equal
-                 `((:uid . ,uid)
-                   (:original--uid . ,(restagraph:sanitise-uid uid)))
-                 (restagraph:get-resources
-                   *server* (format nil "/~A/~A" restype uid))))
+    (let ((result (restagraph:get-resources
+                    *server* (format nil "/~A/~A" restype uid))))
+      (fiveam:is (assoc :UID result))
+      (fiveam:is (equal (restagraph:sanitise-uid uid)
+                        (cdr (assoc :UID result))))
+      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (equal uid
+                        (cdr (assoc :ORIGINAL--UID result)))))
     ;; Add another attribute to the resourcetype
     (fiveam:is (restagraph:add-resourcetype-attribute
                  *server*
@@ -200,12 +211,19 @@
                         *server* (list parent-type parent-uid))))
     ;; Confirm we get the type when asking for all things with that relationship
     (restagraph:log-message :debug ";TEST Confirm listing of types with all things with this relationship")
-    (fiveam:is (equal `(((:type . ,child-type)
-                         (:uid . ,child-uid)
-                         (:original--uid . ,child-uid)))
-                      (restagraph:get-resources
-                        *server*
-                        (format nil "/~A/~A/~A" parent-type parent-uid relationship))))
+    (let ((result (car
+                    (restagraph:get-resources
+                      *server*
+                      (format nil "/~A/~A/~A" parent-type parent-uid relationship)))))
+      (fiveam:is (assoc :TYPE result))
+      (fiveam:is (equal (restagraph:sanitise-uid child-type)
+                        (cdr (assoc :TYPE result))))
+      (fiveam:is (assoc :UID result))
+      (fiveam:is (equal (restagraph:sanitise-uid child-uid)
+                        (cdr (assoc :UID result))))
+      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (equal child-uid
+                        (cdr (assoc :ORIGINAL--UID result)))))
     ;; Delete the dependent resource
     (restagraph:log-message :debug ";TEST Delete the dependent resource")
     (multiple-value-bind (result code message)
@@ -218,18 +236,18 @@
     ;; Confirm the dependent resource is gone
     (restagraph:log-message :debug ";TEST Confirm the dependent resource is gone.")
     (fiveam:is (null (restagraph:get-resources *server*
-                                (format nil "/~A/~A/~A/~A/~A"
-                                        parent-type parent-uid relationship child-type child-uid))))
+                                               (format nil "/~A/~A/~A/~A/~A"
+                                                       parent-type parent-uid relationship child-type child-uid))))
     ;; Attempt to create a child resource that isn't of a dependent type
     (restagraph:log-message
       :debug
       (format nil ";TEST Fail to create a non-dependent child resource /~A/~A/~A/~A"
               parent-type parent-uid relationship invalid-child-type))
     (fiveam:signals (restagraph:client-error "This is not a dependent resource type")
-      (restagraph:store-dependent-resource
-        *server*
-        (format nil "/~A/~A/~A/~A" parent-type parent-uid relationship invalid-child-type)
-        `(("uid" . ,invalid-child-uid))))
+                    (restagraph:store-dependent-resource
+                      *server*
+                      (format nil "/~A/~A/~A/~A" parent-type parent-uid relationship invalid-child-type)
+                      `(("uid" . ,invalid-child-uid))))
     ;; Create the dependent resource yet again
     (restagraph:log-message :debug ";TEST Sucessfully re-create the dependent resource")
     (restagraph:store-dependent-resource
@@ -421,6 +439,17 @@
       (restagraph:log-message :debug (format nil "Result was: ~A" result))
       (fiveam:is (null result)))
     ;; Confirm the target resource is now at the new target path
+    (let ((result (restagraph:get-resources
+                    *server*
+                    (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
+                            p1-type p1-uid p1-p2-rel p2-type p2-uid p2-target-rel target-type target-uid))))
+      (fiveam:is (assoc :UID result))
+      (fiveam:is (equal (restagraph:sanitise-uid target-uid)
+                        (cdr (assoc :UID result))))
+      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (equal target-uid
+                        (cdr (assoc :ORIGINAL--UID result)))))
+    #+(or)
     (fiveam:is
       (equal
         (restagraph:get-resources
@@ -465,33 +494,32 @@
     ;; Add one of that kind of resource
     (restagraph:store-resource *server* resourcetype `(("uid" . ,res1uid)))
     ;; Confirm we now get a list containing exactly that resource
-    (fiveam:is (equal
-                 `(((:uid . ,res1uid) (:original--uid . ,(restagraph:sanitise-uid res1uid))))
-                 (restagraph:get-resources *server* (format nil "/~A" resourcetype))))
+    (let ((result (restagraph:get-resources *server* (format nil "/~A" resourcetype))))
+      (fiveam:is (equal 3 (length (car result))))
+      (fiveam:is (assoc :ORIGINAL--UID (car result)))
+      (fiveam:is (assoc :CREATEDDATE (car result)))
+      (fiveam:is (assoc :UID (car result)))
+      (fiveam:is (equal res1uid (cdr (assoc :UID (car result))))))
     ;; Add a second of that kind of resource
     (restagraph:store-resource *server* resourcetype `(("uid" . ,res2uid)))
     ;; Confirm we now get a list containing both resources
-    (fiveam:is (equal
-                 (sort-results
-                   `(((:uid . ,res1uid)
-                      (:original--uid . ,(restagraph:sanitise-uid res1uid)))
-                     ((:uid . ,res2uid)
-                      (:original--uid . ,(restagraph:sanitise-uid res2uid)))))
-                 (sort-results
-                   (restagraph:get-resources *server* (format nil "/~A" resourcetype)))))
+    (let ((result (sort-results
+                    (restagraph:get-resources *server* (format nil "/~A" resourcetype)))))
+      (fiveam:is (equal (restagraph:sanitise-uid res1uid)
+                        (cdr (assoc :UID (first result)))))
+      (fiveam:is (equal (restagraph:sanitise-uid res2uid)
+                        (cdr (assoc :UID (second result))))))
     ;; Add a third of that kind of resource
     (restagraph:store-resource *server* resourcetype `(("uid" . ,res3uid)))
-    ;; Confirm we now get a list containing both resources
-    (fiveam:is (equal
-                 (sort-results
-                   `(((:uid . ,res1uid)
-                      (:original--uid . ,(restagraph:sanitise-uid res1uid)))
-                     ((:uid . ,res2uid)
-                      (:original--uid . ,(restagraph:sanitise-uid res2uid)))
-                     ((:uid . ,res3uid)
-                      (:original--uid . ,(restagraph:sanitise-uid res3uid)))))
-                 (sort-results
-                   (restagraph:get-resources *server* (format nil "/~A" resourcetype)))))
+    ;; Confirm we now get a list containing all three resources
+    (let ((result (sort-results
+                    (restagraph:get-resources *server* (format nil "/~A" resourcetype)))))
+      (fiveam:is (equal (restagraph:sanitise-uid res1uid)
+                        (cdr (assoc :UID (first result)))))
+      (fiveam:is (equal (restagraph:sanitise-uid res2uid)
+                        (cdr (assoc :UID (second result)))))
+      (fiveam:is (equal (restagraph:sanitise-uid res3uid)
+                        (cdr (assoc :UID (third result))))))
     ;; Delete all the resources we added
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res1uid))
     (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" resourcetype res2uid))
@@ -522,19 +550,25 @@
     (restagraph:store-resource *server* r1type `(("uid" . ,r1uid)))
     ;; Search for it by type and exact UID
     (restagraph:log-message :info ";TEST Searching for the primary resource")
-    (fiveam:is (equal
-                 `(((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid)))
-                 (restagraph:get-resources
-                   *server*
-                   (format nil "/~A" r1type)
-                   :filters `(("uid" . ,r1uid)))))
+    (let ((result (restagraph:get-resources
+                    *server*
+                    (format nil "/~A" r1type)
+                    :filters `(("uid" . ,r1uid)))))
+      (fiveam:is (equal 3 (length (car result))))
+      (fiveam:is (assoc :ORIGINAL--UID (car result)))
+      (fiveam:is (assoc :CREATEDDATE (car result)))
+      (fiveam:is (assoc :UID (car result)))
+      (fiveam:is (equal r1uid (cdr (assoc :UID (car result))))))
     ;; Search for it by type and partial UID
-    (fiveam:is (equal
-                 `(((:UID . ,r1uid) (:ORIGINAL--UID . ,r1uid)))
-                 (restagraph:get-resources
-                   *server*
-                   (format nil "/~A" r1type)
-                   :filters `(("uid" . ,r1partial)))))
+    (let ((result (restagraph:get-resources
+                    *server*
+                    (format nil "/~A" r1type)
+                    :filters `(("uid" . ,r1partial)))))
+      (fiveam:is (equal 3 (length (car result))))
+      (fiveam:is (assoc :ORIGINAL--UID (car result)))
+      (fiveam:is (assoc :UID (car result)))
+      (fiveam:is (assoc :CREATEDDATE (car result)))
+      (fiveam:is (equal r1uid (cdr (assoc :UID (car result))))))
     ;; Add a dependent resource to search for
     (restagraph:log-message :info ";TEST Creating the secondary resource")
     (restagraph:store-dependent-resource
@@ -547,19 +581,29 @@
                         *server* (list r1type r1uid))))
     ;; Search for it by relationship to parent and exact UID
     (restagraph:log-message :info ";TEST Searching for the secondary resource")
-    (fiveam:is (equal
-                 `(((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid)))
-                 (restagraph:get-resources
-                   *server*
-                   (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
-                   :filters `(("uid" . ,(restagraph:sanitise-uid r2uid))))))
+    (let ((result (restagraph:get-resources
+                    *server*
+                    (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
+                    :filters `(("uid" . ,(restagraph:sanitise-uid r2uid))))))
+      (fiveam:is (equal 3 (length (car result))))
+      (fiveam:is (assoc :ORIGINAL--UID (car result)))
+      (fiveam:is (equal r2uid (cdr (assoc :ORIGINAL--UID (car result)))))
+      (fiveam:is (assoc :UID (car result)))
+      (fiveam:is (assoc :CREATEDDATE (car result)))
+      (fiveam:is (equal (restagraph::sanitise-uid r2uid)
+                        (cdr (assoc :UID (car result))))))
     ;; Search for it by type and partial UID
-    (fiveam:is (equal
-                 `(((:UID . ,(restagraph:sanitise-uid r2uid)) (:ORIGINAL--UID . ,r2uid)))
-                 (restagraph:get-resources
-                   *server*
-                   (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
-                   :filters `(("uid" . ,r2partial)))))
+    (let ((result (restagraph:get-resources
+                    *server*
+                    (format nil "/~A/~A/~A/~A" r1type r1uid rel r2type)
+                    :filters `(("uid" . ,r2partial)))))
+      (fiveam:is (equal 3 (length (car result))))
+      (fiveam:is (assoc :ORIGINAL--UID (car result)))
+      (fiveam:is (equal r2uid (cdr (assoc :ORIGINAL--UID (car result)))))
+      (fiveam:is (assoc :UID (car result)))
+      (fiveam:is (assoc :CREATEDDATE (car result)))
+      (fiveam:is (equal (restagraph::sanitise-uid r2uid)
+                        (cdr (assoc :UID (car result))))))
     ;; Clean up: delete the primary and dependent resources.
     (restagraph:log-message :info ";TEST Cleanup: removing the resources")
     (restagraph:delete-resource-by-path
@@ -658,17 +702,21 @@
       (declare (ignore result) (ignore message))
       (fiveam:is (equal 200 code)))
     ;; Confirm the relationship is there
-    (fiveam:is (equal
-                 `((("resource-type" . ,to-type) ("uid" . ,to-uid)))
-                 (restagraph:get-resources-with-relationship *server* from-type from-uid relationship)))
+    (let ((result (restagraph:get-resources-with-relationship *server* from-type from-uid relationship)))
+      (fiveam:is (equal 2 (length (car result))))
+      (fiveam:is (assoc "resource-type" (car result) :test #'equal))
+      (fiveam:is (equal to-type (cdr (assoc "resource-type" (car result) :test #'equal))))
+      (fiveam:is (assoc "uid" (car result) :test #'equal))
+      (fiveam:is (equal to-uid (cdr (assoc "uid" (car result) :test #'equal)))))
     ;; Confirm we get what we expect when checking what's at the end of the path
-    (fiveam:is (equal
-                 `(((:type . ,to-type)
-                    (:uid . ,to-uid)
-                    (:original--uid . ,to-uid)))
-                 (restagraph:get-resources
+    (let ((result (restagraph:get-resources
                    *server*
                    (format nil "/~A/~A/~A" from-type from-uid relationship))))
+      (fiveam:is (equal 4 (length (car result))))
+      (fiveam:is (assoc :TYPE (car result)))
+      (fiveam:is (equal to-type (cdr (assoc :TYPE (car result)))))
+      (fiveam:is (assoc :UID (car result)))
+      (fiveam:is (equal to-uid (cdr (assoc :UID (car result))))))
     ;; Attempt to create a duplicate relationship between them
     (fiveam:signals (restagraph:integrity-error
                       (format nil "Relationship ~A already exists from ~A ~A to ~A ~A"
@@ -678,9 +726,12 @@
         (format nil "/~A/~A/~A" from-type from-uid relationship)
         (format nil "/~A/~A" to-type to-uid)))
     ;; Confirm we still only have one relationship between them
-    (fiveam:is (equal
-                 `((("resource-type" . ,to-type) ("uid" . ,to-uid)))
-                 (restagraph:get-resources-with-relationship *server* from-type from-uid relationship)))
+    (let ((result (restagraph:get-resources-with-relationship *server* from-type from-uid relationship)))
+      (fiveam:is (equal 2 (length (car result))))
+      (fiveam:is (assoc "resource-type" (car result) :test #'equal))
+      (fiveam:is (equal to-type (cdr (assoc "resource-type" (car result) :test #'equal))))
+      (fiveam:is (assoc "uid" (car result) :test #'equal))
+      (fiveam:is (equal to-uid (cdr (assoc "uid" (car result) :test #'equal)))))
     ;; Delete the relationship
     (multiple-value-bind (result code message)
       (restagraph:delete-relationship-by-path
