@@ -481,7 +481,7 @@
                ((and (= (mod (length uri-parts) 3) 2)
                      (or (null result)
                          (equal result "")))
-                "null")
+                "[]")
                ;; Single resource was requested, and something was found.
                ((= (mod (length uri-parts) 3) 2)
                 (cl-json:encode-json-alist-to-string result))
