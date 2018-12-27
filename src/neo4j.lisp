@@ -301,7 +301,7 @@
                 (:DEPENDENT . ,(if (relationship-attrs-dependent (car rel)) "true" "false"))
                 (:CARDINALITY . ,(relationship-attrs-cardinality (car rel)))
                 (:NOTES . ,(relationship-attrs-notes (car rel)))
-                (:resourcetype (cdr rel))))
+                (:resourcetype ,(cdr rel))))
           ;; Skip any resources we've already seen, to break loops
           (remove-if #'null
                      (mapcar
