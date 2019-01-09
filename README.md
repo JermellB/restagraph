@@ -244,3 +244,8 @@ No routers found with a UID of amchitka.
 Two test suites are included:
 - `test/test-rest-api.py` for confirming its operation from a client's perspective
 - `restagraph-test` package for confirming internal correctness, using [FiveAM](https://common-lisp.net/project/fiveam/).
+
+
+# Docker image
+
+Current version is: `equill/restagraph:0.1.6`

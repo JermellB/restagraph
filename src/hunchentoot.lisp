@@ -465,7 +465,7 @@
                                                   (tbnl:get-parameters*)))))
            ;; Return what we found
            (progn
-             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:content-type*) "application/json")
              (setf (tbnl:return-code*) tbnl:+http-ok+)
              (cond
                ;; Single resource was requested, and nothing was found.
@@ -517,7 +517,7 @@
                                (tbnl:post-parameters*))
                ;; Return it from the database, for confirmation
                (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
-               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:content-type*) "application/json")
                (setf (tbnl:return-code*) tbnl:+http-created+)
                (cl-json:encode-json-alist-to-string
                  (get-resources (datastore tbnl:*acceptor*)
@@ -620,7 +620,7 @@
                (datastore tbnl:*acceptor*)
                uri-parts
                (tbnl:post-parameters*))
-             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:content-type*) "application/json")
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; Return JSON representation of the newly-updated resource
              (cl-json:encode-json-alist-to-string

@@ -25,7 +25,7 @@ let
 in
 pkgs.dockerTools.buildImage {
     name = "equill/restagraph";
-    tag = "0.1.5";
+    tag = "0.1.6";
 
     contents = restagraph_deriv;
 
