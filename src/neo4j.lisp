@@ -1239,7 +1239,8 @@
       ((not (equal (mod (length dest-parts) 3) 2))
        (error 'client-error :message "Target path does not specify a resource."))
        ;; Is there a relationship defined between these types?
-       ((not (get-relationship-attrs db source-type relationship dest-type))
+       ((not (or (get-relationship-attrs db source-type relationship dest-type)
+                 (get-relationship-attrs db "any" relationship dest-type)))
         (error
           'client-error
           :message "There is no relationship between these resource-types. Are you sure there's something here to delete?"))
@@ -1248,7 +1249,14 @@
       ((and
          ;; The first element in the list returned by get-relationship-attrs
          ;; is a boolean indicating whether it's a dependent relationship
-         (relationship-attrs-dependent (get-relationship-attrs db source-type relationship dest-type))
+         (relationship-attrs-dependent
+           (get-relationship-attrs
+             db
+             ;; Be smart about which relationship we're checking here
+             (if (get-relationship-attrs db source-type relationship dest-type)
+               source-type
+               "any")
+             relationship dest-type))
          ;; Would this be the last parent?
          ;; Test by checking for other incoming dependent relationships.
          ;; If there's one or more, we're good to go.
