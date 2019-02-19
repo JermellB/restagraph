@@ -38,13 +38,23 @@
 
 ;;; Utility functions
 
+(defun sanitise-uid (uid)
+  "Replace UID-unfriendly characters in UIDs with something safe"
+  (escape-neo4j
+    (cl-ppcre:regex-replace-all "[/ ]" uid "_")))
+
+(defun get-sub-uri (uri base-uri)
+  "Extract the URI from the full request string,
+   excluding the base URL and any GET parameters."
+  (first (cl-ppcre:split
+           "\\?"
+           (cl-ppcre:regex-replace base-uri uri ""))))
+
 (defun get-uri-parts (uri)
-  "Break the URI into parts for processing by uri-node-helper"
-  (mapcar
-    #'sanitise-uid
-    (cdr
-        (ppcre:split "/"
-                     (cl-ppcre:regex-replace (getf *config-vars* :api-uri-base) uri "")))))
+  "Break the URI into parts for processing by uri-node-helper.
+  Assumes the base-uri and trailing parameters have already been removed."
+  (mapcar #'sanitise-uid
+          (cdr (ppcre:split "/" uri))))
 
 (defun uri-node-helper (uri-parts &key (path "") (marker "n") (directional t))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
@@ -193,25 +203,14 @@
           (or message logmessage)))
 
 
-;; Functions for dispatching requests
-
-(defun sanitise-uid (uid)
-  "Replace UID-unfriendly characters in UIDs with something safe"
-  (escape-neo4j
-    (cl-ppcre:regex-replace-all "[/ ]" uid "_")))
-
-(defun get-sub-uri (uri base-uri)
-  "Extract the URI from the full request string,
-   excluding the base URL and any GET parameters."
-  (first (cl-ppcre:split "\\?" (cl-ppcre:regex-replace base-uri uri ""))))
-
-
 ;; Dispatchers
 
 (defun schema-dispatcher-v1 ()
   "Hunchentoot dispatch function for managing Restagraph's schema."
   (handler-case
-    (let* ((uri-parts (get-uri-parts (tbnl:request-uri*))))
+    (let ((uri-parts (get-uri-parts
+                       (get-sub-uri (tbnl:request-uri*)
+                                    (getf *config-vars* :api-uri-base)))))
       (cond
         ;; Get the description of a single resource-type
         ((and
@@ -436,7 +435,8 @@
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
   (handler-case
-    (let* ((uri-parts (get-uri-parts (tbnl:request-uri*)))
+    (let* ((sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :api-uri-base)))
+           (uri-parts (get-uri-parts sub-uri))
            (resourcetype (first uri-parts)))
       (cond
         ;;
@@ -452,9 +452,7 @@
          (log-message :debug
                       (format nil "Dispatching GET request for URI ~A"
                               (tbnl:request-uri*)))
-         (let* (;; Extract the URI by dropping the base URL.
-                ;; Do it separately because we use it again later in this function.
-                (sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :api-uri-base)))
+         (let* (;; Do it separately because we use it again later in this function.
                 ;; Get the search result
                 (result (get-resources (datastore tbnl:*acceptor*)
                                        sub-uri
@@ -537,13 +535,10 @@
          ;; Grab these once, as we'll be referring to them a few times
          (let ((dest-path (tbnl:post-parameter "target")))
            ;; Basic sanity check
-           (log-message :debug (format nil
-                                       "Creating a relationship from ~A to ~A"
-                                       (tbnl:request-uri*) dest-path))
+           (log-message :debug (format nil "Creating a relationship from ~A to ~A" sub-uri dest-path))
            (handler-case
              (progn
-               (create-relationship-by-path
-                 (datastore tbnl:*acceptor*) (tbnl:request-uri*) dest-path)
+               (create-relationship-by-path (datastore tbnl:*acceptor*) sub-uri dest-path)
                ;; Report success to the client
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
@@ -562,9 +557,7 @@
            (equal (mod (length uri-parts) 3) 1)
            (tbnl:post-parameter "uid"))
          (handler-case
-           (let ((sub-uri (cl-ppcre:regex-replace
-                            (getf *config-vars* :api-uri-base) (tbnl:request-uri*) ""))
-                 (newtype (car (last uri-parts)))
+           (let ((newtype (car (last uri-parts)))
                  (uid (tbnl:post-parameter "uid")))
              (log-message :debug (format nil "Attempting to create dependent resource ~A:~A on ~A"
                                          newtype uid sub-uri))
@@ -586,11 +579,10 @@
            (> (length uri-parts) 0)
            (equal (mod (length uri-parts) 3) 2)
            (tbnl:post-parameter "target"))
+         (log-message :debug (format nil "Attempting to move dependent resource ~A to ~A"
+                                     sub-uri (tbnl:post-parameter "target")))
          (handler-case
-           (let ((sub-uri (cl-ppcre:regex-replace
-                            (getf *config-vars* :api-uri-base) (tbnl:request-uri*) "")))
-             (log-message :debug (format nil "Attempting to move dependent resource ~A to ~A"
-                                         sub-uri (tbnl:post-parameter "target")))
+           (progn
              (move-dependent-resource
                (datastore tbnl:*acceptor*)
                sub-uri
@@ -624,7 +616,7 @@
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; Return JSON representation of the newly-updated resource
              (cl-json:encode-json-alist-to-string
-               (get-resources (datastore tbnl:*acceptor*) (tbnl:request-uri*))))
+               (get-resources (datastore tbnl:*acceptor*) sub-uri)))
            ;; Attempted violation of db integrity
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
            ;; Generic client errors
@@ -636,10 +628,9 @@
         ;; Resource
         ((and (equal (tbnl:request-method*) :DELETE)
               (equal (mod (length uri-parts) 3) 2))
+         (log-message :debug "Attempting to delete a resource on an arbitrary path")
          (handler-case
-           (let ((sub-uri (cl-ppcre:regex-replace
-                            (getf *config-vars* :api-uri-base) (tbnl:request-uri*) "")))
-             (log-message :debug "Attempting to delete a resource on an arbitrary path")
+           (progn
              (delete-resource-by-path
                (datastore tbnl:*acceptor*)
                sub-uri
@@ -659,10 +650,11 @@
               (equal (mod (length uri-parts) 3) 0))
          (handler-case
            (progn
-             (log-message :debug "Attempting to delete a relationship on an arbitrary path")
+             (log-message :debug "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri)
              (delete-relationship-by-path (datastore tbnl:*acceptor*)
-                                          (tbnl:request-uri*)
-                                          (tbnl:post-parameter "resource"))
+                                          sub-uri
+                                          (or (tbnl:post-parameter "resource")
+                                              (tbnl:get-parameter "resource")))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
