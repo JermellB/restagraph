@@ -673,6 +673,8 @@
          (method-not-allowed))
         ;; Handle all other cases
         (t
+          (log-message :warn "Bad request received with URI: ~A, reassembled as ~{/~A~}"
+                       (tbnl:request-uri*) uri-parts)
           (return-client-error "This wasn't a valid request"))))
     ;; Handle general errors
     ;;
