@@ -610,8 +610,12 @@
                (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
              (update-resource-attributes
                (datastore tbnl:*acceptor*)
-               uri-parts
-               (tbnl:post-parameters*))
+               sub-uri
+               (remove-if #'(lambda (param)
+                              (or (null (cdr param))
+                                  (equal (cdr param) "")))
+                          (append (tbnl:post-parameters*)
+                                  (tbnl:get-parameters*))))
              (setf (tbnl:content-type*) "application/json")
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; Return JSON representation of the newly-updated resource
