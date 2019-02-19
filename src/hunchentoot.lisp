@@ -649,8 +649,8 @@
         ;;
         ;; Delete a relationship on an arbitrary path
         ((and (equal (tbnl:request-method*) :DELETE)
-              (tbnl:post-parameter "resource")
-              (> (length uri-parts) 3)
+              (or (tbnl:post-parameter "resource")
+                  (tbnl:get-parameter "resource"))
               (equal (mod (length uri-parts) 3) 0))
          (handler-case
            (progn
