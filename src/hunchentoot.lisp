@@ -436,8 +436,8 @@
   "Hunchentoot dispatch function for the Restagraph API, version 1."
   (handler-case
     (let* ((sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :api-uri-base)))
-           (uri-parts (get-uri-parts sub-uri))
-           (resourcetype (first uri-parts)))
+           (uri-parts (get-uri-parts sub-uri)))
+      ;(resourcetype (first uri-parts)))
       (cond
         ;;
         ;; Intercept and reject attempts to interact with the "any" resource-type
@@ -488,44 +488,45 @@
            (equal (tbnl:request-method*) :POST)
            (equal (length uri-parts) 1)
            (tbnl:post-parameter "uid"))
-         (log-message :debug
-                      (format nil
-                              "Attempting to dispatch a POST request for resource type ~A"
-                              resourcetype))
-         ;; Do we already have one of these?
-         (if (get-resources
-               (datastore tbnl:*acceptor*)
-               (format nil "/~A/~A" (car uri-parts) (tbnl:post-parameter "uid")))
-           ;; It's already there; return 200/OK
-           (progn
-             (log-message
-               :debug
-               (format nil
-                       "Doomed attempt to re-create resource /~A/~A. Reassuring the client that it's already there."
-                       (car uri-parts)
-                       (tbnl:post-parameter "uid")))
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-ok+)
-             "Resource exists")
-           ;; We don't already have one of these; store it
-           (handler-case
+         (let ((resourcetype (second uri-parts)))
+           (log-message :debug
+                        (format nil
+                                "Attempting to dispatch a POST request for resource type ~A"
+                                resourcetype))
+           ;; Do we already have one of these?
+           (if (get-resources
+                 (datastore tbnl:*acceptor*)
+                 (format nil "/~A/~A" (car uri-parts) (tbnl:post-parameter "uid")))
+             ;; It's already there; return 200/OK
              (progn
-               (store-resource (datastore tbnl:*acceptor*)
-                               resourcetype
-                               (tbnl:post-parameters*))
-               ;; Return it from the database, for confirmation
-               (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
-               (setf (tbnl:content-type*) "application/json")
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               (cl-json:encode-json-alist-to-string
-                 (get-resources (datastore tbnl:*acceptor*)
-                                (format nil "/~A/~A"
-                                        resourcetype
-                                        (tbnl:post-parameter "uid")))))
-             ;; Handle integrity errors
-             (restagraph:integrity-error (e) (return-integrity-error (message e)))
-             ;; Handle general client errors
-             (restagraph:client-error (e) (return-client-error (message e))))))
+               (log-message
+                 :debug
+                 (format nil
+                         "Doomed attempt to re-create resource /~A/~A. Reassuring the client that it's already there."
+                         (car uri-parts)
+                         (tbnl:post-parameter "uid")))
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               "Resource exists")
+             ;; We don't already have one of these; store it
+             (handler-case
+               (progn
+                 (store-resource (datastore tbnl:*acceptor*)
+                                 resourcetype
+                                 (tbnl:post-parameters*))
+                 ;; Return it from the database, for confirmation
+                 (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
+                 (setf (tbnl:content-type*) "application/json")
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 (cl-json:encode-json-alist-to-string
+                   (get-resources (datastore tbnl:*acceptor*)
+                                  (format nil "/~A/~A"
+                                          resourcetype
+                                          (tbnl:post-parameter "uid")))))
+               ;; Handle integrity errors
+               (restagraph:integrity-error (e) (return-integrity-error (message e)))
+               ;; Handle general client errors
+               (restagraph:client-error (e) (return-client-error (message e)))))))
         ;;
         ;; Store a relationship
         ((and
