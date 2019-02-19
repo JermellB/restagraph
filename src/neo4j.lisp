@@ -312,7 +312,9 @@
                              (cons
                                (make-relationship-attrs
                                  :name (second row)
-                                 :dependent (when (third row) t)
+                                 :dependent (when (and (third row)
+                                                       (equal (third row) "true"))
+                                              t)
                                  :cardinality (fourth row)
                                  :notes (if (fifth row) (fifth row) ""))
                                (first row))))
