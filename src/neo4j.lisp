@@ -322,9 +322,9 @@
                          (neo4cl:neo4j-transaction
                            db
                            `((:STATEMENTS
-                               ((:STATEMENT .
-                                 ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN n.name, type(r), r.dependent, r.cardinality, r.notes"
-                                          (sanitise-uid resourcetype))))))))))))
+                               ((:STATEMENT
+                                  .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN n.name, type(r), r.dependent, r.cardinality, r.notes"
+                                              (sanitise-uid resourcetype))))))))))))
 
 (defmethod add-resource-relationship ((db neo4cl:neo4j-rest-server)
                                       (parent-type string)
