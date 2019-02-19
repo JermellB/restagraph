@@ -617,7 +617,7 @@
                           (append (tbnl:post-parameters*)
                                   (tbnl:get-parameters*))))
              (setf (tbnl:content-type*) "application/json")
-             (setf (tbnl:return-code*) tbnl:+http-created+)
+             (setf (tbnl:return-code*) tbnl:+http-ok+)
              ;; Return JSON representation of the newly-updated resource
              (cl-json:encode-json-alist-to-string
                (get-resources (datastore tbnl:*acceptor*) sub-uri)))
