@@ -438,7 +438,7 @@
   (handler-case
     (let* ((sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :api-uri-base)))
            (uri-parts (get-uri-parts sub-uri)))
-      (log-message :debug "Handling request ~{~A~}" uri-parts)
+      (log-message :debug "Handling request ~{~A~} " uri-parts)
       (cond
         ;;
         ;; Intercept and reject attempts to interact with the "any" resource-type
