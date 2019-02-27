@@ -612,7 +612,7 @@
                (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
              (update-resource-attributes
                (datastore tbnl:*acceptor*)
-               sub-uri
+               uri-parts
                (remove-if #'(lambda (param)
                               (or (null (cdr param))
                                   (equal (cdr param) "")))
