@@ -794,12 +794,22 @@
                                    (sanitise-uid relationship)
                                    (sanitise-uid dest-type)))))))))))
     (when result
-      (make-relationship-attrs :name (sanitise-uid relationship)
-                               :dependent (when (equal (first result) "true") t)
-                               :cardinality (second result)
-                               :notes (if (and (third result) (stringp (third result)))
-                                        (third result)
-                                        "")))))
+      ;; Sanity-check: is this relationship properly defined?
+      (progn
+        (log-message :debug "Got a result. Making a relationship object now.")
+        (log-message :debug "Result structure: ~A" result)
+        (make-relationship-attrs
+          ;; The relationship name we return will be used in a URL.
+          ;; Sanitise it for safety, just in case an unsafe version slipped through.
+          :name (sanitise-uid relationship)
+          ;; Avoid false positives for :dependent
+          :dependent (when (equal (first result) "true") t)
+          ;; Apply a sane default to cardinality (many:many)
+          :cardinality (or (second result) "many:many")
+          ;; Cautious approach: ensure we set :notes to a string.
+          :notes (if (and (third result) (stringp (third result)))
+                   (third result)
+                   ""))))))
 
 (defmethod create-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (sourcepath string)

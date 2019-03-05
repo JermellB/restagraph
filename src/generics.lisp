@@ -134,4 +134,5 @@ Return an error if
 
 (defgeneric get-relationship-attrs (db source-type relationship dest-type)
   (:documentation "Extract the attributes of interest for a given relationship.
-                  Return a 'relationship-attrs struct."))
+                  Return a 'relationship-attrs struct.
+                  cardinality defaults to many:many."))
