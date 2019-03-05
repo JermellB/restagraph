@@ -315,8 +315,11 @@
                                  :dependent (when (and (third row)
                                                        (equal (third row) "true"))
                                               t)
-                                 :cardinality (fourth row)
-                                 :notes (if (fifth row) (fifth row) ""))
+                                 :cardinality (or (fourth row) "many:many")
+                                 :notes (if (and (fifth row)
+                                                 (stringp (fifth row)))
+                                          (fifth row)
+                                          ""))
                                (first row))))
                        (neo4cl:extract-rows-from-get-request
                          (neo4cl:neo4j-transaction
