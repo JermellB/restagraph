@@ -15,6 +15,7 @@ stdenv.mkDerivation rec {
         # Python env
         pkgs.python37Full
         pkgs.python37Packages.pip
+        pkgs.python37Packages.virtualenv
     ];
 
     env = buildEnv {
@@ -27,6 +28,6 @@ stdenv.mkDerivation rec {
         pkgs.libyaml
     ];
 
-    shellHood = "export PS1='\n\\[\\033[01;32m\\][nix restagraph] \\w\\$\\[\\033[00m\\] '";
+    shellHook = "export PS1='\n\\[\\033[01;32m\\][nix restagraph] \\w\\$\\[\\033[00m\\] '";
 
 }
