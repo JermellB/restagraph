@@ -9,15 +9,12 @@ stdenv.mkDerivation rec {
         # Neo4j
         pkgs.neo4j
         # Lisp env
-        pkgs.gcc_multi
-        pkgs.gcc
         pkgs.libyaml
         pkgs.openssl
         pkgs.sbcl
         # Python env
-        pkgs.python36Packages.requests
-        pkgs.python36Packages.pylint
-        pkgs.python3
+        pkgs.python37Full
+        pkgs.python37Packages.pip
     ];
 
     env = buildEnv {
@@ -29,5 +26,7 @@ stdenv.mkDerivation rec {
         pkgs.openssl
         pkgs.libyaml
     ];
+
+    shellHood = "export PS1='\n\\[\\033[01;32m\\][nix restagraph] \\w\\$\\[\\033[00m\\] '";
 
 }
