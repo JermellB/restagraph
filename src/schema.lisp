@@ -12,6 +12,7 @@
   "Parse the .yaml files in the specified directory, in alphabetical order.
   Return the result as a list of objects output by cl-yaml:parse,
   expected to be hash objects."
+  (declare (type (string) parent-dir))
   (log-message :info (format nil "Attempting to read schemas in directory ~A" parent-dir))
   ;; Safety first: is the directory even there?
   (if (probe-file parent-dir)
@@ -32,7 +33,8 @@
 
 (defun ensure-schema-schema (db)
   "Bootstrap function to ensure the database contains the schema-related schema.
-   Must be handled separately from the schema we're trying to inject."
+  Must be handled separately from the schema we're trying to inject."
+  (declare (type (neo4cl-server) db))
   (log-message :info "Ensuring the schema schema is present.")
   ;; Schema name.
   ;; Enables us to combine multiple schemas in a single system.
@@ -67,6 +69,9 @@
 (defun get-schema-version (db name &key all-versions)
   "Extract the highest version number in the database for the named schema.
    If no such schema is present, return NIL."
+  (declare (type (neo4cl-server) db)
+           (type (string) name)
+           (type (boolean) all-versions))
   (let ((rawdata (get-resources
                    db
                    (format nil "/rgSchemas/~A/Versions/rgSchemaVersions" name))))
@@ -87,6 +92,9 @@
   "Set the version for the named schema.
    If there's no record of a schema by this name, create that first.
    version should be an integer."
+  (declare (type (neo4cl-server) db)
+           (type (string) name)
+           (type (integer) version))
   ;; Ensure the schema itself is represented,
   ;; and that we're attempting to store a newer version than already exists.
   (if (get-resources db (format nil "/rgSchemas/~A" name))
@@ -107,6 +115,7 @@
   "Apply the supplied schema, if it's a newer version than the one already present,
    or if there isn't one already there.
    schema is expected to be the output of cl-yaml:parse."
+  (declare (type (neo4cl-server) db))
   (log-message :info (format nil "Attempting to inject schema '~A'" (gethash "name" schema)))
   ;; Ensure the schema-schema is in place
   (ensure-schema-schema db)
@@ -222,6 +231,8 @@
 (defun inject-all-schemas (db parent-dir)
   "Read all .yaml files in parent-dir in alphabetical order,
    and inject the schema described in each one, in turn."
+  (declare (type (neo4cl-server) db)
+           (type (string) parent-dir))
   (log-message :info
                (format nil "Attempting to apply any/all schemas specified in directory '~A'" parent-dir))
   (mapcar #'(lambda (schema)

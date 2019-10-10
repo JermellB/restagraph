@@ -7,6 +7,9 @@
 ;;;; The REST API server application
 
 (in-package #:restagraph)
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)))
 
 ;;; Customised Hunchentoot acceptor.
 ;;; Carries information about the datastore being used.
@@ -40,10 +43,12 @@
 
 (defun sanitise-uid (uid)
   "Replace UID-unfriendly characters in UIDs with something safe"
+  (declare (type (string) uid))
   (escape-neo4j
     (cl-ppcre:regex-replace-all "[/ ]" uid "_")))
 
 (defun get-sub-uri (uri base-uri)
+  (declare (type (string) uri base-uri))
   "Extract the URI from the full request string,
    excluding the base URL and any GET parameters."
   (first (cl-ppcre:split
@@ -53,12 +58,16 @@
 (defun get-uri-parts (uri)
   "Break the URI into parts for processing by uri-node-helper.
   Assumes the base-uri and trailing parameters have already been removed."
+  (declare (type (string) uri))
   (mapcar #'sanitise-uid
           (cdr (ppcre:split "/" uri))))
 
 (defun uri-node-helper (uri-parts &key (path "") (marker "n") (directional t))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."
+  (declare (type (cons) uri-parts)
+           (type (string) path marker)
+           (type (boolean) directional))
   (cond
     ((null uri-parts)
      (format nil "~A(~A)" path (escape-neo4j marker)))
@@ -90,6 +99,9 @@
 (defun uri-rel-helper (uri-parts &key (path "") (marker "n") (directional t))
   "Build a Cypher path ending in a relationship variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."
+  (declare (type (cons) uri-parts)
+           (type (string) path marker)
+           (type (boolean) directional))
   ;; Path-length must be a multiple of 3
   (if (= (mod (length uri-parts) 3) 0)
     ;; Path length is OK.
@@ -120,6 +132,9 @@
 (defun build-cypher-path (uri-parts &optional (path "") (marker "m"))
   "Build a Cypher path from the list of strings supplied.
   Attach a marker variable to the last node in the list, defaulting to 'm'."
+  (declare (type (cons) uri-parts)
+           (type (string) path)
+           (type (string) marker))
   ;; sep == separator
   (let ((sep (if (equal path "") "" "->")))
     (cond
@@ -163,6 +178,8 @@
 (defun return-integrity-error (logmessage &optional client-message)
   "Report to the client that their request would have violated an integrity constraint.
   The optional client-message "
+  (declare (type (string) logmessage)
+           (type (or null string) client-message))
   (log-message :warn (format nil "Client triggered integrity error: ~A" logmessage))
   (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-conflict+)
@@ -172,6 +189,7 @@
 
 (defun return-database-error (message)
   "There was a database problem. Log it and report something generic to the user, not to keep them in the dark but to reduce the potential for data leakage."
+  (declare (type (string) message))
   (log-message :error (format nil "Database error: ~A" message))
   (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
@@ -179,6 +197,7 @@
 
 (defun return-transient-error (message)
   "Transient problem, which may already have self-resolved.. Log it and report something generic to the user, not to keep them in the dark but to reduce the potential for data leakage."
+  (declare (type (string) message))
   (log-message :error (format nil "Database error: ~A" message))
   (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-service-unavailable+)
@@ -186,6 +205,8 @@
 
 (defun return-client-error (logmessage &optional message)
   "The client made a bad request. Return this information to them, that they may learn from their mistakes."
+  (declare (type (string) logmessage)
+           (type (or null string) message))
   (log-message :info (format nil "Client error: ~A" logmessage))
   (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-bad-request+)
@@ -196,6 +217,8 @@
 
 (defun return-service-error (logmessage &optional message)
   "There was a problem with connecting to the backend service."
+  (declare (type (string) logmessage)
+           (type (or null string) message))
   (log-message :crit (format nil "Service error: ~A" logmessage))
   (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
@@ -715,6 +738,11 @@
                               :dbpasswd (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
                                             (getf *config-vars* :dbpasswd)))))
 
+(flet ((neo4cl-server-p  (candidate)
+         (typep candidate 'neo4cl:neo4j-rest-server)))
+  (deftype neo4cl-server ()
+    '(satisfies neo4cl-server-p)))
+
 (defun ensure-db-passwd (server)
   "Check the credentials for the database.
   If they fail initially, test whether the default password is still in effect;
@@ -722,6 +750,7 @@
   If it's neither the default nor the specified one, bail out noisily.
   Expected argument is an instance of neo4cl:neo4j-rest-server.
   Returns t on success"
+  (declare (type (neo4cl-server) server))
   (log-message :info "Checking database credentials.")
   (handler-case
     (neo4cl:get-user-status server)
@@ -754,6 +783,8 @@
               (neo4cl:change-password defaults (neo4cl:dbpasswd server)))))))))
 
 (defun confirm-db-is-running (server &key (counter 1) (max-count 5) (sleep-time 5))
+  (declare (type (neo4cl-server) server)
+           (type (integer) counter max-count sleep-time))
   (log-message :debug "Checking whether the database is running on ~A:~A"
                (neo4cl:hostname server) (neo4cl:port server))
   (handler-case
@@ -790,6 +821,8 @@
   - schemapath = path to directory containing schema files, in YAML format, with .yaml extension. If this is absent, a check will be made for the environment variable SCHEMAPATH.
   If supplied, parse all .yaml files in alphabetical order, and apply each one that has a newer
   version number than is recorded in the database."
+  (declare (type (boolean) docker)
+           (type (or null string) schemapath))
   (log-message :info "Attempting to start up the restagraph application server")
   ;; Sanity-check: is an acceptor already running?
   ;;; We can't directly check whether this acceptor is running,
@@ -867,11 +900,13 @@
             (sb-thread:list-all-threads)))))))
 
 (defun dockerstart (&key schemapath)
+  (declare (type (or null string) schemapath))
   (if schemapath
     (startup :docker t :schemapath schemapath)
     (startup :docker t)))
 
 (defun save-image (&optional (path "/tmp/restagraph"))
+  (declare (type (string) path))
   (sb-ext:save-lisp-and-die path :executable t :toplevel 'restagraph::dockerstart))
 
 (defun shutdown ()

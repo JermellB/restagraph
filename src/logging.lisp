@@ -31,6 +31,7 @@
     year month date hour minute sec)))
 
 (defun log-message (severity &rest args)
+  (declare (type keyword severity))
   (when (>= (getf *loglevels* severity)
             (getf *loglevels* *loglevel*))
     (format *log-stream* "~A ~A ~A~%"

@@ -13,6 +13,7 @@
 
 (defun escape-neo4j (str)
   "Escape any undesirable characters in a string, e.g. the single-quote."
+  (declare (type (string) str))
   (cl-ppcre:regex-replace-all
     "'"
     str
@@ -390,6 +391,7 @@
 
 (defun format-post-params-as-properties (params)
   "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map that Neo4J expects in the :PROPERTIES section of a query."
+  (declare (type (cons) params))
   (log-message :debug "Formatting a set of POST parameters for use as Neo4j properties.")
   (mapcar #'(lambda (param)
               (cons (intern (escape-neo4j (string-downcase (car param))) :keyword)
