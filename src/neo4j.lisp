@@ -455,16 +455,18 @@
               ;; We were given attributes other than "uid" and all of them checked out OK.
               ;; Explicitly return something positive from this clause of the if statement.
               t))
-        ;; Return the supplied attributes to the caller, properly formatted for Neo4j.
-        (format-post-params-as-properties
-          (acons "uid" (sanitise-uid (cdr (assoc "uid" params :test #'string=)))
-                 (acons "original_uid" (cdr (assoc "uid" params :test #'string=))
-                        (remove-if #'(lambda (param) (equal (car param) "uid"))
-                                   params))))))
+          ;; Return the supplied attributes to the caller, properly formatted for Neo4j.
+          (let ((formatted-params
+                  (format-post-params-as-properties
+                    ;requested-attributes
+                    (acons "uid" (sanitise-uid (cdr (assoc "uid" params :test #'string=)))
+                           (acons "original_uid" (cdr (assoc "uid" params :test #'string=))
+                                  (remove-if #'(lambda (param) (equal (car param) "uid"))
+                                             params))))))
+            (log-message :debug "Returning formatted parameters ~A" formatted-params)
+            formatted-params)))
     ;; No such resourcetype
-    (signal 'client-error
-            :message
-            (format nil "There is no resourcetype called '~A'" resourcetype))))
+    (signal 'client-error :message "No such resourcetype")))
 
 
 ;;;; Resources
