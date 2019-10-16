@@ -138,6 +138,7 @@
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))
+  (log-message :debug "Getting attributes for resourcetype '~A'" resourcetype)
   (neo4cl::extract-rows-from-get-request 
     (neo4cl:neo4j-transaction
       db
@@ -414,14 +415,15 @@
       ((requested-attributes
          (remove-if #'(lambda (param) (equal (car param) "uid"))
                     params)))
+      (log-message :debug "Confirmed: resourcetype '~A' exists" resourcetype)
       ;; Implicit logic for deciding what to return:
       ;; - if this conditional sequence passes, format the validated parameters.
       ;; - if it doesn't, return nil.
+      (log-message :debug "Checking the supplied attributes.")
       (if (or
             ;; If no attributes were specified other than "uid", we're good
             (not requested-attributes)
             ;; If other attributes were specified, check them all for validity.
-            (log-message :debug "Checking the supplied attributes.")
             ;; First, get a list of valid attributes for this resourcetype.
             (let* ((valid-attributes
                      (mapcar #'(lambda (row)
@@ -439,19 +441,19 @@
                                         requested-attributes))))
               ;; Record the valid possibilities, if we're debugging.
               (if valid-attributes
-                (log-message :debug (format nil "Valid attributes for resource-type ~A: ~{~A~^, ~}."
-                                            resourcetype valid-attributes))
-                (log-message :debug (format nil "Resource-type ~A has no valid attributes to set."
-                                            resourcetype)))
+                  (log-message :debug (format nil "Valid attributes for resource-type ~A: ~{~A~^, ~}."
+                                              resourcetype valid-attributes))
+                  (log-message :debug (format nil "Resource-type ~A has no valid attributes to set."
+                                              resourcetype)))
               ;; If any invalid attributes were requested, log this and signal an error.
               (if invalid-attributes
-                (progn
-                  (log-message :debug (format nil "Identified invalid attributes: ~{~A~^, ~}"
-                                              invalid-attributes))
-                  (error 'restagraph:client-error :message
-                         (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}"
-                                 resourcetype invalid-attributes)))
-                (log-message :debug "No invalid attributes identified. Proceeding."))
+                  (progn
+                    (log-message :debug (format nil "Identified invalid attributes: ~{~A~^, ~}"
+                                                invalid-attributes))
+                    (error 'restagraph:client-error :message
+                           (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}"
+                                   resourcetype invalid-attributes)))
+                  (log-message :debug "No invalid attributes identified. Proceeding."))
               ;; We were given attributes other than "uid" and all of them checked out OK.
               ;; Explicitly return something positive from this clause of the if statement.
               t))
@@ -871,7 +873,7 @@
               (error 'integrity-error :message message)))
            ;; Do both the source and destination resources actually exist?
            ((null (get-resources db (format nil "/~{~A~^/~}" source-parts)))
-            (let ((message (format nil "The source resource /~{~A~^/~} does not exist\n" source-parts)))
+            (let ((message (format nil "The source resource /~{~A~^/~} does not exist" source-parts)))
               (log-message :debug message)
               (error 'client-error :message message)))
            ((null (get-resources db destpath))
