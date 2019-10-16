@@ -70,7 +70,7 @@
     ;; Ensure we can't create a dependent type
     (restagraph:log-message :info ";TEST Ensure we can't create a dependent type")
     (fiveam:signals
-      (restagraph:client-error "This is a dependent resource; it must be created as a sub-resource of an existing resource.")
+      (restagraph:integrity-error "This is a dependent resource; it must be created as a sub-resource of an existing resource.")
       (restagraph:store-resource *server* invalid-type `(("uid" . ,invalid-uid))))
     ;; Remove the fixtures
     (restagraph:log-message :info ";TEST Remove the fixtures")
