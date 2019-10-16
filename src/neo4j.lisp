@@ -508,49 +508,55 @@
          (equal (cdr (assoc "uid" attributes :test 'equal)) ""))
      (error 'client-error
             :message "The UID must be a non-empty string"))
-  ;; If this is a dependent resource, bail out now
+    ;; If this is a dependent resource, bail out now
     ((dependent-resource-p db resourcetype)
      (error 'integrity-error
             :message "This is a dependent resource; it must be created as a sub-resource of an existing resource."))
     ;; OK so far: carry on
     (t
-      (let ((attributes (validate-resource-before-creating db resourcetype attributes)))
-        (if attributes
-          (progn
-            ;; If we got this far, we have a valid resource type and valid attribute names.
-            ;; Make it happen
-            (log-message :debug (format nil "Creating a ~A resource with attributes ~A"
-                                        resourcetype attributes))
-            (handler-case
-              (neo4cl:neo4j-transaction
-                db
-                `((:STATEMENTS
-                    ((:STATEMENT . ,(format nil "CREATE (:~A { properties })"
-                                            (sanitise-uid resourcetype)))
-                     (:PARAMETERS . ((:PROPERTIES
-                                       . ,(append attributes
-                                       `(("createddate" . ,(get-universal-time)))))))))))
-              ;; Catch selected errors as they come up
-              (neo4cl::client-error
-                (e)
-                (if (and
-                      ;; If it's specifically an integrity error, call this out
-                      (equal (neo4cl:category e) "Schema")
-                      (equal (neo4cl:title e) "ConstraintValidationFailed"))
-                  (progn
-                    (log-message :error (format nil "~A.~A: ~A"
-                                                (neo4cl:category e)
-                                                (neo4cl:title e)
-                                                (neo4cl:message e)))
-                    (error 'restagraph:integrity-error :message (neo4cl:message e)))
-                  ;; Otherwise, just resignal it
-                  (let ((text (format nil "Database error ~A.~A: ~A"
-                                      (neo4cl:category e)
-                                      (neo4cl:title e)
-                                      (neo4cl:message e))))
-                    (log-message :error text)
-                    (error 'restagraph:client-error :message text))))))
-          (error 'restagraph:integrity-error :message "Requested resource type does not exist"))))))
+     (handler-case
+       (let ((attributes (validate-resource-before-creating db resourcetype attributes)))
+         (progn
+           ;; If we got this far, we have a valid resource type and valid attribute names.
+           ;; Make it happen
+           (log-message :debug (format nil "Creating a ~A resource with attributes ~A"
+                                       resourcetype attributes))
+           (handler-case
+             (neo4cl:neo4j-transaction
+               db
+               `((:STATEMENTS
+                   ((:STATEMENT . ,(format nil "CREATE (:~A { properties })"
+                                           (sanitise-uid resourcetype)))
+                    (:PARAMETERS . ((:PROPERTIES
+                                      . ,(append attributes
+                                                 `(("createddate" . ,(get-universal-time)))))))))))
+             ;; Catch selected errors as they come up
+             (neo4cl::client-error
+               (e)
+               (if (and
+                     ;; If it's specifically an integrity error, call this out
+                     (equal (neo4cl:category e) "Schema")
+                     (equal (neo4cl:title e) "ConstraintValidationFailed"))
+                   (progn
+                     (log-message :error (format nil "~A.~A: ~A"
+                                                 (neo4cl:category e)
+                                                 (neo4cl:title e)
+                                                 (neo4cl:message e)))
+                     (error 'restagraph:integrity-error :message (neo4cl:message e)))
+                   ;; Otherwise, just resignal it
+                   (let ((text (format nil "Database error ~A.~A: ~A"
+                                       (neo4cl:category e)
+                                       (neo4cl:title e)
+                                       (neo4cl:message e))))
+                     (log-message :error text)
+                     (error 'restagraph:client-error :message text)))))))
+       (client-error
+         (e)
+         (if (equal (message e) "No such resourcetype")
+             (error 'restagraph:integrity-error
+                    :message "Requested resource type does not exist")
+             (error 'restagraph:integrity-error
+                    :message (message e))))))))
 
 (defmethod update-resource-attributes ((db neo4cl:neo4j-rest-server)
                                        (path list)
