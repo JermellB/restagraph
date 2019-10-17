@@ -28,6 +28,8 @@ stdenv.mkDerivation rec {
         pkgs.libyaml
     ];
 
-    shellHook = "export PS1='\n\\[\\033[01;32m\\][nix restagraph] \\w\\$\\[\\033[00m\\] '";
+    shellHook = "export PS1='\n\\[\\033[01;32m\\][nix restagraph] \\w\\$\\[\\033[00m\\] ';\
+                 export PYTHONPATH=$PWD/test/venv/lib/python3.7/site-packages/:$PYTHONPATH;\
+                 unset SOURCE_DATE_EPOCH";
 
 }
