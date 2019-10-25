@@ -578,7 +578,6 @@
         ;; Create a dependent resource
         ((and
            (equal (tbnl:request-method*) :POST)
-           (> (length uri-parts) 0)
            (equal (mod (length uri-parts) 3) 1)
            (tbnl:post-parameter "uid"))
          (handler-case
