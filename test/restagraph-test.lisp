@@ -106,6 +106,7 @@
                  :name attr1name
                  :description attr1desc))
     ;; Try again to set the attribute
+    (restagraph:log-message :info ";TEST Try again to set the attribute")
     (fiveam:is (restagraph:update-resource-attributes
                  *server*
                  (list restype uid)
