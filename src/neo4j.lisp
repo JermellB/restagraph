@@ -458,11 +458,12 @@
               ;; Explicitly return something positive from this clause of the if statement.
               t))
           ;; Return the supplied attributes to the caller, properly formatted for Neo4j.
-          (let ((formatted-params
+          (let* ((original-uid (or (cdr (assoc "uid" params :test #'string=)) ""))
+                (formatted-params
                   (format-post-params-as-properties
                     ;requested-attributes
-                    (acons "uid" (sanitise-uid (cdr (assoc "uid" params :test #'string=)))
-                           (acons "original_uid" (cdr (assoc "uid" params :test #'string=))
+                    (acons "uid" (sanitise-uid original-uid)
+                           (acons "original_uid" original-uid
                                   (remove-if #'(lambda (param) (equal (car param) "uid"))
                                              params))))))
             (log-message :debug "Returning formatted parameters ~A" formatted-params)
