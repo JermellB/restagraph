@@ -34,7 +34,6 @@
 (defun ensure-schema-schema (db)
   "Bootstrap function to ensure the database contains the schema-related schema.
   Must be handled separately from the schema we're trying to inject."
-  (declare (type (neo4cl-server) db))
   (log-message :info "Ensuring the schema schema is present.")
   ;; Schema name.
   ;; Enables us to combine multiple schemas in a single system.

@@ -753,11 +753,6 @@
                               :dbpasswd (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
                                             (getf *config-vars* :dbpasswd)))))
 
-(flet ((neo4cl-server-p  (candidate)
-         (typep candidate 'neo4cl:neo4j-rest-server)))
-  (deftype neo4cl-server ()
-    '(satisfies neo4cl-server-p)))
-
 (defun ensure-db-passwd (server)
   "Check the credentials for the database.
   If they fail initially, test whether the default password is still in effect;
@@ -765,7 +760,6 @@
   If it's neither the default nor the specified one, bail out noisily.
   Expected argument is an instance of neo4cl:neo4j-rest-server.
   Returns t on success"
-  (declare (type (neo4cl-server) server))
   (log-message :info "Checking database credentials.")
   (handler-case
     (neo4cl:get-user-status server)
@@ -798,8 +792,7 @@
               (neo4cl:change-password defaults (neo4cl:dbpasswd server)))))))))
 
 (defun confirm-db-is-running (server &key (counter 1) (max-count 5) (sleep-time 5))
-  (declare (type (neo4cl-server) server)
-           (type (integer) counter max-count sleep-time))
+  (declare (type (integer) counter max-count sleep-time))
   (log-message :debug "Checking whether the database is running on ~A:~A"
                (neo4cl:hostname server) (neo4cl:port server))
   (handler-case
