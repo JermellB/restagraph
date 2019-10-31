@@ -580,22 +580,38 @@
            (equal (tbnl:request-method*) :POST)
            (equal (mod (length uri-parts) 3) 1)
            (tbnl:post-parameter "uid"))
-         (handler-case
-           (let ((newtype (car (last uri-parts)))
-                 (uid (tbnl:post-parameter "uid")))
-             (log-message :debug (format nil "Attempting to create dependent resource ~A:~A on ~A"
-                                         newtype uid sub-uri))
-             (store-dependent-resource
-               (datastore tbnl:*acceptor*) sub-uri (tbnl:post-parameters*))
+         ;; Do we already have one of these?
+         (if (get-resources
+               (datastore tbnl:*acceptor*)
+               (format nil "~{/~A~}/~A" uri-parts (tbnl:post-parameter "uid")))
+           ;; It's already there; return 200/OK
+           (progn
+             (log-message
+               :debug
+               (format nil
+                       "Doomed attempt to re-create resource /~A/~A. Reassuring the client that it's already there."
+                       (car uri-parts)
+                       (tbnl:post-parameter "uid")))
              (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             ;; FIXME: find a good JSON representation of what was just created
-             "CREATED")
-           ;; Attempted violation of db integrity
-           (restagraph:integrity-error (e) (return-integrity-error (message e)))
-           ;; Generic client errors
-           (restagraph:client-error (e) (return-client-error (message e)))
-           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
+             (setf (tbnl:return-code*) tbnl:+http-ok+)
+             "Resource exists")
+           ;; We don't already have one of these; store it
+           (handler-case
+             (let ((newtype (car (last uri-parts)))
+                   (uid (tbnl:post-parameter "uid")))
+               (log-message :debug (format nil "Attempting to create dependent resource ~A:~A on ~A"
+                                           newtype uid sub-uri))
+               (store-dependent-resource
+                 (datastore tbnl:*acceptor*) sub-uri (tbnl:post-parameters*))
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               ;; FIXME: find a good JSON representation of what was just created
+               "CREATED")
+             ;; Attempted violation of db integrity
+             (restagraph:integrity-error (e) (return-integrity-error (message e)))
+             ;; Generic client errors
+             (restagraph:client-error (e) (return-client-error (message e)))
+             (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))
         ;;
         ;; Re-home a dependent resource
         ((and
