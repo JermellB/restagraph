@@ -23,7 +23,7 @@ import requests
 # Config variables
 PROTOCOL = 'http'
 SERVER_URL = 'localhost:4950'
-API_PREFIX = '/api/v1'
+API_PREFIX = '/raw/v1'
 SCHEMA_PREFIX = '/schema/v1'
 
 API_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, API_PREFIX)
