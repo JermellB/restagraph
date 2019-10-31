@@ -364,9 +364,9 @@ class TestDependentResources(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
                       data={'dependent': 'true'})
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.res1type,
-                                                    self.relationship1,
-                                                    self.depres1type),
+                                                     self.res1type,
+                                                     self.relationship1,
+                                                     self.depres1type),
                       data={'dependent': 'true'})
         # Create the parent resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
@@ -426,9 +426,9 @@ class TestDependentResources(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
                       data={'dependent': 'true'})
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.res1type,
-                                                    self.relationship1,
-                                                    self.depres1type),
+                                                     self.res1type,
+                                                     self.relationship1,
+                                                     self.depres1type),
                       data={'dependent': 'true'})
         # Create the parent resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
@@ -489,21 +489,21 @@ class TestMoveDependentResources(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p2type),
                       data={'dependent': 'true'})
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.p1type,
-                                                    self.p1p2rel,
-                                                    self.p2type),
+                                                     self.p1type,
+                                                     self.p1p2rel,
+                                                     self.p2type),
                       data={'dependent': 'true'})
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.targettype),
                       data={'dependent': 'true'})
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.p1type,
-                                                    self.p1targetrel,
-                                                    self.targettype),
+                                                     self.p1type,
+                                                     self.p1targetrel,
+                                                     self.targettype),
                       data={'dependent': 'true'})
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.p2type,
-                                                    self.p2targetrel,
-                                                    self.targettype),
+                                                     self.p2type,
+                                                     self.p2targetrel,
+                                                     self.targettype),
                       data={'dependent': 'true'})
         # Create the initial parent resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.p1type),
@@ -592,9 +592,9 @@ class TestValidRelationships(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.res1type,
-                                                    self.relationship,
-                                                    self.res2type))
+                                                     self.res1type,
+                                                     self.relationship,
+                                                     self.res2type))
         # Create two new resources
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
                                        data={'uid': self.res1uid}).status_code,
@@ -660,14 +660,14 @@ class TestValidRelationships(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
                       data={'dependent': 'true'})
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.res1type,
-                                                    self.res1todepres1rel,
-                                                    self.depres1type),
+                                                     self.res1type,
+                                                     self.res1todepres1rel,
+                                                     self.depres1type),
                       data={'dependent': 'true'})
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.res3type,
-                                                    self.depres1deprel,
-                                                    self.depres1type),
+                                                     self.res3type,
+                                                     self.depres1deprel,
+                                                     self.depres1type),
                       data={'dependent': 'true'})
         # Create two first-class resources, with a third dependent on the first
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
@@ -745,9 +745,9 @@ class TestInvalidRelationships(unittest.TestCase):
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                    self.res1type,
-                                                    self.relationship_valid,
-                                                    self.res2type))
+                                                     self.res1type,
+                                                     self.relationship_valid,
+                                                     self.res2type))
         # Create two new resources
         print('Test: create the resources to link')
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.res1type),
