@@ -146,6 +146,7 @@ class TestResources(unittest.TestCase):
     '''
     restype = 'routers'
     resuid = 'amchitka'
+    result = None
     def test_create_and_delete_single_resource(self):
         print('Test: create fixtures')
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.restype))
@@ -157,28 +158,29 @@ class TestResources(unittest.TestCase):
                          200)
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
-                                                    self.resuid)).text,
-                         "null")
+                                                    self.resuid)).json(),
+                         [])
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
                                                     self.resuid)).json(),
-                         None)
+                         [])
         # Ensure we have none of that kind of resource
         self.assertEqual(requests.get('%s/%s' % (API_BASE_URL,
-                                                    self.restype)).status_code,
+                                                 self.restype)).status_code,
                          200)
         self.assertEqual(requests.get('%s/%s' % (API_BASE_URL,
-                                                    self.restype)).json(),
+                                                 self.restype)).json(),
                          [])
         # Create it
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.restype),
                                        data={'uid': self.resuid}).status_code,
                          201)
         # Confirm that it's now there
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
-                                                    self.restype,
-                                                    self.resuid)).json(),
-                         {'original_uid': sanitise_uid(self.resuid), 'uid': self.resuid})
+        self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                 self.restype,
+                                                 self.resuid)).json()
+        self.assertEqual(self.result['original_uid'], self.resuid)
+        self.assertEqual(self.result['uid'], sanitise_uid(self.resuid))
         # Delete it
         self.assertEqual(
             requests.delete('%s/%s/%s' % (API_BASE_URL, self.restype, self.resuid)).status_code,
@@ -191,7 +193,7 @@ class TestResources(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
                                                     self.resuid)).json(),
-                         None)
+                         [])
         # Remove the fixtures
         print('Test: Clean up the fixtures')
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.restype))
@@ -208,6 +210,7 @@ class TestResourceAttributes(unittest.TestCase):
     attr1val = 'thingy'
     attr2type = 'whatsit'
     attr2val = 'hoodacky'
+    result = None
     def test_create_and_remove_resourcetypeattrs(self):
         print('Test: create the fixtures')
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
@@ -228,13 +231,13 @@ class TestResourceAttributes(unittest.TestCase):
                                                     self.resourcetype,
                                                     self.resourceuid),
                                       data={self.attr1type: self.attr1val}).status_code,
-                         201)
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
-                                                    self.resourcetype,
-                                                    self.resourceuid)).json(),
-                         {'original_uid': sanitise_uid(self.resourceuid),
-                          'uid': self.resourceuid,
-                          self.attr1type: self.attr1val})
+                         200)
+        self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                 self.resourcetype,
+                                                 self.resourceuid)).json()
+        self.assertEqual(self.result['original_uid'], sanitise_uid(self.resourceuid))
+        self.assertEqual(self.result['uid'], self.resourceuid)
+        self.assertEqual(self.result[self.attr1type], self.attr1val)
         print('Test: Add the second attribute to the resourcetype')
         self.assertEqual(requests.post('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
                                                                self.resourcetype,
@@ -248,14 +251,14 @@ class TestResourceAttributes(unittest.TestCase):
                                                     self.resourceuid),
                                       data={self.attr1type: self.attr1val,
                                             self.attr2type: self.attr2val}).status_code,
-                         201)
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
-                                                    self.resourcetype,
-                                                    self.resourceuid)).json(),
-                         {'original_uid': sanitise_uid(self.resourceuid),
-                          'uid': self.resourceuid,
-                          self.attr1type: self.attr1val,
-                          self.attr2type: self.attr2val})
+                         200)
+        self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                 self.resourcetype,
+                                                 self.resourceuid)).json()
+        self.assertEqual(self.result['original_uid'], self.resourceuid)
+        self.assertEqual(self.result['uid'], sanitise_uid(self.resourceuid))
+        self.assertEqual(self.result[self.attr1type], self.attr1val)
+        self.assertEqual(self.result[self.attr2type], self.attr2val)
         print('Test: Remove the attributes from the resourcetype')
         self.assertEqual(requests.delete('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
                                                                  self.resourcetype,
@@ -289,6 +292,7 @@ class TestMultipleResources(unittest.TestCase):
     resource1uid = 'amchitka'
     resource2uid = 'bikini'
     resource3uid = 'mururoa'
+    result = None
     def test_create_and_retrieve_multiple_resources(self):
         print('Test: Create the fixtures')
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
@@ -303,36 +307,33 @@ class TestMultipleResources(unittest.TestCase):
                                        data={'uid': self.resource1uid}).status_code,
                          201)
         # Check that we now get a list containing exactly that resource
-        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                         [{'original_uid': sanitise_uid(self.resource1uid),
-                           'uid': self.resource1uid}])
+        self.result = requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json()
+        self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resource1uid))
+        self.assertEqual(self.result[0]['uid'], self.resource1uid)
         # Add the second resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resource2uid}).status_code,
                          201)
         # Check that we now get a list containing exactly both resources
-        self.assertEqual(
-            sorted(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                   key=lambda i: i['uid']),
-            sorted([{'original_uid': sanitise_uid(self.resource2uid),
-                     'uid': self.resource2uid},
-                    {'original_uid': sanitise_uid(self.resource1uid),
-                     'uid': self.resource1uid}],
-                   key=lambda i: i['uid']))
+        self.result = sorted(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
+                             key=lambda i: i['uid'])
+        self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resource1uid))
+        self.assertEqual(self.result[0]['uid'], self.resource1uid)
+        self.assertEqual(self.result[1]['original_uid'], sanitise_uid(self.resource2uid))
+        self.assertEqual(self.result[1]['uid'], self.resource2uid)
         # Add the third resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resource3uid}).status_code,
                          201)
         # Check that we now get a list containing all three resources
-        self.assertEqual(sorted(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                                key=lambda i: i['uid']),
-                         sorted([{'original_uid': sanitise_uid(self.resource3uid),
-                                  'uid': self.resource3uid},
-                                 {'original_uid': sanitise_uid(self.resource2uid),
-                                  'uid': self.resource2uid},
-                                 {'original_uid': sanitise_uid(self.resource1uid),
-                                  'uid': self.resource1uid}],
-                                key=lambda i: i['uid']))
+        self.result = sorted(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
+                             key=lambda i: i['uid'])
+        self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resource1uid))
+        self.assertEqual(self.result[0]['uid'], self.resource1uid)
+        self.assertEqual(self.result[1]['original_uid'], sanitise_uid(self.resource2uid))
+        self.assertEqual(self.result[1]['uid'], self.resource2uid)
+        self.assertEqual(self.result[2]['original_uid'], sanitise_uid(self.resource3uid))
+        self.assertEqual(self.result[2]['uid'], self.resource3uid)
         # Delete the resources
         print('Test: clean up afterward')
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
@@ -464,7 +465,7 @@ class TestDependentResources(unittest.TestCase):
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.depres1type,
                                                     self.depres1uid)).json(),
-                         None)
+                         [])
         print('Test: remove the fixtures')
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type))
@@ -558,7 +559,7 @@ class TestMoveDependentResources(unittest.TestCase):
                                                              self.p1targetrel,
                                                              self.targettype,
                                                              self.targetuid)).json(),
-                         None)
+                         [])
         # Delete the parent resource, which should take the rest with it
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL, self.p1type, self.p1uid),
                                          data={'recursive': 'true'}).status_code,
@@ -616,13 +617,13 @@ class TestValidRelationships(unittest.TestCase):
                                                        self.res1uid,
                                                        self.relationship)).status_code,
                          200)
-        self.assertEqual(requests.get('%s/%s/%s/%s' % (API_BASE_URL,
-                                                       self.res1type,
-                                                       self.res1uid,
-                                                       self.relationship)).json(),
-                         [{'original_uid': self.res2name,
-                           'type': self.res2type,
-                           'uid': self.res2name}])
+        self.result = requests.get('%s/%s/%s/%s' % (API_BASE_URL,
+                                                    self.res1type,
+                                                    self.res1uid,
+                                                    self.relationship)).json()
+        self.assertEqual(self.result[0]['original_uid'], self.res2name)
+        self.assertEqual(self.result[0]['uid'], self.res2name)
+        self.assertEqual(self.result[0]['type'], self.res2type)
         # Delete the relationship
         self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                                 self.res1type,
@@ -807,11 +808,11 @@ class TestDbSchema(unittest.TestCase):
                                        data={'uid': self.resourcename}).status_code,
                          201)
         # Confirm that it's now there
-        self.assertEqual(requests.get('%s/%s/%s/' % (API_BASE_URL,
-                                                     self.resourcetype,
-                                                     self.resourcename)).json(),
-                         {'original_uid': sanitise_uid(self.resourcename),
-                          'uid': self.resourcename})
+        self.result = requests.get('%s/%s/%s/' % (API_BASE_URL,
+                                                  self.resourcetype,
+                                                  self.resourcename)).json(),
+        self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resourcename))
+        self.assertEqual(self.result[0]['uid'], self.resourcename)
         # Attempt to create a duplicate.
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resourcename}).status_code,
@@ -848,7 +849,7 @@ class TestBasicResourceErrors(unittest.TestCase):
         # Invalid non-UID parameters
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
                                        data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
-                         400)
+                         409)
         print('Test: remove the fixtures')
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.valid_resourcetype))
         print('Test: schema should be empty')
@@ -869,7 +870,7 @@ class TestAnyType(unittest.TestCase):
         self.assertEqual(requests.get('%s/any/foo' % API_BASE_URL).status_code,
                          200)
         self.assertEqual(requests.get('%s/any/foo' % API_BASE_URL).json(),
-                         None)
+                         [])
     def test_create_valid_any_rel(self):
         print('Test: test_create_valid_any_rel')
         print('Test: create the fixtures')
