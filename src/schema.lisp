@@ -68,8 +68,7 @@
 (defun get-schema-version (db name &key all-versions)
   "Extract the highest version number in the database for the named schema.
    If no such schema is present, return NIL."
-  (declare (type (neo4cl-server) db)
-           (type (string) name)
+  (declare (type (string) name)
            (type (boolean) all-versions))
   (let ((rawdata (get-resources
                    db
@@ -91,8 +90,7 @@
   "Set the version for the named schema.
    If there's no record of a schema by this name, create that first.
    version should be an integer."
-  (declare (type (neo4cl-server) db)
-           (type (string) name)
+  (declare (type (string) name)
            (type (integer) version))
   ;; Ensure the schema itself is represented,
   ;; and that we're attempting to store a newer version than already exists.
@@ -114,7 +112,6 @@
   "Apply the supplied schema, if it's a newer version than the one already present,
    or if there isn't one already there.
    schema is expected to be the output of cl-yaml:parse."
-  (declare (type (neo4cl-server) db))
   (log-message :info (format nil "Attempting to inject schema '~A'" (gethash "name" schema)))
   ;; Ensure the schema-schema is in place
   (ensure-schema-schema db)
@@ -230,8 +227,7 @@
 (defun inject-all-schemas (db parent-dir)
   "Read all .yaml files in parent-dir in alphabetical order,
    and inject the schema described in each one, in turn."
-  (declare (type (neo4cl-server) db)
-           (type (string) parent-dir))
+  (declare (type (string) parent-dir))
   (log-message :info
                (format nil "Attempting to apply any/all schemas specified in directory '~A'" parent-dir))
   (mapcar #'(lambda (schema)
