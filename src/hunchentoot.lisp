@@ -531,7 +531,8 @@
                          (tbnl:post-parameter "uid")))
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-ok+)
-               "Resource exists")
+               (format nil "/~A/~A" resourcetype
+                       (sanitise-uid (tbnl:post-parameter "uid"))))
              ;; We don't already have one of these; store it
              (handler-case
                (progn
@@ -542,11 +543,9 @@
                  (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
                  (setf (tbnl:content-type*) "application/json")
                  (setf (tbnl:return-code*) tbnl:+http-created+)
-                 (cl-json:encode-json-alist-to-string
-                   (get-resources (datastore tbnl:*acceptor*)
-                                  (format nil "/~A/~A"
-                                          resourcetype
-                                          (tbnl:post-parameter "uid")))))
+                 ;; Return the URI to the newly-created resource
+                 (format nil "/~A/~A" resourcetype
+                         (sanitise-uid (tbnl:post-parameter "uid"))))
                ;; Handle integrity errors
                (restagraph:integrity-error (e) (return-integrity-error (message e)))
                ;; Handle general client errors
