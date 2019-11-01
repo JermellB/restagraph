@@ -85,7 +85,7 @@ POST /api/v1/<resource-type>/
 
 With payload of `uid=<uid>`, plus optionally `<attribute-name>=<value>` pairs for any subset of the attributes defined for this resource type.
 
-On success, returns a code of 201 and a JSON representation of the newly-created resource.
+On success, returns a code of 201 and the URI for the newly-created resource.
 
 The UID must actually be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
@@ -126,6 +126,8 @@ with parameter: 'target' = '/type/uid'
 Parameter _must_ include `type` and `uid`, and _may_ also include `attributes`.
 
 If the destination resource doesn't already exist, it will be automatically created first. This has to be done as a separate transaction; beware race-conditions where two clients try to create the same thing at the same time.
+
+Returns the URI of the newly-created path through this relationship.
 
 
 ### Retrieve the type and UID of all resources to which this one has a specific relationship
@@ -200,7 +202,7 @@ Date: Tue, 06 Dec 2016 19:47:57 GMT
 Server: Hunchentoot 1.2.35
 Content-Type: text/plain; charset=utf-8
 
-201 CREATED
+201 /routers/amchitka
 ```
 
 Retrieve its details:
@@ -223,8 +225,6 @@ Content-Length: 2
 Date: Tue, 06 Dec 2016 19:48:15 GMT
 Server: Hunchentoot 1.2.35
 Content-Type: text/plain; charset=utf-8
-
-OK
 ```
 
 Confirm that it's gone:
@@ -248,4 +248,4 @@ Two test suites are included:
 
 # Docker image
 
-Current version is: `equill/restagraph:0.1.6`
+Current version is: `equill/restagraph:0.1.9`
