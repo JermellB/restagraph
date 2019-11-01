@@ -11,6 +11,8 @@ Test package for Restagraph's REST API.
 #   Licensed under the GNU General Public License
 #   - for details, see LICENSE.txt in the top-level directory
 
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
 
 # Included batteries
 import unittest
