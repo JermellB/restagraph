@@ -174,9 +174,11 @@ class TestResources(unittest.TestCase):
                                                  self.restype)).json(),
                          [])
         # Create it
-        self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.restype),
-                                       data={'uid': self.resuid}).status_code,
-                         201)
+        self.result = requests.post('%s/%s/' % (API_BASE_URL, self.restype),
+                                    data={'uid': self.resuid})
+        self.assertEqual(self.result.status_code, 201)
+        self.assertEqual(self.result.text, '/{rtype}/{uid}'.format(rtype=self.restype,
+                                                                   uid=sanitise_uid(self.resuid)))
         # Confirm that it's now there
         self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
                                                  self.restype,
@@ -233,7 +235,7 @@ class TestResourceAttributes(unittest.TestCase):
                                                     self.resourcetype,
                                                     self.resourceuid),
                                       data={self.attr1type: self.attr1val}).status_code,
-                         200)
+                         204)
         self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
                                                  self.resourcetype,
                                                  self.resourceuid)).json()
@@ -253,7 +255,7 @@ class TestResourceAttributes(unittest.TestCase):
                                                     self.resourceuid),
                                       data={self.attr1type: self.attr1val,
                                             self.attr2type: self.attr2val}).status_code,
-                         200)
+                         204)
         self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
                                                  self.resourcetype,
                                                  self.resourceuid)).json()
@@ -360,6 +362,7 @@ class TestDependentResources(unittest.TestCase):
     relationship1 = 'Interfaces'
     depres1type = 'interfaces'
     depres1uid = 'ethernet0'
+    result = None
     def test_create_and_delete_a_single_dependent_resource(self):
         print('Test: test_create_and_delete_a_single_dependent_resource')
         print('Test: create the fixtures')
@@ -385,13 +388,19 @@ class TestDependentResources(unittest.TestCase):
                                              'uid': self.depres1uid}).status_code,
                          400)
         # Now get it right
-        self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                           self.res1type,
-                                                           self.res1uid,
-                                                           self.relationship1,
-                                                           self.depres1type),
-                                       data={'uid': self.depres1uid}).status_code,
-                         201)
+        self.result = requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                        self.res1type,
+                                                        self.res1uid,
+                                                        self.relationship1,
+                                                        self.depres1type),
+                                    data={'uid': self.depres1uid})
+        self.assertEqual(self.result.status_code, 201)
+        self.assertEqual(self.result.text, '/{r1t}/{r1u}/{rel}/{drt}/{dru}'.format(
+            r1t=self.res1type,
+            r1u=self.res1uid,
+            rel=self.relationship1,
+            drt=self.depres1type,
+            dru=self.depres1uid))
         # Confirm it's there
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                              self.res1type,
@@ -404,6 +413,20 @@ class TestDependentResources(unittest.TestCase):
                                                     self.depres1type,
                                                     self.depres1uid)).status_code,
                          200)
+        # Try to create a duplicate. We should get 200/<URI>
+        self.result = requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                        self.res1type,
+                                                        self.res1uid,
+                                                        self.relationship1,
+                                                        self.depres1type),
+                                    data={'uid': self.depres1uid})
+        self.assertEqual(self.result.status_code, 200)
+        self.assertEqual(self.result.text, '/{r1t}/{r1u}/{rel}/{drt}/{dru}'.format(
+            r1t=self.res1type,
+            r1u=self.res1uid,
+            rel=self.relationship1,
+            drt=self.depres1type,
+            dru=self.depres1uid))
         # Delete the dependent resource
         self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                                 self.res1type,
@@ -484,6 +507,7 @@ class TestMoveDependentResources(unittest.TestCase):
     p2targetrel = 'Addresses'
     targettype = 'ipv4Addresses'
     targetuid = '172.20.0.1'
+    result = None
     def test_move_dependent_resource(self):
         print('Test: test_move_dependent_resource')
         # Create the fixtures
@@ -529,20 +553,28 @@ class TestMoveDependentResources(unittest.TestCase):
                                        data={'uid': self.targetuid}).status_code,
                          201)
         # Move the dependent resource to its new parent
-        self.assertEqual(
-            requests.post('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                 self.p1type,
-                                                 self.p1uid,
-                                                 self.p1targetrel,
-                                                 self.targettype,
-                                                 self.targetuid),
-                          data={'target': '/%s/%s/%s/%s/%s/%s' % (self.p1type,
-                                                                  self.p1uid,
-                                                                  self.p1p2rel,
-                                                                  self.p2type,
-                                                                  self.p2uid,
-                                                                  self.p2targetrel)}).status_code,
-            201)
+        self.result = requests.post('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                           self.p1type,
+                                                           self.p1uid,
+                                                           self.p1targetrel,
+                                                           self.targettype,
+                                                           self.targetuid),
+                                    data={'target': '/%s/%s/%s/%s/%s/%s' % (self.p1type,
+                                                                            self.p1uid,
+                                                                            self.p1p2rel,
+                                                                            self.p2type,
+                                                                            self.p2uid,
+                                                                            self.p2targetrel)})
+        self.assertEqual(self.result.status_code, 201)
+        self.assertEqual(self.result.text,
+                         '/%s/%s/%s/%s/%s/%s/%s/%s' % (self.p1type,
+                                                         self.p1uid,
+                                                         self.p1p2rel,
+                                                         self.p2type,
+                                                         self.p2uid,
+                                                         self.p2targetrel,
+                                                         self.targettype,
+                                                         self.targetuid))
         # Confirm it's where it should be
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                                       self.p1type,
@@ -589,6 +621,7 @@ class TestValidRelationships(unittest.TestCase):
     depres1uid = 'Packetshuffler3000'
     depres1deprel = 'Produces'
     res1todepres1rel = 'Model'
+    result = None
     def test_basic_relationship(self):
         print('Test: test_basic_relationship')
         print('Test: create the fixtures')
@@ -801,6 +834,7 @@ class TestDbSchema(unittest.TestCase):
     '''
     resourcetype = 'routers'
     resourcename = 'whitesands'
+    result = None
     def test_unique_resources(self):
         print('Test: test_unique_resources')
         print('Test: create the fixtures')
