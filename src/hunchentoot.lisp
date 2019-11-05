@@ -567,7 +567,10 @@
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
                ;; Return the URI to the resource at the end of the newly-created relationship
-               (format nil "~{/~A~}/~A" uri-parts (car (last (get-uri-parts dest-path)))))
+               (format nil "~{/~A~}/~A/~A"
+                       uri-parts    ; Path down to the relationship
+                       (car (last (get-uri-parts dest-path) 2)) ; Target resourcetype
+                       (car (last (get-uri-parts dest-path))))) ; Target UID
              ;; Attempted violation of db integrity
              (restagraph:integrity-error (e) (return-integrity-error (message e)))
              ;; Generic client errors

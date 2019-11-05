@@ -639,13 +639,18 @@ class TestValidRelationships(unittest.TestCase):
                                        data={'uid': self.res2name}).status_code,
                          201)
         # Create a valid relationship between them
-        self.assertEqual(requests.post('%s/%s/%s/%s'% (API_BASE_URL,
-                                                       self.res1type,
-                                                       self.res1uid,
-                                                       self.relationship),
-                                       data={'target': '/%s/%s' % (self.res2type,
-                                                                   self.res2name)}).status_code,
-                         201)
+        self.result = requests.post('%s/%s/%s/%s'% (API_BASE_URL,
+                                                    self.res1type,
+                                                    self.res1uid,
+                                                    self.relationship),
+                                    data={'target': '/%s/%s' % (self.res2type,
+                                                                self.res2name)})
+        self.assertEqual(self.result.text, '/%s/%s/%s/%s/%s'% (self.res1type,
+                                                                 self.res1uid,
+                                                                 self.relationship,
+                                                                 self.res2type,
+                                                                 self.res2name))
+        self.assertEqual(self.result.status_code, 201)
         # Confirm that the relationship is there
         self.assertEqual(requests.get('%s/%s/%s/%s' % (API_BASE_URL,
                                                        self.res1type,
