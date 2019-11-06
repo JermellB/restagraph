@@ -1,24 +1,33 @@
 # Restagraph
 
-> For the simplicity on this side of complexity, I wouldn't give you a fig. But for the simplicity on the other side of complexity, for that I would give you anything I have.
-> ~ Oliver Wendell Holmes, senior
-
-Restagraph is a good step in that direction.
-
-## What it is, what it does and what it's for
-
-Restagraph is an application that dynamically generates a REST API in front of a graph database, based on a schema defined within that same database. This includes features such as:
+Restagraph is an application that dynamically generates a REST API in front of a [Neo4j](https://neo4j.com/) graph database, based on a schema defined within that same database. This includes features such as:
 
 - constraints on the relationships that can be created between two types of resource
     - this includes cardinality constraints, i.e. 1:1, 1:many, many:1 and many:many relationships
 - resources which only make sense in the context of other resources, e.g. interfaces on computers.
 
+Thus, it gives you a schema and constraints similar in spirit to a relational database, but without grinding to a halt on lots of many-to-many table joins.
 
-So it's a framework of sorts for producing a REST API for a Neo4J graph database, from a schema defined within that database.
-
-The aim is a black box that automagically converts a schema into an API, without any _need_ for a regular user to know about its internals.
+All of this works without any _need_ for a regular user to know about its internals. You define the schema and it generates the API and applies the constraints.
 
 There is explicit support for dependent resources, i.e. resources that only make sense in the context of another.
+
+
+### Benefits, a.k.a. the point of this thing
+
+- data integrity: it ensures that the data that goes _in_ to a Neo4j database has a consistent structure
+- language independence: the REST API means that any language can be used to build applications on top of this structure
+- you have a clear, complete reference to the schema, on which you can base applications that query the data
+    - no grovelling through source-code in an unfamiliar language to glean clues
+
+It is _not_ intended to be the sole interface for _querying_ the database. You _can_ use it to do that in a structured way, and it's useful when constructing the data input portions of an application, but the more complex the question you want to ask of the database, the more likely it is that you'll want to go straight to Cypher.
+
+
+### Why use a graph database?
+
+Referential flexibility, in short: this is built for a type of problem for which graph databases are perfectly suited, and for which relational databases are not well suited at all.
+
+The author is very fond of relational databases, but found one of their natural limitations while developing [Syscat](https://github.com/equill/syscat): if you want to be able to link one type of thing to any number of other types of things without giving up referential integrity, you start drowning in many-to-many tables and the DBMS starts grinding to a halt.
 
 
 ## Defining the schema
