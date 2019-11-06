@@ -20,7 +20,7 @@ There is explicit support for dependent resources, i.e. resources that only make
 - you have a clear, complete reference to the schema, on which you can base applications that query the data
     - no grovelling through source-code in an unfamiliar language to glean clues
 
-It is _not_ intended to be the sole interface for _querying_ the database. You _can_ use it to do that in a structured way, and it's useful when constructing the data input portions of an application, but the more complex the question you want to ask of the database, the more likely it is that you'll want to go straight to Cypher.
+It is _not_ intended to be the sole interface for _querying_ the database. You _can_ use it to do that in a structured way, and it's useful when constructing the data input portions of an application, but the more complex the question you want to ask of the database, the more likely it is that you'll want to go straight to [Cypher](https://neo4j.com/developer/cypher-basics-i/), Neo4j’s graph query language.
 
 
 ### Why use a graph database?
