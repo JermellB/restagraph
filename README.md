@@ -1,6 +1,8 @@
 # Restagraph
 
-Restagraph is an application that dynamically generates a REST API in front of a [Neo4j](https://neo4j.com/) graph database, based on a schema defined within that same database. This includes features such as:
+Restagraph is an application that dynamically generates a REST API in front of a [Neo4j](https://neo4j.com/) graph database, based on a schema defined within that same database. It basically takes the relational database model and enables you to join one table to lots of others without drowning in many-to-many intermediate tables, and adds a REST API on top.
+
+This includes features such as:
 
 - constraints on the relationships that can be created between two types of resource
     - this includes cardinality constraints, i.e. 1:1, 1:many, many:1 and many:many relationships
@@ -13,7 +15,7 @@ All of this works without any _need_ for a regular user to know about its intern
 There is explicit support for dependent resources, i.e. resources that only make sense in the context of another.
 
 
-### Benefits, a.k.a. the point of this thing
+## Benefits, a.k.a. the point of this thing
 
 - data integrity: it ensures that the data that goes _in_ to a Neo4j database has a consistent structure
 - language independence: the REST API means that any language can be used to build applications on top of this structure
@@ -23,7 +25,7 @@ There is explicit support for dependent resources, i.e. resources that only make
 It is _not_ intended to be the sole interface for _querying_ the database. You _can_ use it to do that in a structured way, and it's useful when constructing the data input portions of an application, but the more complex the question you want to ask of the database, the more likely it is that you'll want to go straight to [Cypher](https://neo4j.com/developer/cypher-basics-i/), Neo4j’s graph query language.
 
 
-### Why use a graph database?
+## Why use a graph database?
 
 Referential flexibility, in short: this is built for a type of problem for which graph databases are perfectly suited, and for which relational databases are not well suited at all.
 
