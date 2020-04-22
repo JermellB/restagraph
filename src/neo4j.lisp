@@ -252,6 +252,7 @@
            (sanitise-uid resourcetype))))))))
 
 (defmethod get-resource-types ((db neo4cl:neo4j-rest-server))
+  (log-message :debug "Getting all resource-types")
   (mapcar #'car
           (neo4cl::extract-rows-from-get-request
             (neo4cl:neo4j-transaction
@@ -287,49 +288,95 @@
         (:NOTES . ,(if (cdr (assoc :NOTES node))
                        (cdr (assoc :NOTES node))
                        ""))
-        (:RELATIONSHIPS . ,(describe-dependent-resources
+        (:RELATIONSHIPS . ,(mapcar #'(lambda (rel)
+                                       (log-message :debug "Retrieving description for linked resourcetype '~A'" (cdr rel))
+                                       ;; Return an alist of the values, ready for rendering into Javascript
+                                       `((:RELATIONSHIP . ,(relationship-attrs-name (car rel)))
+                                         (:DEPENDENT . ,(if (relationship-attrs-dependent (car rel)) "true" "false"))
+                                         (:CARDINALITY . ,(relationship-attrs-cardinality (car rel)))
+                                         (:NOTES . ,(relationship-attrs-notes (car rel)))
+                                         (:resourcetype ,(cdr rel))))
+                                   (describe-dependent-resources
+                                     db
+                                     (sanitise-uid resourcetype)
+                                     :resources-seen resources-seen)))))))
+
+(defmethod describe-resource-type-for-graphql ((db neo4cl:neo4j-rest-server)
+                                               (resourcetype string)
+                                               &key resources-seen)
+  (log-message :debug (format nil "Describing resource-type '~A'" resourcetype))
+  ;; Confirm whether this resourcetype exists at all.
+  ;; If it doesn't, automatically return NIL.
+  ;; Construct the return values
+  (let* ((any-rels (describe-dependent-resources db "any" :resources-seen resources-seen))
+         (name (sanitise-uid resourcetype))
+         (attributes (sort
+                       (mapcar
+                         #'(lambda (s) (cdr (assoc :name (car s))))
+                         (neo4cl:extract-rows-from-get-request
+                           (neo4cl:neo4j-transaction
                              db
-                             (sanitise-uid resourcetype)
-                             :resources-seen resources-seen))))))
+                             `((:STATEMENTS
+                                 ((:STATEMENT
+                                    . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n"
+                                               (sanitise-uid resourcetype)))))))))
+                       #'string-lessp))
+         (relationships
+           (mapcar #'(lambda (rel)
+                       (log-message :debug (format nil "Disassembling relationship ~A for output" rel))
+                       (format nil "~A: [~A] @relation(name: \"~A\", direction: \"OUT\")"
+                               ; Downcased relationship-name
+                               (string-downcase (cdr rel))
+                               ; Target resourcetype
+                               (cdr rel)
+                               ; Relationship-name (correct case)
+                               (relationship-attrs-name (car rel))))
+                   (append
+                     any-rels
+                     (describe-dependent-resources
+                       db
+                       (sanitise-uid resourcetype)
+                       :resources-seen resources-seen)))))
+    (log-message :debug "Assembled relationships ~A" relationships)
+    (with-output-to-string (outstr)
+      (format outstr "type ~A { ~{
+    ~A: String~}~{
+    ~A~}
+}"
+              name
+              (append '("uid" "createddate") attributes)
+              relationships))))
 
 (defmethod describe-dependent-resources ((db neo4cl:neo4j-rest-server)
                                          (resourcetype string)
                                          &key resources-seen)
   (log-message :debug (format nil "Describing resources linked from '~A'" resourcetype))
-  (mapcar #'(lambda (rel)
-              (log-message :debug "Retrieving description for linked resourcetype '~A'" (cdr rel))
-              ;; Return an alist of the values, ready for rendering into Javascript
-              `((:RELATIONSHIP . ,(relationship-attrs-name (car rel)))
-                (:DEPENDENT . ,(if (relationship-attrs-dependent (car rel)) "true" "false"))
-                (:CARDINALITY . ,(relationship-attrs-cardinality (car rel)))
-                (:NOTES . ,(relationship-attrs-notes (car rel)))
-                (:resourcetype ,(cdr rel))))
-          ;; Skip any resources we've already seen, to break loops
-          (remove-if #'null
-                     (mapcar
-                       #'(lambda (row)
-                           (when (not (member (fourth row) resources-seen :test #'equal))
-                             ;; If you think this looks cumbersome, you should have tried to reason through
-                             ;; this code _without_ using the struct to keep things clear.
-                             (cons
-                               (make-relationship-attrs
-                                 :name (second row)
-                                 :dependent (when (and (third row)
-                                                       (equal (third row) "true"))
-                                              t)
-                                 :cardinality (or (fourth row) "many:many")
-                                 :notes (if (and (fifth row)
-                                                 (stringp (fifth row)))
-                                          (fifth row)
-                                          ""))
-                               (first row))))
-                       (neo4cl:extract-rows-from-get-request
-                         (neo4cl:neo4j-transaction
-                           db
-                           `((:STATEMENTS
-                               ((:STATEMENT
-                                  .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN n.name, type(r), r.dependent, r.cardinality, r.notes"
-                                              (sanitise-uid resourcetype))))))))))))
+  ;; Skip any resources we've already seen, to break loops
+  (remove-if #'null
+             (mapcar
+               #'(lambda (row)
+                   (when (not (member (fourth row) resources-seen :test #'equal))
+                     ;; If you think this looks cumbersome, you should have tried to reason through
+                     ;; this code _without_ using the struct to keep things clear.
+                     (cons
+                       (make-relationship-attrs
+                         :name (second row)
+                         :dependent (when (and (third row)
+                                               (equal (third row) "true"))
+                                      t)
+                         :cardinality (or (fourth row) "many:many")
+                         :notes (if (and (fifth row)
+                                         (stringp (fifth row)))
+                                    (fifth row)
+                                    ""))
+                       (first row))))
+               (neo4cl:extract-rows-from-get-request
+                 (neo4cl:neo4j-transaction
+                   db
+                   `((:STATEMENTS
+                       ((:STATEMENT
+                          .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN n.name, type(r), r.dependent, r.cardinality, r.notes"
+                                      (sanitise-uid resourcetype)))))))))))
 
 (defmethod add-resource-relationship ((db neo4cl:neo4j-rest-server)
                                       (parent-type string)

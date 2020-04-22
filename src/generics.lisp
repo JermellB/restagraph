@@ -53,13 +53,9 @@
 
 (defgeneric describe-dependent-resources (db resourcetype &key resources-seen)
   (:documentation "Return a list of descriptions of all the dependent resourcetypes for this resource.
-                   The :recursive key is a boolean indicating whether to recursively traverse all the relationships
                    The :resources-seen key is used internally to break loops when recursing.
-                   Attributes of the alists returned:
-                   :relationship = string; the name of the relationship
-                   :dependent = boolean
-                   :cardinality = string; defaults to many:many
-                   :notes = string."))
+                   Return format is a list of conses, whose car is a relationship-attrs struct,
+                   and whose cdr is the name of the target resourcetype."))
 
 (defgeneric relationship-valid-p (db from-resource relationship to-resource)
   (:documentation "Checks whether this type of relationship is permitted between these types of resources. Returns a boolean."))
