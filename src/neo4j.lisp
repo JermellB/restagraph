@@ -303,13 +303,14 @@
 
 (defmethod describe-resource-type-for-graphql ((db neo4cl:neo4j-rest-server)
                                                (resourcetype string)
+                                               (all-resourcetype-names list)
+                                               (rels-from-any list)
                                                &key resources-seen)
   (log-message :debug (format nil "Describing resource-type '~A'" resourcetype))
   ;; Confirm whether this resourcetype exists at all.
   ;; If it doesn't, automatically return NIL.
   ;; Construct the return values
-  (let* ((any-rels (describe-dependent-resources db "any" :resources-seen resources-seen))
-         (name (sanitise-uid resourcetype))
+  (let* ((name (sanitise-uid resourcetype))
          (attributes (sort
                        (mapcar
                          #'(lambda (s) (cdr (assoc :name (car s))))
@@ -321,28 +322,62 @@
                                     . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n"
                                                (sanitise-uid resourcetype)))))))))
                        #'string-lessp))
+         (dependent-resources (describe-dependent-resources
+                                db
+                                (sanitise-uid resourcetype)
+                                :resources-seen resources-seen))
+         ;; Build lists of '(relationship target-resourcetype)
+         ;; FIXME
+         (rels-to-any
+           (apply #'append
+                  (mapcar #'(lambda (any-rel)
+                                  ;; For each relationship of this type, return '(rel-type . target)
+                                  ;; for each resourcetype in the schema, as supplied here via
+                                  ;; all-resourcetype-names
+                                  (mapcar #'(lambda (name)
+                                              (cons (relationship-attrs-name (car any-rel)) name))
+                                          all-resourcetype-names))
+                              ;; List of all relationships this type has to "any"
+                              (remove-if-not #'(lambda (rel)
+                                                 (equal (cdr rel) "any"))
+                                             dependent-resources))))
+         (specific-rels
+           ;; Build list of '(relationship . target-resourcetype) to all specific types
+           ;; with which this one has a relationship
+           (mapcar #'(lambda (rel)
+                       (cons (relationship-attrs-name (car rel)) (cdr rel)))
+                   ;; Generate a list of relationships this type has to non-any resourcetypes
+                   (remove-if #'(lambda (res)
+                                  (equal (cdr res) "any"))
+                              dependent-resources)))
+         (processed-rels-from-any
+           ;; Generate '(rel . target) conses for all in rels-from-any argument
+           (mapcar #'(lambda (rel)
+                       (cons (relationship-attrs-name (car rel)) (cdr rel)))
+                   rels-from-any))
+         ;; Operates on rels-from-any, rels-to-any and specific-rels
          (relationships
            (mapcar #'(lambda (rel)
                        (log-message :debug (format nil "Disassembling relationship ~A for output" rel))
-                       (format nil "~A: [~A] @relation(name: \"~A\", direction: \"OUT\")"
-                               ; Downcased relationship-name
+                       (format nil "~A_~A: [~A] @relation(name: \"~A\", direction: \"OUT\")"
+                               ; Downcased relationship-name and target resourcetype.
+                               ; It's clumsy, but that's a consequence of Node's approach.
+                               (string-downcase (car rel))
                                (string-downcase (cdr rel))
                                ; Target resourcetype
                                (cdr rel)
                                ; Relationship-name (correct case)
-                               (relationship-attrs-name (car rel))))
+                               (car rel)))
                    (append
-                     any-rels
-                     (describe-dependent-resources
-                       db
-                       (sanitise-uid resourcetype)
-                       :resources-seen resources-seen)))))
+                     processed-rels-from-any
+                     rels-to-any
+                     specific-rels))))
     (log-message :debug "Assembled relationships ~A" relationships)
     (with-output-to-string (outstr)
       (format outstr "type ~A { ~{
-    ~A: String~}~{
-    ~A~}
-}"
+              ~A: String~}~{
+              ~A~}
+              }"
               name
               (append '("uid" "createddate") attributes)
               relationships))))

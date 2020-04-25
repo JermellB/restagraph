@@ -51,6 +51,17 @@
                    from this resource-type.
                    The :resources-seen key is used internally to break loops when recursing."))
 
+(defgeneric describe-resource-type-for-graphql (db
+                                                resourcetype
+                                                all-resourcetype-names
+                                                rels-from-any
+                                                &key resources-seen)
+  (:documentation "Return the description of a resource-type, as an alist.
+                   Entries include :name, :attributes and :dependent.
+                   The :recursive key is a boolean indicating whether to recursively traverse all the relationships
+                   from this resource-type.
+                   The :resources-seen key is used internally to break loops when recursing."))
+
 (defgeneric describe-dependent-resources (db resourcetype &key resources-seen)
   (:documentation "Return a list of descriptions of all the dependent resourcetypes for this resource.
                    The :resources-seen key is used internally to break loops when recursing.

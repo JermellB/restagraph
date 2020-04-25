@@ -158,18 +158,33 @@
   "Render the schema in a format suitable for GraphQL,
   in the format of Apollo Server and neo4j-graphql-js"
   (log-message :debug "Formatting schema for GraphQL")
-  (format nil "~{~A~^~%~%~}"
-          (mapcar
-            #'(lambda (r)
-                (describe-resource-type-for-graphql
-                  (datastore tbnl:*acceptor*)
+  (let ((all-resourcetype-names
+          (remove-if
+            #'(lambda (name)
+                (member name
+                        '("any" "rgSchemas" "rgSchemaVersions")
+                        :test #'equal))
+            (mapcar
+              #'(lambda (r)
                   ; Pull out just the name of the resource
-                  (cdr (assoc :name r))))
-            (remove-if #'(lambda (rtype)
-                           (member (cdr (assoc :name rtype))
-                                   '("any" "rgSchemas" "rgSchemaVersions")
-                                   :test #'equal))
-                       (get-resource-types db)))))
+                  (cdr (assoc :name r)))
+              (get-resource-types db)))))
+    (format nil "~{~A~^~%~%~}"
+            (mapcar
+              #'(lambda (r)
+                  (describe-resource-type-for-graphql
+                    db
+                    ; resourcetype
+                    r
+                    ; all-resourcetype-names
+                    all-resourcetype-names
+                    ; rels-from-any
+                    (describe-dependent-resources db "any" :resources-seen nil)))
+              (remove-if #'(lambda (rtype)
+                             (member rtype
+                                     '("any" "rgSchemas" "rgSchemaVersions")
+                                     :test #'equal))
+                         all-resourcetype-names)))))
 
 
 ;; Error response functions
