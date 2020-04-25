@@ -88,6 +88,10 @@ The definitive API reference is in `test/test-rest-api.py`
 
 For each `rgResource` object, the following patterns are recognised by the application server:
 
+### Delete a relationship definition in the schema
+```
+DELETE /schema/v1/relationships/<from-resourcetype>/<relationship>/<to-relationship>
+```
 
 ### Create a resource
 ```
@@ -259,4 +263,4 @@ Two test suites are included:
 
 # Docker image
 
-Current version is: `equill/restagraph:0.1.9`
+It's available from Dockerhub as `equill/restagraph`
