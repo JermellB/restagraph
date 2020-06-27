@@ -28,6 +28,19 @@
                  (cdr (assoc :uid f :test #'equal)))))
 
 (fiveam:test
+  authentication
+  "Basic checks of authentication."
+  ;; Success
+  (fiveam:is (restagraph::ensure-db-passwd *server*))
+  ;; Failure
+  (fiveam:is (null (restagraph::ensure-db-passwd
+                     (make-instance 'neo4cl:neo4j-rest-server
+                                    :hostname (getf restagraph::*config-vars* :dbhostname)
+                                    :dbname (getf restagraph::*config-vars* :dbname)
+                                    :dbpasswd "This is not the password"
+                                    :dbuser (getf restagraph::*config-vars* :dbusername))))))
+
+(fiveam:test
   resources-basic
   :depends-on 'schema-relationships
   "Basic operations on resources"
@@ -767,6 +780,7 @@
 
 (fiveam:test
   schema-basic
+  :depends-on 'authentication
   "Simple operations to create and delete resource-types and relationships between them."
   (let ((ptype1-name "foo")
         (dtype1-name "bar"))

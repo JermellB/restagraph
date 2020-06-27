@@ -802,10 +802,21 @@
 (defun ensure-db-passwd (server)
   "Check the credentials for the database, and return a boolean."
   (log-message :info "Checking database credentials.")
-  (null (cdr (assoc :errors
+  (let ((err (cdr (assoc :errors
                     (neo4cl:neo4j-transaction
                       server
                       '((:statements ((:statement . "MATCH (n) RETURN n")))))))))
+    ;; Crude error handling
+    (if (and (listp err)
+             (null err))
+      ;; Credentials check out; we're good
+      (progn
+        (log-message :debug "Password is good.")
+        t)
+      ;; Credentials failed; we have a problem
+      (progn
+        (log-message :debug (format nil "Credentials failed: '~A'" err))
+        nil))))
 
 (defun confirm-db-is-running (server &key (counter 1) (max-count 5) (sleep-time 5))
   "Check whether the database server is running by polling the discovery endpoint."
