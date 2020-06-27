@@ -14,6 +14,7 @@
 (defparameter *server*
   (make-instance 'neo4cl:neo4j-rest-server
                  :hostname (getf restagraph::*config-vars* :dbhostname)
+                 :dbname (getf restagraph::*config-vars* :dbname)
                  :dbpasswd (getf restagraph::*config-vars* :dbpasswd)
                  :dbuser (getf restagraph::*config-vars* :dbusername)))
 
