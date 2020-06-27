@@ -792,6 +792,8 @@
                                             (getf *config-vars* :dbhostname))
                               :port (or (sb-ext:posix-getenv "NEO4J_PORT")
                                         (getf *config-vars* :dbport))
+                              :dbname (or (sb-ext:posix-getenv "NEO4J_DBNAME")
+                                        (getf *config-vars* :dbname))
                               :dbuser (or (sb-ext:posix-getenv "NEO4J_USER")
                                           (getf *config-vars* :dbusername))
                               :dbpasswd (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
