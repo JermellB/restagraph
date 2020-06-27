@@ -89,15 +89,26 @@
             `((:STATEMENTS
                 ((:STATEMENT
                    . ,(format nil "CREATE CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE"
-                   (sanitise-uid resourcetype)))))))
-          (neo4cl:database-error (e)
-                                 (if (equal (neo4cl:title e) "ConstraintCreateFailed")
-                                   nil   ; This is OK - do nothing
-                                   (return-database-error
-                                     (format nil "~A.~A: ~A"
-                                             (neo4cl:category e)
-                                             (neo4cl:title e)
-                                             (neo4cl:message e)))))))
+                              (sanitise-uid resourcetype)))))))
+          (neo4cl:client-error
+            (e)
+            ;; If we already have this constraint, that's fine.
+            ;; Catch the error and move on.
+            (if (and
+                  (equal "Schema" (neo4cl:category e))
+                  (equal "EquivalentSchemaRuleAlreadyExists" (neo4cl:title e)))
+              nil
+              ;; If anything else went wrong, log it and pass it on up the stack
+              (progn
+                (log-message :debug (format nil "Received error '~A.~A ~A'"
+                                            (neo4cl:category e)
+                                            (neo4cl:title e)
+                                            (neo4cl:message e)))
+                (return-database-error
+                  (format nil "~A.~A: ~A"
+                          (neo4cl:category e)
+                          (neo4cl:title e)
+                          (neo4cl:message e))))))))
       ;; Return a uniform response, either way.
       t)))
 

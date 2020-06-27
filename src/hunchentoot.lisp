@@ -882,14 +882,25 @@
           `((:STATEMENTS
               ((:STATEMENT . "CREATE CONSTRAINT ON (r:rgResource) ASSERT r.name IS UNIQUE")))))
         ;; If this fails because we already did it, that's fine.
-        (neo4cl:database-error (e)
-                               (if (equal (neo4cl:title e) "ConstraintCreateFailed")
-                                 nil   ; This is OK - do nothing
-                                 (return-database-error
-                                   (format nil "~A.~A: ~A"
-                                           (neo4cl:category e)
-                                           (neo4cl:title e)
-                                           (neo4cl:message e))))))
+        (neo4cl:client-error
+          (e)
+          ;; If we already have this constraint, that's fine.
+          ;; Catch the error and move on.
+          (if (and
+                (equal "Schema" (neo4cl:category e))
+                (equal "EquivalentSchemaRuleAlreadyExists" (neo4cl:title e)))
+            nil
+            ;; If anything else went wrong, log it and pass it on up the stack
+            (progn
+              (log-message :debug (format nil "Received error '~A.~A ~A'"
+                                          (neo4cl:category e)
+                                          (neo4cl:title e)
+                                          (neo4cl:message e)))
+              (return-database-error
+                (format nil "~A.~A: ~A"
+                        (neo4cl:category e)
+                        (neo4cl:title e)
+                        (neo4cl:message e)))))))
       ;; Update the schema, if one has been specified
       (if schemadir
         (inject-all-schemas (datastore acceptor) schemadir)
