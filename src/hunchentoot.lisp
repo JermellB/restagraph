@@ -808,31 +808,32 @@
                       '((:statements ((:statement . "MATCH (n) RETURN n")))))))))
 
 (defun confirm-db-is-running (server &key (counter 1) (max-count 5) (sleep-time 5))
+  "Check whether the database server is running by polling the discovery endpoint."
   (declare (type (integer) counter max-count sleep-time))
   (log-message :debug "Checking whether the database is running on ~A:~A"
                (neo4cl:hostname server) (neo4cl:port server))
   (handler-case
     (when (drakma:http-request
-    (format nil "http://~A:~A" (neo4cl:hostname server) (neo4cl:port server)))
-    (ensure-db-passwd server))
+            (format nil "http://~A:~A" (neo4cl:hostname server) (neo4cl:port server)))
+      (ensure-db-passwd server))
     (USOCKET:CONNECTION-REFUSED-ERROR
       (e)
       (declare (ignore e))
       (if (>= counter max-count)
-          ;; Timed out.
-          ;; Leave a message, then exit this whole thing.
-          (progn
-            (log-message :crit "Timed out trying to connect to the database. Exiting.")
-            (sb-ext:exit))
-          ;; Still isn't responding, but we haven't yet hit timeout.
-          ;; Leave a message, pause, then try again.
-          (progn
-            (log-message :warn "Connection refused. Pausing for ~A seconds before retrying" sleep-time)
-            (sleep sleep-time)
-            (confirm-db-is-running server
-                                   :counter (+ counter 1)
-                                   :max-count max-count
-                                   :sleep-time sleep-time))))))
+        ;; Timed out.
+        ;; Leave a message, then exit this whole thing.
+        (progn
+          (log-message :crit "Timed out trying to connect to the database. Exiting.")
+          (sb-ext:exit))
+        ;; Still isn't responding, but we haven't yet hit timeout.
+        ;; Leave a message, pause, then try again.
+        (progn
+          (log-message :warn "Connection refused. Pausing for ~A seconds before retrying" sleep-time)
+          (sleep sleep-time)
+          (confirm-db-is-running server
+                                 :counter (+ counter 1)
+                                 :max-count max-count
+                                 :sleep-time sleep-time))))))
 
 (defun startup (&key acceptor dispatchers docker schemapath)
   "Start up the appserver.
