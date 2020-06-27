@@ -800,42 +800,12 @@
                                             (getf *config-vars* :dbpasswd)))))
 
 (defun ensure-db-passwd (server)
-  "Check the credentials for the database.
-  If they fail initially, test whether the default password is still in effect;
-  if so, change it.
-  If it's neither the default nor the specified one, bail out noisily.
-  Expected argument is an instance of neo4cl:neo4j-rest-server.
-  Returns t on success"
+  "Check the credentials for the database, and return a boolean."
   (log-message :info "Checking database credentials.")
-  (handler-case
-    (neo4cl:get-user-status server)
-    ;; Password failed
-    (neo4cl:client-error
-      (e)
-      (if (and (equal (neo4cl::category e) "Security"))
-        (equal (neo4cl:title e) "Unauthorized"))
-      ;; Try the default, and change that
-      (let ((defaults (make-instance 'neo4cl:neo4j-rest-server
-                                     :hostname (neo4cl:hostname server)
-                                     :port (neo4cl:port server)
-                                     :dbuser "neo4j"
-                                     :dbpasswd "neo4j")))
-        (log-message :info "Specified credentials failed. Testing the default password")
-        (handler-case
-          (if (neo4cl:get-user-status defaults)
-            (progn
-              (log-message :error "Default password works. Changing it.")
-              (neo4cl:change-password defaults (neo4cl:dbpasswd server)))
-            (progn
-              (log-message :critical "Failed to change password. Exiting.")
-              (sb-ext:exit)))
-          (neo4cl:service-error
-            (e)
-            (if (and
-                  (equal (neo4cl:category e) "Password")
-                  (equal (neo4cl:message e) "Password change is required"))
-              (log-message :info "Default password still in effect. Changing..")
-              (neo4cl:change-password defaults (neo4cl:dbpasswd server)))))))))
+  (null (cdr (assoc :errors
+                    (neo4cl:neo4j-transaction
+                      server
+                      '((:statements ((:statement . "MATCH (n) RETURN n")))))))))
 
 (defun confirm-db-is-running (server &key (counter 1) (max-count 5) (sleep-time 5))
   (declare (type (integer) counter max-count sleep-time))
