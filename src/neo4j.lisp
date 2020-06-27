@@ -608,7 +608,7 @@
              (neo4cl:neo4j-transaction
                db
                `((:STATEMENTS
-                   ((:STATEMENT . ,(format nil "CREATE (:~A { properties })"
+                   ((:STATEMENT . ,(format nil "CREATE (:~A $properties)"
                                            (sanitise-uid resourcetype)))
                     (:PARAMETERS . ((:PROPERTIES
                                       . ,(append attributes
@@ -1195,7 +1195,7 @@
                 db
                 `((:STATEMENTS
                     ((:STATEMENT .
-                                 ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A { properties })"
+                                 ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A $properties)"
                                           (uri-node-helper parent-parts
                                                            :path ""
                                                            :marker "n"
