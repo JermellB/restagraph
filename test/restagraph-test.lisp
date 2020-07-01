@@ -28,7 +28,41 @@
                  (cdr (assoc :uid f :test #'equal)))))
 
 (fiveam:test
+  validate-attributes
+  "Check the validation of attributes"
+  (let ((attrs '(((:NAME . "status")
+                   (:DESCRIPTION
+                     . "Task status.")
+                   (:VALS . "idea,active,waiting,scheduled,done,cancelled"))
+                 ((:NAME . "urgency") (:DESCRIPTION . "How soon it needs to be done."))
+                 ((:NAME . "importance")
+                   (:DESCRIPTION . "How important it is that it's done."))
+                 ((:NAME . "scale") (:DESCRIPTION . "How big the job appears to be."))
+                 ((:NAME . "deadline") (:DESCRIPTION . "When the task should be done by."))
+                 ((:NAME . "description") (:DESCRIPTION . "More details about the task."))
+                 ((:NAME . "scheduled") (:DESCRIPTION . "A date/time.")))))
+    ;; Simple check for no attributes at all
+    (fiveam:is (equal '(nil nil)
+                      (restagraph::validate-attributes '() attrs)))
+    ;; Simple check for valid attribute
+    (fiveam:is (equalp '(nil nil)
+                       (restagraph::validate-attributes '(("status" . "active")) attrs)))
+    ;; Simple check for invalid attribute
+    (fiveam:is (equalp '((("foo" . "active")) nil)
+                       (restagraph::validate-attributes '(("foo" . "active")) attrs)))
+    ;; Simple check for invalid value
+    (fiveam:is (equalp '(nil (("status" . "inactive")))
+                       (restagraph::validate-attributes '(("status" . "inactive")) attrs)))
+    ;; Obvious combo-check
+    (fiveam:is (equalp '((("foo" . "active")) (("status" . "inactive")))
+                       (restagraph::validate-attributes '(("status" . "active")
+                                                          ("foo" . "active")
+                                                          ("status" . "inactive"))
+                                                        attrs)))))
+
+(fiveam:test
   authentication
+  :depends-on 'validate-attributes
   "Basic checks of authentication."
   ;; Success
   (fiveam:is (restagraph::ensure-db-passwd *server*))

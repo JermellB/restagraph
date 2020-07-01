@@ -496,6 +496,67 @@
                       (cdr param))))
           params))
 
+(defun validate-attributes (requested defined &key (invalid '()) (badvalue '()))
+  "Recursive helper function to validate the requested attributes against those defined for the resourcetype.
+   Return a list of three lists:
+   - invalid attributes (attributes whose name is not defined for this resourcetype)
+   - attributes for which an invalid value was provided"
+  (declare (type (or cons null) requested)  ; alist, where the car is the name and the cdr is the value
+           (type (or cons null) defined)    ; Should have the outer layer of conses stripped
+           (type (or cons null) invalid)
+           (type (or cons null) badvalue))
+  ;; Are we at the end of the list of requested attributes?
+  (if (null requested)
+      ;; If we are, return what's been accumulated
+      (list invalid badvalue)
+      ;; If not, check the attribute at the head of the list, then call this function on the rest.
+      (validate-attributes
+        ;; Rest of the list.
+        (cdr requested)
+        ;; Definitions, unchanged.
+        defined
+        ;; If this attribute is invalid, add it to that accumulator.
+        ;; Pull the list of attribute-names from the 'defined parameter, and test whether it's a member.
+        :invalid (if (not (member (caar requested)
+                                  ;; Remember this was parsed from JSON
+                                  (mapcar #'(lambda (attr)
+                                              (cdr (assoc :name attr)))
+                                          defined)
+                                  :test #'equal))
+                     (append invalid (list (car requested)))
+                     invalid)
+        :badvalue (if
+                      ;; Is it a valid attribute? (yes, we have to test this again)
+                      (if (member (caar requested)
+                                  ;; Remember this was parsed from JSON
+                                  (mapcar #'(lambda (attr)
+                                              (cdr (assoc :name attr)))
+                                          defined)
+                                  :test #'equal)
+                          ;; Is this an enum attribute?
+                          (if (assoc :VALS (car (remove-if-not #'(lambda (attr)
+                                                                   (equal (caar requested)
+                                                                          (cdr (assoc :NAME attr))))
+                                                               defined)))
+                              ;; If so, is it a valid value?
+                              (when
+                                (member (cdar requested)
+                                        (cl-ppcre:split
+                                          ","
+                                          (cdr (assoc :VALS (car (remove-if-not #'(lambda (attr)
+                                                                                    (equal (caar requested)
+                                                                                           (cdr (assoc :NAME attr))))
+                                                                                defined)))))
+                                        :test #'equal)
+                                ;; If it's a valid value for this enum, return True
+                                t)
+                              ;; If it's not an enum, then we do no other checking.
+                              t)
+                          ;; If it's not a valid attribute, this isn't relevant.
+                          t)
+        badvalue
+        (append badvalue (list (car requested)))))))
+
 (defmethod validate-resource-before-creating ((db neo4cl:neo4j-rest-server)
                                               (resourcetype string)
                                               (params list))
