@@ -15,8 +15,8 @@
   (make-instance 'neo4cl:neo4j-rest-server
                  :hostname (getf restagraph::*config-vars* :dbhostname)
                  :dbname (getf restagraph::*config-vars* :dbname)
-                 :dbpasswd (getf restagraph::*config-vars* :dbpasswd)
-                 :dbuser (getf restagraph::*config-vars* :dbusername)))
+                 :dbuser (getf restagraph::*config-vars* :dbusername)
+                 :dbpasswd (getf restagraph::*config-vars* :dbpasswd)))
 
 (fiveam:def-suite main)
 (fiveam:in-suite main)
