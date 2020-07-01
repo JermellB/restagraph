@@ -597,7 +597,7 @@
 
 (defmethod store-resource ((db neo4cl:neo4j-rest-server)
                            (resourcetype string)
-                           (attributes list))
+                           (attributes list))   ; alist, where the car is the name and the cdr is the value
   (cond
     ;; Catch any critical deficiencies in the definition asap
     ((or (null (assoc "uid" attributes :test 'equal))
