@@ -88,7 +88,7 @@ Return an error if
 - the resource type is not present in the schema
 - the client attempts to set attributes that aren't defined for this resourcetype."))
 
-(defgeneric delete-resource-by-path (db path &key recursive)
+(defgeneric delete-resource-by-path (db targetpath &key recursive)
   (:documentation "Delete a relationship or resource according to the URI supplied.
   :recursive confirms that you intend to delete all resources depending on the one identified in the path."))
 
