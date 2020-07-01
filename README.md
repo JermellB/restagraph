@@ -20,7 +20,7 @@ There is explicit support for dependent resources, i.e. resources that only make
 - data integrity: it ensures that the data that goes _in_ to a Neo4j database has a consistent structure
 - language independence: the REST API means that any language can be used to build applications on top of this structure
 - you have a clear, complete reference to the schema, on which you can base applications that query the data
-    - no grovelling through source-code in an unfamiliar language to glean clues
+    - no grovelling through business logic scattered through source-code in an unfamiliar language to glean clues
 
 It is _not_ intended to be the sole interface for _querying_ the database. You _can_ use it to do that in a structured way, and it's useful when constructing the data input portions of an application, but the more complex the question you want to ask of the database, the more likely it is that you'll want to go straight to [Cypher](https://neo4j.com/developer/cypher-basics-i/), Neo4j’s graph query language.
 
@@ -53,6 +53,28 @@ There are two ways of managing the schema, which can be combined as desired:
                 - a list of sets
     - examples of valid schemas are found in the [Syscat sources](https://bitbucket.org/equill/syscat/src/schemas/master/). These include examples of backward references to resources defined in previously-applied schemas.
 - its dedicated API at `/schema/v1`.
+
+### Elements of the schema
+
+#### Resource-types
+
+The types of things you can create via the API.
+
+The UID is a required attribute; you can't create a resource without one, so it isn't explicitly mentioned in the API.
+
+Attributes you can define:
+- whether it's a dependent type.
+- notes about the resource-type, i.e. what kind of thing it represents, and how it's intended to be used.
+- a list of attributes
+-- each attribute can have attributes of its own, such as `comments` or `vals`
+--- `vals` is a reserved attribute-name. It's a comma-separated list of values, which identifies the resource-type as an enum. If defined, the API will only accept values in this list when setting the value of such an attribute. Note that it's only enforced at this time; changing the list of values will not cause any changes to existing values.
+
+
+#### Relationships between resource-types
+
+These define the relationships that the API will allow you to create between a pair of resource-types.
+
+These are directional, and encode whether they can be used to connect a dependent type to its parent type, but don't allow for storing attributes in the relationship between two resources.
 
 
 ### Dump the whole schema
