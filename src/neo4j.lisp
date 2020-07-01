@@ -559,6 +559,7 @@
 
 (defmethod validate-resource-before-creating ((db neo4cl:neo4j-rest-server)
                                               (resourcetype string)
+                                              ;; params is what Hunchentoot received via POST
                                               (params list))
   (log-message
     :debug
@@ -566,66 +567,48 @@
             resourcetype params))
   ;; Does this resource-type exist?
   (if (resourcetype-exists-p db resourcetype)
-    ;; Were attributes specified and, if so, are they all valid for this resource-type?
-    (let
-      ((requested-attributes
-         (remove-if #'(lambda (param) (equal (car param) "uid"))
-                    params)))
-      (log-message :debug "Confirmed: resourcetype '~A' exists" resourcetype)
-      ;; Implicit logic for deciding what to return:
-      ;; - if this conditional sequence passes, format the validated parameters.
-      ;; - if it doesn't, return nil.
-      (log-message :debug "Checking the supplied attributes.")
-      (if (or
-            ;; If no attributes were specified other than "uid", we're good
-            (not requested-attributes)
-            ;; If other attributes were specified, check them all for validity.
-            ;; First, get a list of valid attributes for this resourcetype.
-            (let* ((valid-attributes
-                     (mapcar #'(lambda (row)
-                                 (cdr (assoc :name (car row))))
-                             (get-resource-attributes-from-db db resourcetype)))
-                   ;; Now check the requested set of parameters against the list of valid ones.
-                   (invalid-attributes
-                     (remove-if #'null
-                                (mapcar #'(lambda (par)
-                                            (unless (member
-                                                      (string-downcase (car par))
-                                                      valid-attributes
-                                                      :test 'equal)
-                                              (escape-neo4j (string-downcase (car par)))))
-                                        requested-attributes))))
-              ;; Record the valid possibilities, if we're debugging.
-              (if valid-attributes
-                  (log-message :debug (format nil "Valid attributes for resource-type ~A: ~{~A~^, ~}."
-                                              resourcetype valid-attributes))
-                  (log-message :debug (format nil "Resource-type ~A has no valid attributes to set."
-                                              resourcetype)))
-              ;; If any invalid attributes were requested, log this and signal an error.
-              (if invalid-attributes
-                  (progn
-                    (log-message :debug (format nil "Identified invalid attributes: ~{~A~^, ~}"
-                                                invalid-attributes))
-                    (error 'restagraph:client-error :message
-                           (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}"
-                                   resourcetype invalid-attributes)))
-                  (log-message :debug "No invalid attributes identified. Proceeding."))
-              ;; We were given attributes other than "uid" and all of them checked out OK.
-              ;; Explicitly return something positive from this clause of the if statement.
-              t))
-          ;; Return the supplied attributes to the caller, properly formatted for Neo4j.
-          (let* ((original-uid (or (cdr (assoc "uid" params :test #'string=)) ""))
-                (formatted-params
-                  (format-post-params-as-properties
-                    ;requested-attributes
-                    (acons "uid" (sanitise-uid original-uid)
-                           (acons "original_uid" original-uid
-                                  (remove-if #'(lambda (param) (equal (car param) "uid"))
-                                             params))))))
-            (log-message :debug "Returning formatted parameters ~A" formatted-params)
-            formatted-params)))
-    ;; No such resourcetype
-    (signal 'client-error :message "No such resourcetype")))
+      ;; Were attributes specified and, if so, are they all valid for this resource-type?
+      (let
+        ;; Exempt "uid" from validation
+        ((requested-attributes
+           (remove-if #'(lambda (param) (equal (car param) "uid"))
+                      params))
+         ;; Get the attributes defined for this resource-type
+         (defined-attributes (mapcar #'car (get-resource-attributes-from-db db resourcetype)))
+         ;; Extract the original UID here, to reduce mess later
+         (original-uid (or (cdr (assoc "uid" params :test #'string=)) "")))
+        ;; Put this log message here to get it inside the let statement,
+        ;; and thus avoid a progn.
+        (log-message :debug "Confirmed: resourcetype '~A' exists" resourcetype)
+        ;; Now validate the attributes and return the results.
+        (log-message :debug "Checking the supplied attributes.")
+        (let ((results (validate-attributes requested-attributes defined-attributes)))
+          ;; Were the requested attributes all valid?
+          (if (and (null (first results))
+                   (null (second results)))
+              ;; If so, return the supplied attributes to the caller, properly formatted for Neo4j.
+              (let ((formatted-params
+                      (format-post-params-as-properties
+                        ;requested-attributes
+                        (acons "uid" (sanitise-uid original-uid)
+                               (acons "original_uid" original-uid
+                                      (remove-if #'(lambda (param) (equal (car param) "uid"))
+                                                 params))))))
+                (log-message :debug "Returning formatted parameters ~A" formatted-params)
+                formatted-params)
+              ;; If not, report the problem.
+              (progn
+                (when (first results)
+                  (log-message :debug (format nil "Identified invalid attribute-names: ~{~A~^, ~}"
+                                              (first results))))
+                (when (second results)
+                  (log-message :debug (format nil "Identified invalid values ~{~A~^, ~}"
+                                              (second results))))
+                (error 'restagraph:client-error :message
+                       (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}. Invalid values: ~{~A~^, ~}."
+                               resourcetype (first results) (second results)))))))
+      ;; No such resourcetype
+      (signal 'client-error :message "No such resourcetype")))
 
 
 ;;;; Resources
