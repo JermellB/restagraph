@@ -56,6 +56,8 @@
 (defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
                              (resourcetype string)
                              &key dependent notes)
+  (declare (type (boolean) dependent)
+           (type (or string null) notes))
   (log-message :info
                (format nil "Attempting to create resourcetype '~A'" resourcetype))
   ;; Do we already have one of these?
