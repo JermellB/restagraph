@@ -213,6 +213,7 @@ class TestResourceAttributes(unittest.TestCase):
     attr1type = 'whosit'
     attr1val = 'thingy'
     attr2type = 'whatsit'
+    attr2desc = 'You know, those things.'
     attr2val = 'hoodacky'
     result = None
     def test_create_and_remove_resourcetypeattrs(self):
@@ -245,7 +246,8 @@ class TestResourceAttributes(unittest.TestCase):
         print('Test: Add the second attribute to the resourcetype')
         self.assertEqual(requests.post('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
                                                                self.resourcetype,
-                                                               self.attr2type)).status_code,
+                                                               self.attr2type),
+                                       data={'description': self.attr2desc}).status_code,
                          201)
         print('Test: Successfully add two attributes to the resource at once')
         requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
