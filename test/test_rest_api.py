@@ -894,7 +894,7 @@ class TestBasicResourceErrors(unittest.TestCase):
         # Invalid non-UID parameters
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
                                        data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
-                         409)
+                         400)
         print('Test: remove the fixtures')
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.valid_resourcetype))
         print('Test: schema should be empty')
