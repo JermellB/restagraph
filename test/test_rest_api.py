@@ -568,13 +568,13 @@ class TestMoveDependentResources(unittest.TestCase):
         self.assertEqual(self.result.status_code, 201)
         self.assertEqual(self.result.text,
                          '/%s/%s/%s/%s/%s/%s/%s/%s' % (self.p1type,
-                                                         self.p1uid,
-                                                         self.p1p2rel,
-                                                         self.p2type,
-                                                         self.p2uid,
-                                                         self.p2targetrel,
-                                                         self.targettype,
-                                                         self.targetuid))
+                                                       self.p1uid,
+                                                       self.p1p2rel,
+                                                       self.p2type,
+                                                       self.p2uid,
+                                                       self.p2targetrel,
+                                                       self.targettype,
+                                                       self.targetuid))
         # Confirm it's where it should be
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                                       self.p1type,
@@ -646,10 +646,10 @@ class TestValidRelationships(unittest.TestCase):
                                     data={'target': '/%s/%s' % (self.res2type,
                                                                 self.res2name)})
         self.assertEqual(self.result.text, '/%s/%s/%s/%s/%s'% (self.res1type,
-                                                                 self.res1uid,
-                                                                 self.relationship,
-                                                                 self.res2type,
-                                                                 self.res2name))
+                                                               self.res1uid,
+                                                               self.relationship,
+                                                               self.res2type,
+                                                               self.res2name))
         self.assertEqual(self.result.status_code, 201)
         # Confirm that the relationship is there
         self.assertEqual(requests.get('%s/%s/%s/%s' % (API_BASE_URL,
