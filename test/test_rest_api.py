@@ -204,6 +204,58 @@ class TestResources(unittest.TestCase):
         print('Test: schema should be empty')
         self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
 
+class TestResourceAttributesEnums(unittest.TestCase):
+    '''
+    Test enumerated resource-attributes.
+    '''
+    resourcetype = 'yodel'
+    resourceuid = 'little'
+    attr1name = 'syllables'
+    attr1val = 'old'
+    attr1valbad = 'young'
+    attr1vals = 'old,lady,who'
+    result = None
+    def test_create_and_use_enums(self):
+        print('Test: create the fixtures')
+        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
+        print('Test: add the first attribute to the resourcetype')
+        self.assertEqual(requests.post('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
+                                                               self.resourcetype,
+                                                               self.attr1name),
+                                       data={'vals': self.attr1vals}).status_code,
+                         201)
+        print('Test: create a resource with a valid enum attribute')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid,
+                                             self.attr1name: self.attr1val}).status_code,
+                         201)
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
+        print('Test: fail to create a resource with an invalid enum attribute')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid,
+                                             self.attr1name: self.attr1valbad}).status_code,
+                         400)
+        print('Test: fail to add an invalid enum attribute to an existing resource')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid}).status_code,
+                         201)
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.attr1name),
+                                      data={'uid': self.resourceuid,
+                                            self.attr1name: self.attr1valbad}).status_code,
+                         400)
+        print('Test: add a valid attribute to an existing resource.')
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.attr1name),
+                                      data={'uid': self.resourceuid,
+                                            self.attr1name: self.attr1val}).status_code,
+                         204)
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
+        print('Test: delete the fixtures')
+        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
+
 class TestResourceAttributes(unittest.TestCase):
     '''
     Basic CRUD functions for resource attributes
