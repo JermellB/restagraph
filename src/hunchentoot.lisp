@@ -324,17 +324,15 @@
                 "Resourcetype already exists"))
              ;; Sanity tests passed; store it
              (t
-               (progn
+               (let ((dependent (if (equal "true" (tbnl:post-parameter "dependent")) t nil)))
                  (log-message
                    :debug
                    (format nil "Adding resource type ~A with dependent status '~A' and notes '~A'."
-                           resourcetype
-                           (tbnl:post-parameter "dependent")
-                           (tbnl:post-parameter "notes")))
+                           resourcetype dependent (tbnl:post-parameter "notes")))
                  (add-resourcetype
                    (datastore tbnl:*acceptor*)
                    resourcetype
-                   :dependent (tbnl:post-parameter "dependent")
+                   :dependent dependent
                    :notes (tbnl:post-parameter "notes"))
                  ;; Return something useful
                  (setf (tbnl:content-type*) "text/plain")
