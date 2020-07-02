@@ -315,7 +315,8 @@
                          ((:STATEMENT
                             . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n"
                                        (sanitise-uid resourcetype)))))))))
-               #'string-lessp))
+               #'string-lessp
+               :key #'caar))
         (:DEPENDENT . ,(if (assoc :DEPENDENT node)
                          "true"
                          "false"))
