@@ -116,13 +116,17 @@
 
 (defmethod add-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
                                        (resourcetype string)
-                                       &key name description)
+                                       &key name description vals)
+  (declare (type (string) name)
+           (type (or string null) description)
+           (type (or string null) vals))
   ;; Perform some sanity checks before proceeding.
   (cond
     ;; Does the specified resourcetype exist?
     ((not (resourcetype-exists-p db (sanitise-uid resourcetype)))
      (signal 'client-error :message "Resourcetype '~A' does not exist."))
     ;; Was a name supplied for the attribute? As a string?
+    ;; This should be covered by the type declarations
     ((not (and name
                (stringp name)))
      (signal 'client-error :message "The 'name' attribute is mandatory."))
@@ -130,6 +134,7 @@
     ((resourcetype-attribute-exists-p db (sanitise-uid resourcetype) (sanitise-uid name))
      t)
     ;; If a description was supplied, is it a string?
+    ;; This should be covered by the type declarations
     ((and description
           (not (stringp description)))
      (signal 'client-error :message "The 'description' attribute must be a string."))
@@ -147,7 +152,9 @@
                          ;; Handle the optional attribute-attributes with an accumulator
                          (append `(("name" ,(sanitise-uid name)))
                                  (when description
-                                   `(("description" ,(escape-neo4j description))))))))))))))
+                                   `(("description" ,(escape-neo4j description))))
+                                   (when vals
+                                   `(("vals" ,(escape-neo4j vals))))))))))))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))
