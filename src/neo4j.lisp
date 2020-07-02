@@ -702,7 +702,7 @@
          (if (equal (message e) "No such resourcetype")
              (error 'restagraph:integrity-error
                     :message "Requested resource type does not exist")
-             (error 'restagraph:integrity-error
+             (error 'restagraph:client-error
                     :message (message e))))))))
 
 (defmethod update-resource-attributes ((db neo4cl:neo4j-rest-server)
