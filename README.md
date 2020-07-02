@@ -91,7 +91,11 @@ These are directional, and encode whether they can be used to connect a dependen
 
 Objects/resources are defined with the label `rgResource`; their name becomes the label used to create their nodes in the database.
 
-Their attributes are defined as objects with the label `rgAttribute`, linked to the `rgResource` node via the `hasAttribute` relationship. This is partly because it's the best fit with the graph model, and partly because it enables me to add attributes to the attributes later, such as `MIMEtype` or `mandatory`.
+Their attributes are defined as objects with the label `rgAttribute`, linked to the `rgResource` node via the `hasAttribute` relationship. This is partly because it's the best fit with the graph model, and partly because it enables me to add attributes to the attributes later, such as `MIMEtype` or `mandatory`. Attributes themselves have attributes; this is possible because they're implemented as nodes themselves. Currently-defined attribute-attributes:
+
+- `description` - a plain-text description of the attribute. Useful for clarifying its meaning and intended use.
+- `vals` - a comma-separated list of acceptable values for this attribute. Basically turns an attribute into an enumerated type.
+    - note that the separator is _comma_, not comma-space, i.e. "true,false" for a boolean.
 
 *Note:* attribute names must be in lowercase, due to the way this system handles them. I hope to lift this restriction in future.
 
