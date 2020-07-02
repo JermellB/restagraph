@@ -217,6 +217,61 @@
     (restagraph:delete-resourcetype *server* restype)))
 
 (fiveam:test
+  resources-attributes-enums
+  :depends-on 'resources-basic-attributes
+  "Enumerated attributes"
+  (let ((restype "switchport")
+        (uid "eth1")
+        (attr1name "state")
+        (attr1desc "Whether the port is up or down.")
+        (attr1vals '("up" "down"))
+        (attr1valgood "up")
+        (attr1valbad "mal"))
+    ;; Set up the fixtures
+    (restagraph:log-message :info ";TEST Set up the fixtures")
+    ;; Ensure we have this resourcetype
+    (restagraph:add-resourcetype *server* restype)
+    ;; Add an enum attribute
+    (restagraph:log-message :info ";TEST Add enum attribute to the resourcetype")
+    (fiveam:is
+      (restagraph:add-resourcetype-attribute
+        *server*
+        restype
+        :name attr1name
+        :description attr1desc
+        :vals (format nil "~{~A~^,~}" attr1vals)))
+    ;; Check the definition in the schema
+    (restagraph:log-message :info ";TEST Check the schema for the enum attribute")
+    (fiveam:is (equal
+                 `((((:VALS . ,(format nil "~{~A~^,~}" attr1vals))
+                     (:NAME . ,attr1name)
+                     (:DESCRIPTION . ,attr1desc))))
+                 (restagraph:get-resource-attributes-from-db *server* restype)))
+    ;; Make sure the test resource doesn't already exist
+    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" restype uid))
+    ;; Fail to create a resource with an invalid value for the enum
+    (restagraph:log-message :info ";TEST Fail to create a resource with an invalid attribute")
+    (fiveam:signals restagraph:client-error
+      (restagraph:store-resource *server* restype `(("uid" . ,uid) (,attr1name . ,attr1valbad))))
+    ;; Create a resource with a valid value for the enum
+    (restagraph:log-message :info ";TEST Create a resource with a valid attribute")
+    (fiveam:is
+      (restagraph:store-resource *server* restype `(("uid" . ,uid) (,attr1name . ,attr1valgood))))
+    ;; Remove it again
+    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" restype uid))
+    ;; Create it without the attribute
+    (restagraph:store-resource *server* restype `(("uid" . ,uid)))
+    ;; Add the attribute
+    (fiveam:is (restagraph:update-resource-attributes
+                 *server*
+                 (list restype uid)
+                 `((,attr1name . ,attr1valgood))))
+    ;; Remove the fixtures
+    (restagraph:log-message :info ";TEST Remove the fixtures")
+    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" restype uid))
+    (restagraph:delete-resourcetype *server* restype)))
+
+(fiveam:test
   resources-dependent-simple
   :depends-on 'resources-basic
   "Basic operations on dependent resources"
