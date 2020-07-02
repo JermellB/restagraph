@@ -363,36 +363,29 @@
                 (setf (tbnl:content-type*) "text/plain")
                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
                 "At least give me the name of the attribute to add"))
-             ;; It's already there
-             ((resourcetype-attribute-exists-p (datastore tbnl:*acceptor*)
-                                               resourcetype
-                                               attribute)
-              (progn
-                (setf (tbnl:content-type*) "text/plain")
-                (setf (tbnl:return-code*) tbnl:+http-ok+)
-                "OK"))
-             ;; Sanity tests passed; add it
+             ;; Sanity tests passed; set it.
+             ;; Note that if the named attribute already exists, it will be forcibly replaced.
              (t
-               (progn
+               (let ((description (tbnl:post-parameter "description"))
+                     (vals (tbnl:post-parameter "vals")))
                  (log-message :debug (format nil "Adding attribute '~A' to resource type '~A'."
-                                             attribute
-                                             resourcetype))
+                                             attribute resourcetype))
+                 (log-message :debug (format nil "Description: ~A" (if description
+                                                                     description
+                                                                     "Not supplied")))
+                 (log-message :debug (format nil "Enum vals: ~A" (if vals
+                                                                   vals
+                                                                   "Not supplied")))
                  ;; Accumulate the parameters to make for a clean function-call
-                 (let ((attr-details
-                         (append
-                           (list
-                             (datastore tbnl:*acceptor*)
-                             resourcetype
-                             :name attribute)
-                           (when (tbnl:post-parameter "description")
-                             (list `(:description ,(tbnl:post-parameter "description"))))
-                           (when (tbnl:post-parameter "vals")
-                             (list `(:vals ,(tbnl:post-parameter "vals")))))))
-                   (apply #'set-resourcetype-attribute attr-details)
-                   ;; Return something useful
-                   (setf (tbnl:content-type*) "text/plain")
-                   (setf (tbnl:return-code*) tbnl:+http-created+)
-                   "Created"))))))
+                 (set-resourcetype-attribute (datastore tbnl:*acceptor*)
+                                             resourcetype
+                                             :name attribute
+                                             :description description
+                                             :vals vals)
+                 ;; Return something useful
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 "Created")))))
         ;; Delete a resource-type
         ((and
            (equal (tbnl:request-method*) :DELETE)
