@@ -390,28 +390,37 @@
         ((and
            (equal (tbnl:request-method*) :DELETE)
            (equal (third uri-parts) "resourcetype"))
-         (let ((resourcetype (fourth uri-parts)))
-           ;; Remove it
-           (log-message :debug (format nil "Deleting resource type ~A" resourcetype))
-           (delete-resourcetype (datastore tbnl:*acceptor*) resourcetype)
-           ;; Return something useful
-           (setf (tbnl:content-type*) "text/plain")
-           (setf (tbnl:return-code*) tbnl:+http-no-content+)
-           ""))
+         (handler-case
+           (let ((resourcetype (fourth uri-parts)))
+             ;; Remove it
+             (log-message :debug (format nil "Deleting resource type ~A" resourcetype))
+             (delete-resourcetype (datastore tbnl:*acceptor*) resourcetype)
+             ;; Return something useful
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-no-content+)
+             "")
+           (client-error
+             (e)
+             (return-client-error (message e)))))
         ;; Delete an attribute from a resource-type
         ((and
            (equal (tbnl:request-method*) :DELETE)
            (equal (third uri-parts) "attribute"))
-         (let ((resourcetype (fourth uri-parts))
-               (attribute (fifth uri-parts)))
-           ;; Remove it
-           (log-message :debug (format nil "Deleting attribute '~A' from resource type '~A'"
-                                       attribute resourcetype))
-           (delete-resourcetype-attribute (datastore tbnl:*acceptor*) resourcetype attribute)
-           ;; Return something useful
-           (setf (tbnl:content-type*) "text/plain")
-           (setf (tbnl:return-code*) tbnl:+http-no-content+)
-           ""))
+         (handler-case
+           (let ((resourcetype (fourth uri-parts))
+                 (attribute (fifth uri-parts)))
+             ;; Remove it
+             (log-message :debug (format nil "Deleting attribute '~A' from resource type '~A'"
+                                         attribute resourcetype))
+             (delete-resourcetype-attribute (datastore tbnl:*acceptor*) resourcetype attribute)
+             ;; Return something useful
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-no-content+)
+             "")
+           ;; If it breaks, pass the bad news back to the client.
+           (client-error
+             (e)
+             (return-client-error (message e)))))
         ;; Add a relationship
         ((and
            (equal (tbnl:request-method*) :POST)
