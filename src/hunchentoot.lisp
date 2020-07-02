@@ -265,20 +265,20 @@
   (handler-case
     (let ((uri-parts (get-uri-parts
                        (get-sub-uri (tbnl:request-uri*)
-                                    (getf *config-vars* :api-uri-base)))))
-      (log-message :debug "Handling schema request ~{/~A~}" uri-parts)
+                                    (getf *config-vars* :schema-uri-base)))))
+      (log-message :debug "Handling schema ~A request ~{/~A~}" (tbnl:request-method*) uri-parts)
       (cond
         ;; Get the description of a single resource-type
         ((and
            (equal (tbnl:request-method*) :GET)
-           (third uri-parts))
+           (first uri-parts))
          (progn
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-alist-to-string
              (describe-resource-type
                (datastore tbnl:*acceptor*)
-               (third uri-parts)))))
+               (first uri-parts)))))
         ;; Get a description of the whole schema for the GraphQL engine
         ((and
            (equal (tbnl:request-method*) :GET)
@@ -304,8 +304,8 @@
         ;; Add a resource-type
         ((and
            (equal (tbnl:request-method*) :POST)
-           (equal (third uri-parts) "resourcetype"))
-         (let ((resourcetype (fourth uri-parts)))
+           (equal (first uri-parts) "resourcetype"))
+         (let ((resourcetype (second uri-parts)))
            (cond
              ;; Sanity-check: was the resource-type supplied as a non-empty string?
              ((or
@@ -341,9 +341,10 @@
         ;; Add an attribute to a resource-type
         ((and
            (equal (tbnl:request-method*) :POST)
-           (equal (third uri-parts) "attribute"))
-         (let ((resourcetype (fourth uri-parts))
-               (attribute (fifth uri-parts)))
+           (equal (length uri-parts) 3)
+           (equal (first uri-parts) "attribute"))
+         (let ((resourcetype (second uri-parts))
+               (attribute (third uri-parts)))
            (cond
              ;; Missing/nil resourcetype parameter.
              ;; If it's invalid, set-resourcetype-attribute will catch it.
@@ -389,9 +390,9 @@
         ;; Delete a resource-type
         ((and
            (equal (tbnl:request-method*) :DELETE)
-           (equal (third uri-parts) "resourcetype"))
+           (equal (first uri-parts) "resourcetype"))
          (handler-case
-           (let ((resourcetype (fourth uri-parts)))
+           (let ((resourcetype (second uri-parts)))
              ;; Remove it
              (log-message :debug (format nil "Deleting resource type ~A" resourcetype))
              (delete-resourcetype (datastore tbnl:*acceptor*) resourcetype)
@@ -405,10 +406,10 @@
         ;; Delete an attribute from a resource-type
         ((and
            (equal (tbnl:request-method*) :DELETE)
-           (equal (third uri-parts) "attribute"))
+           (equal (first uri-parts) "attribute"))
          (handler-case
-           (let ((resourcetype (fourth uri-parts))
-                 (attribute (fifth uri-parts)))
+           (let ((resourcetype (second uri-parts))
+                 (attribute (third uri-parts)))
              ;; Remove it
              (log-message :debug (format nil "Deleting attribute '~A' from resource type '~A'"
                                          attribute resourcetype))
@@ -424,10 +425,10 @@
         ;; Add a relationship
         ((and
            (equal (tbnl:request-method*) :POST)
-           (equal (third uri-parts) "relationships"))
-         (let ((source-type (fourth uri-parts))
-               (relationship (fifth uri-parts))
-               (destination-type (sixth uri-parts)))
+           (equal (first uri-parts) "relationships"))
+         (let ((source-type (second uri-parts))
+               (relationship (third uri-parts))
+               (destination-type (fourth uri-parts)))
            ;; Sanity test
            (if (and
                  source-type
@@ -463,10 +464,10 @@
         ;; Delete a relationship
         ((and
            (equal (tbnl:request-method*) :DELETE)
-           (equal (third uri-parts) "relationships"))
-         (let ((source-type (fourth uri-parts))
-               (relationship (fifth uri-parts))
-               (destination-type (sixth uri-parts)))
+           (equal (first uri-parts) "relationships"))
+         (let ((source-type (second uri-parts))
+               (relationship (third uri-parts))
+               (destination-type (fourth uri-parts)))
            ;; Delete it
            (log-message :debug
                         (format nil "Deleting relationship ~A from ~A to ~A"
@@ -689,7 +690,6 @@
         ;; Resource attributes
         ((and
            (equal (tbnl:request-method*) :PUT)
-           (> (length uri-parts) 0)
            (equal (mod (length uri-parts) 3) 2))
          (handler-case
            (progn
