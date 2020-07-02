@@ -387,7 +387,9 @@
                              resourcetype
                              :name attribute)
                            (when (tbnl:post-parameter "description")
-                             (list `(:description ,(tbnl:post-parameter "description")))))))
+                             (list `(:description ,(tbnl:post-parameter "description"))))
+                           (when (tbnl:post-parameter "vals")
+                             (list `(:vals ,(tbnl:post-parameter "vals")))))))
                    (apply #'set-resourcetype-attribute attr-details)
                    ;; Return something useful
                    (setf (tbnl:content-type*) "text/plain")
