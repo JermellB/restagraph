@@ -304,7 +304,10 @@
         (:ATTRIBUTES
           . ,(sort
                (mapcar
-                 #'(lambda (s) (cdr (assoc :name (car s))))
+                 #'(lambda (s)
+                     `(("name" . ,(cdr (assoc :name (car s))))
+                       ("description" . ,(cdr (assoc :description (car s))))
+                       ("vals" . ,(cdr (assoc :vals (car s))))))
                  (neo4cl:extract-rows-from-get-request
                    (neo4cl:neo4j-transaction
                      db
@@ -314,11 +317,11 @@
                                        (sanitise-uid resourcetype)))))))))
                #'string-lessp))
         (:DEPENDENT . ,(if (assoc :DEPENDENT node)
-                           "true"
-                           "false"))
+                         "true"
+                         "false"))
         (:NOTES . ,(if (cdr (assoc :NOTES node))
-                       (cdr (assoc :NOTES node))
-                       ""))
+                     (cdr (assoc :NOTES node))
+                     ""))
         (:RELATIONSHIPS . ,(mapcar #'(lambda (rel)
                                        (log-message :debug "Retrieving description for linked resourcetype '~A'" (cdr rel))
                                        ;; Return an alist of the values, ready for rendering into Javascript
