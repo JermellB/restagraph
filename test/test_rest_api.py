@@ -365,16 +365,20 @@ class TestDependentResources(unittest.TestCase):
     result = None
     def test_create_and_delete_a_single_dependent_resource(self):
         print('Test: test_create_and_delete_a_single_dependent_resource')
-        print('Test: create the fixtures')
+        print('Test: create the fixtures...')
+        print('Test: create the primary resourcetype')
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
+        print('Test: create the dependent resourcetype')
         requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
                       data={'dependent': 'true'})
+        print('Test: create the relationship between the resourcetypes')
         requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
                                                      self.res1type,
                                                      self.relationship1,
                                                      self.depres1type),
                       data={'dependent': 'true'})
         # Create the parent resource
+        print('Test: create the parent resource')
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
                                        data={'uid': self.res1uid}).status_code,
                          201)
