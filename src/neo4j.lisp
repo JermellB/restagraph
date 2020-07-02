@@ -219,7 +219,7 @@
                                    resourcetype name)))
     ;; Looks OK; go ahead.
     (t
-     (log-message :debug "Was requested to delete attribute '~A' from resourcetype '~A'"
+     (log-message :debug "Deleting attribute '~A' from resourcetype '~A'"
                   name resourcetype)
      (neo4cl:neo4j-transaction
        db
