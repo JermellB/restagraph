@@ -185,7 +185,7 @@
                                                  (gethash "description" attrdetails)))
                                              (list :description
                                                    (gethash "description" attrdetails))))))
-                                   (apply #'add-resourcetype-attribute attribute)))
+                                   (apply #'set-resourcetype-attribute attribute)))
                              (gethash "attributes" value))))
               (gethash "resourcetypes" schema)))
           ;; Update relationships between resourcetypes

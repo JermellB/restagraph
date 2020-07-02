@@ -114,7 +114,7 @@
       ;; Return a uniform response, either way.
       t)))
 
-(defmethod add-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
+(defmethod set-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
                                        (resourcetype string)
                                        &key name description vals)
   (declare (type (string) name)
@@ -130,9 +130,6 @@
     ((not (and name
                (stringp name)))
      (signal 'client-error :message "The 'name' attribute is mandatory."))
-    ;; Has this attribute already been added?
-    ((resourcetype-attribute-exists-p db (sanitise-uid resourcetype) (sanitise-uid name))
-     t)
     ;; If a description was supplied, is it a string?
     ;; This should be covered by the type declarations
     ((and description
@@ -142,7 +139,21 @@
     (t
      (log-message :debug (format nil "Attempting to add to resourcetype '~A' an attribute called '~A', with description '~A'."
                                  resourcetype name (if description description "")))
-     ;; Now that we have all the attributes, proceed with creation
+     ;; Now that we have all the attributes, proceed.
+     ;; If the attribute already exists, remove it.
+     (when (resourcetype-attribute-exists-p
+             db
+             (sanitise-uid resourcetype)
+             (sanitise-uid name))
+       (progn
+         (log-message :info (format nil "Attribute ~A is already present. Deleting it." name)))
+       (delete-resourcetype-attribute
+         db
+         (sanitise-uid resourcetype)
+         (sanitise-uid name)))
+     ;; Create the attribute
+     (log-message :info
+                  (format nil "Adding attribute ~A to resourcetype ~A" name resourcetype))
      (neo4cl:neo4j-transaction
        db
        `((:STATEMENTS
@@ -153,7 +164,7 @@
                          (append `(("name" ,(sanitise-uid name)))
                                  (when description
                                    `(("description" ,(escape-neo4j description))))
-                                   (when vals
+                                 (when vals
                                    `(("vals" ,(escape-neo4j vals))))))))))))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)

@@ -17,8 +17,9 @@
 (defgeneric resourcetype-relationship-exists-p (db source relationship dest)
   (:documentation "Verify whether a specific relationship is present. Return a boolean."))
 
-(defgeneric add-resourcetype-attribute (db resourcetype &key name description)
-  (:documentation "Add an attribute to an existing resourcetype"))
+(defgeneric set-resourcetype-attribute (db resourcetype &key name description)
+  (:documentation "Ensure the state of an attribute to an existing resourcetype.
+                  If one already exists, it will be deleted and then re-created according to the new definition."))
 
 (defgeneric resourcetype-attribute-exists-p (db resourcetype attribute)
   (:documentation "Verify whether we have a definition for a resourcetype attribute by this name"))

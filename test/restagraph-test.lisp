@@ -148,7 +148,7 @@
                       `((,attr1name . ,attr1val))))
     ;; Add the attribute to the resourcetype
     (restagraph:log-message :info ";TEST Add an attribute to the resourcetype")
-    (fiveam:is (restagraph:add-resourcetype-attribute
+    (fiveam:is (restagraph:set-resourcetype-attribute
                  *server*
                  restype
                  :name attr1name
@@ -186,7 +186,7 @@
       (fiveam:is (equal uid
                         (cdr (assoc :ORIGINAL--UID result)))))
     ;; Add another attribute to the resourcetype
-    (fiveam:is (restagraph:add-resourcetype-attribute
+    (fiveam:is (restagraph:set-resourcetype-attribute
                  *server*
                  restype
                  :name attr2name
@@ -234,7 +234,7 @@
     ;; Add an enum attribute
     (restagraph:log-message :info ";TEST Add enum attribute to the resourcetype")
     (fiveam:is
-      (restagraph:add-resourcetype-attribute
+      (restagraph:set-resourcetype-attribute
         *server*
         restype
         :name attr1name

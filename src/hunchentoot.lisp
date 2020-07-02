@@ -348,7 +348,7 @@
                (attribute (fifth uri-parts)))
            (cond
              ;; Missing/nil resourcetype parameter.
-             ;; If it's invalid, add-resourcetype-attribute will catch it.
+             ;; If it's invalid, set-resourcetype-attribute will catch it.
              ((or
                 (equal resourcetype "")
                 (equal resourcetype "NIL"))
@@ -357,7 +357,7 @@
                 (setf (tbnl:return-code*) tbnl:+http-bad-request+)
                 "At least give me the name of the resourcetype to modify"))
              ;; Missing/nil attribute parameter.
-             ;; If it's invalid, add-resourcetype-attribute will catch it.
+             ;; If it's invalid, set-resourcetype-attribute will catch it.
              ((or
                 (equal attribute "")
                 (equal attribute "NIL"))
@@ -388,7 +388,7 @@
                              :name attribute)
                            (when (tbnl:post-parameter "description")
                              (list `(:description ,(tbnl:post-parameter "description")))))))
-                   (apply #'add-resourcetype-attribute attr-details)
+                   (apply #'set-resourcetype-attribute attr-details)
                    ;; Return something useful
                    (setf (tbnl:content-type*) "text/plain")
                    (setf (tbnl:return-code*) tbnl:+http-created+)
