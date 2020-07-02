@@ -226,7 +226,7 @@
      (log-message :debug
                   (format nil "Can't delete nonexistent attribute '~A' from resourcetype '~A'"
                           name resourcetype))
-     (signal 'client-error (format nil "Resourcetype '~A' has no attribute with name '~A'"
+     (signal 'client-error :message (format nil "Resourcetype '~A' has no attribute with name '~A'"
                                    resourcetype name)))
     ;; Looks OK; go ahead.
     (t
