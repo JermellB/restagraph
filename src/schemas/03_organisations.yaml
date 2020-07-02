@@ -1,5 +1,5 @@
 name: organisations
-version: 1
+version: 2
 
 resourcetypes:
   brands:
@@ -9,6 +9,10 @@ resourcetypes:
         description: Comments about this particular brand.
   models:
     dependent: 'true'
+    attributes:
+      status:
+        description: Where this product is in its lifecycle
+        vals: "Rumoured,Announced,Cancelled,Current,Past"
   organisations:
     attributes:
       comments:
