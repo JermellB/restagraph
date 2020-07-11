@@ -16,6 +16,7 @@
     :dbusername "neo4j"
     :dbpasswd "wallaby"
     :api-uri-base "/raw/v1"
-    :schema-uri-base "/schema/v1"))
+    :schema-uri-base "/schema/v1"
+    :files-uri-base "/files/v1"))
 
 (setf *loglevel* :info)

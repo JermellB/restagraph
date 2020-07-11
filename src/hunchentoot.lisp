@@ -797,6 +797,10 @@
     ;; Service errors, e.g. connection refused
     (neo4cl:service-error (e) (return-service-error (neo4cl:message e)))))
 
+(defun files-dispatcher-v1 ()
+  "Files API handler, API version 1.")
+
+
 
 ;; Appserver startup/shutdown
 
@@ -950,7 +954,9 @@
               (list (tbnl:create-prefix-dispatcher
                       (getf *config-vars* :api-uri-base) 'api-dispatcher-v1)
                     (tbnl:create-prefix-dispatcher
-                      (getf *config-vars* :schema-uri-base) 'schema-dispatcher-v1))
+                      (getf *config-vars* :schema-uri-base) 'schema-dispatcher-v1)
+                      (tbnl:create-prefix-dispatcher
+                      (getf *config-vars* :files-uri-base) 'files-dispatcher-v1))
               ;; Include the additional dispatchers here
               dispatchers
               ;; Default fallback
