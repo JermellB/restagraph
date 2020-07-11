@@ -586,7 +586,7 @@
                                  (tbnl:post-parameters*))
                  ;; Return it from the database, for confirmation
                  (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
-                 (setf (tbnl:content-type*) "application/json")
+                 (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-created+)
                  ;; Return the URI to the newly-created resource
                  (format nil "/~A/~A" resourcetype
