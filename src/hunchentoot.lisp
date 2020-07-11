@@ -184,6 +184,19 @@
                          all-resourcetype-names)))))
 
 
+(defun hash-file (filepath &optional (digest 'ironclad:sha3/256))
+  "Return the hash-digest of a file, as a string."
+  (declare (type pathname filepath))
+  (log-message :debug (format nil "Producing a hash digest of file '~A'" filepath))
+  ;; Convert the digest back into a string
+  (format nil "~{~2,'0X~}"
+          (loop for b across
+                ;; Digest the file
+                (with-open-file (filestream filepath :element-type '(unsigned-byte 8))
+                  (ironclad:digest-stream digest filestream))
+                ;; Accumulator for the string to return
+                collecting b)))
+
 ;; Error response functions
 
 (defun four-oh-four ()
