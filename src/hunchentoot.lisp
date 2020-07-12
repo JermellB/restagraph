@@ -18,10 +18,7 @@
   ((datastore :initarg :datastore
               :reader datastore
               :initform (error "Datastore object must be supplied.")
-              :documentation "An object representing the datastore, on which the generic functions will be dispatched.")
-   (url-base :initarg :url-base
-             :reader url-base
-             :initform "localhost"))
+              :documentation "An object representing the datastore, on which the generic functions will be dispatched."))
   ;; Class defaults
   (:default-initargs :address "127.0.0.1")
   (:documentation "vhost object, subclassed from tbnl:easy-acceptor"))
@@ -783,7 +780,7 @@
                  :port (or (when (sb-ext:posix-getenv "LISTEN_PORT")
                              (parse-integer (sb-ext:posix-getenv "LISTEN_PORT")))
                            (getf *config-vars* :listen-port))
-                 :url-base (getf *config-vars* ::url-base)
+                 :files-location (getf *config-vars* :files-location)
                  ;; Send all logs to STDOUT, and let Docker sort 'em out
                  :access-log-destination (make-synonym-stream 'cl:*standard-output*)
                  :message-log-destination (make-synonym-stream 'cl:*standard-output*)
