@@ -18,7 +18,10 @@
   ((datastore :initarg :datastore
               :reader datastore
               :initform (error "Datastore object must be supplied.")
-              :documentation "An object representing the datastore, on which the generic functions will be dispatched."))
+              :documentation "An object representing the datastore, on which the generic functions will be dispatched.")
+   (files-location :initarg :files-location
+                   :reader files-location
+                   :initform (error "files-location is required")))
   ;; Class defaults
   (:default-initargs :address "127.0.0.1")
   (:documentation "vhost object, subclassed from tbnl:easy-acceptor"))
@@ -182,7 +185,6 @@
                                      '("any" "rgSchemas" "rgSchemaVersions")
                                      :test #'equal))
                          all-resourcetype-names)))))
-
 
 (defun hash-file (filepath &optional (digest 'ironclad:sha3/256))
   "Return the hash-digest of a file, as a string."
@@ -798,7 +800,77 @@
     (neo4cl:service-error (e) (return-service-error (neo4cl:message e)))))
 
 (defun files-dispatcher-v1 ()
-  "Files API handler, API version 1.")
+  "Files API handler, API version 1."
+  (cond
+    ;; Client uploads a file
+    ((and
+       (equal (tbnl:request-method*) :POST)
+       (equal (tbnl:content-type*) "multipart/form-data"))
+     (let* ((requested-filename (tbnl:post-parameter "name"))
+            ;; File-details should be a three-element list: (path file-name content-type)
+            ;; Where do we store these, anyway?
+            ;; "path is a pathname denoting the place were the uploaded file was stored, file-name
+            ;; (a string) is the file name sent by the browser, and content-type (also a string) is
+            ;; the content type sent by the browser. The file denoted by path will be deleted after
+            ;; the request has been handled - you have to move or copy it somewhere else if you want
+            ;; to keep it."
+            ;; Get the filepath of the uploaded file
+            (filepath-temp (first (tbnl:post-parameter "file")))
+            ;; Get the checksum of the file
+            (checksum (hash-file filepath-temp))
+            (filepath-target-parts (digest-to-filepath (files-location tbnl:*acceptor*) checksum))
+            (filepath-target (concatenate 'string (car filepath-target-parts)
+                                          "/"
+                                          (cdr filepath-target-parts))))
+       ;; Does a file of this name already exist?
+       (if (get-resources (datastore tbnl:*acceptor*)
+                          (format nil "/files/~A" (sanitise-uid requested-filename)))
+           ;; If it already exists, bail out now.
+           (progn
+             (log-message :error)
+             ;; Return client-error message indicating name collision
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-conflict+)
+             "Filename already exists")
+           ;; Name isn't already taken; rock on.
+           (progn
+             ;; Now we need to store the file's metadata,
+             (log-message :debug "Storing file metadata: name = '~A', checksum = '~A'"
+                          requested-filename checksum)
+             (store-resource (datastore tbnl:*acceptor*)
+                             "files"
+                             `((uid . ,(sanitise-uid requested-filename))))
+             ;; then if that succeeds move it to its new location.
+             ;; Check whether this file already exists by another name
+             (if (probe-file filepath-target)
+                 ;; If it does, don't bother overwriting it.
+                 (log-message :debug "File ~A already exists. Not overwriting it with a duplicate.")
+                 ;; If it doesn't, move it now.
+                 (progn
+                   (log-message :debug "Moving received file '~A' to storage location '~A'"
+                                filepath-temp filepath-target)
+                   ;; Ensure the destination path actually exists
+                   (ensure-directories-exist (car filepath-target-parts))
+                   ;; Now move the file.
+                   (rename-file filepath-temp filepath-target)))
+             ;; If the location-move fails, we should probably remove the metadata and tell the client.
+             ;;
+             ;; Now return success to the client
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-created+)
+             (concatenate 'string "/files/" (sanitise-uid requested-filename))))))
+    ;; Client requests a file
+    ((equal (tbnl:request-method*) :GET)
+     ())
+    ;;
+    ;; Methods we don't support.
+    ;; Take the whitelist approach
+    ((not (member (tbnl:request-method*) '(:POST :GET :PUT :DELETE)))
+     (method-not-allowed))
+    ;; Handle all other cases
+    (t
+      (log-message :warn "Bad request received with URI: ~A" (tbnl:request-uri*))
+      (return-client-error "This wasn't a valid request"))))
 
 
 
@@ -961,6 +1033,8 @@
               dispatchers
               ;; Default fallback
               (list (tbnl:create-prefix-dispatcher "/" 'four-oh-four))))
+      ;; Prepare for file upload
+      (setf tbnl:*tmp-directory* (getf *config-vars* :files-temp-location))
       ;; Start up the server
       (log-message :info "Starting up Hunchentoot to serve HTTP requests")
       (handler-case
