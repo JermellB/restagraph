@@ -19,6 +19,15 @@
               :reader datastore
               :initform (error "Datastore object must be supplied.")
               :documentation "An object representing the datastore, on which the generic functions will be dispatched.")
+   (uri-base-api :initarg :uri-base-api
+                 :reader uri-base-api
+                 :initform (error "uri-base-api is required"))
+   (uri-base-schema :initarg :uri-base-schema
+                    :reader uri-base-schema
+                    :initform (error "uri-base-schema is required"))
+   (uri-base-files :initarg :uri-base-files
+                   :reader uri-base-files
+                   :initform (error "uri-base-files is required"))
    (files-location :initarg :files-location
                    :reader files-location
                    :initform (error "files-location is required")))
@@ -291,7 +300,7 @@
   (handler-case
     (let ((uri-parts (get-uri-parts
                        (get-sub-uri (tbnl:request-uri*)
-                                    (getf *config-vars* :schema-uri-base)))))
+                                    (uri-base-schema tbnl:*acceptor*)))))
       (log-message :debug "Handling schema ~A request ~{/~A~}" (tbnl:request-method*) uri-parts)
       (cond
         ;; Get the description of a single resource-type
@@ -530,7 +539,7 @@
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
   (handler-case
-    (let* ((sub-uri (get-sub-uri (tbnl:request-uri*) (getf *config-vars* :api-uri-base)))
+    (let* ((sub-uri (get-sub-uri (tbnl:request-uri*) (uri-base-api tbnl:*acceptor*)))
            (uri-parts (get-uri-parts sub-uri)))
       (log-message :debug "Handling request ~{~A~} " uri-parts)
       (cond
@@ -883,7 +892,18 @@
                  :port (or (when (sb-ext:posix-getenv "LISTEN_PORT")
                              (parse-integer (sb-ext:posix-getenv "LISTEN_PORT")))
                            (getf *config-vars* :listen-port))
-                 :files-location (getf *config-vars* :files-location)
+                 :uri-base-api (or (when (sb-ext:posix-getenv "API_URI_BASE")
+                                     (parse-integer (sb-ext:posix-getenv "API_URI_BASE")))
+                                   (getf *config-vars* :api-uri-base))
+                 :uri-base-schema (or (when (sb-ext:posix-getenv "SCHEMA_URI_BASE")
+                                        (parse-integer (sb-ext:posix-getenv "SCHEMA_URI_BASE")))
+                                      (getf *config-vars* :schema-uri-base))
+                 :uri-base-files (or (when (sb-ext:posix-getenv "FILES_URI_BASE")
+                                       (parse-integer (sb-ext:posix-getenv "FILES_URI_BASE")))
+                                     (getf *config-vars* :files-uri-base))
+                 :files-location (or (when (sb-ext:posix-getenv "FILES_LOCATION")
+                                       (parse-integer (sb-ext:posix-getenv "FILES_LOCATION")))
+                                     (getf *config-vars* :files-location))
                  ;; Send all logs to STDOUT, and let Docker sort 'em out
                  :access-log-destination (make-synonym-stream 'cl:*standard-output*)
                  :message-log-destination (make-synonym-stream 'cl:*standard-output*)
@@ -895,7 +915,7 @@
                               :port (or (sb-ext:posix-getenv "NEO4J_PORT")
                                         (getf *config-vars* :dbport))
                               :dbname (or (sb-ext:posix-getenv "NEO4J_DBNAME")
-                                        (getf *config-vars* :dbname))
+                                          (getf *config-vars* :dbname))
                               :dbuser (or (sb-ext:posix-getenv "NEO4J_USER")
                                           (getf *config-vars* :dbusername))
                               :dbpasswd (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
@@ -1031,11 +1051,11 @@
               (append
                 ;; Restagraph defaults
                 (list (tbnl:create-prefix-dispatcher
-                        (getf *config-vars* :api-uri-base) 'api-dispatcher-v1)
+                        (uri-base-api acceptor) 'api-dispatcher-v1)
                       (tbnl:create-prefix-dispatcher
-                        (getf *config-vars* :schema-uri-base) 'schema-dispatcher-v1)
+                        (uri-base-schema acceptor) 'schema-dispatcher-v1)
                       (tbnl:create-prefix-dispatcher
-                        (getf *config-vars* :files-uri-base) 'files-dispatcher-v1))
+                        (uri-base-files acceptor) 'files-dispatcher-v1))
                 ;; Include the additional dispatchers here
                 dispatchers
                 ;; Default fallback
