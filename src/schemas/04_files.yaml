@@ -1,0 +1,36 @@
+name: files
+version: 1
+
+resourcetypes:
+  files:
+    notes: "Files uploaded by users."
+    attributes:
+      title:
+        description: "The UID requested by the client."
+      originalname:
+        description: "The filename sent by the browser."
+      notes:
+        description: "Notes about this file."
+      mimetype:
+        description: "The detected mime-type of the file."
+      sha3256sum:
+        description: "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."
+      size:
+        description: "The size of the file."
+  thumbnails:
+    notes: "Thumbnail image of uploaded file"
+    attributes:
+      width:
+        description: "Width of the image, in pixels"
+      height:
+        description: "height of the image, in pixels"
+      sha3256sum:
+        description: "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."
+
+relationships:
+- uri: /people/Uploaded/files
+  cardinality: many:1
+- uri: /people/Owner/files
+  cardinality: many:1
+- uri: /files/Thumbnail/thumbnails
+  cardinality: 1:many
