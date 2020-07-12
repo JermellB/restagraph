@@ -197,6 +197,20 @@
                 ;; Accumulator for the string to return
                 collecting b)))
 
+(defun digest-to-filepath (basedir digest)
+  "Take a 64-bit digest string and the basedir, and return the target path to the file
+   as a cons of two strings: the directory path and the filename"
+  (declare (string basedir)
+           (type string digest))
+  (log-message :debug (format nil "Generating a filepath from base-dir '~A' and digest '~A'" basedir digest))
+  (cons (format nil "~A/~A/~A/~A/"
+                basedir
+                (subseq digest 0 2)
+                (subseq digest 2 4)
+                (subseq digest 4 6))
+        (subseq digest 6)))
+
+
 ;; Error response functions
 
 (defun four-oh-four ()
