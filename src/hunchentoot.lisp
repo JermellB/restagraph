@@ -854,7 +854,7 @@
              (store-resource (datastore tbnl:*acceptor*)
                              "files"
                              `(("uid" . ,(sanitise-uid requested-filename))
-                               ("title" . requested-filename)
+                               ("title" . ,requested-filename)
                                ("sha3256sum" . ,checksum)
                                ("originalname" . ,(second (tbnl:post-parameter "file")))))
              ;; then if that succeeds move it to its new location.
