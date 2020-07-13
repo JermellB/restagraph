@@ -810,11 +810,16 @@
 
 (defun files-dispatcher-v1 ()
   "Files API handler, API version 1."
+  (log-message :debug "Handling files request")
+  (log-message :debug (format nil "Handling files '~A' request with content-type '~A'"
+                              (tbnl:request-method*) (tbnl:content-type*)))
   (cond
     ;; Client uploads a file
-    ((and
-       (equal (tbnl:request-method*) :POST)
-       (equal (tbnl:content-type*) "multipart/form-data"))
+    ((equal (tbnl:request-method*) :POST)
+     (log-message :debug (format nil "Requested filename: ~A" (or (tbnl:post-parameter "name") "<not specified>")))
+     (log-message :debug (format nil "Temporary filepath: ~A" (first (tbnl:post-parameter "file"))))
+     (log-message :debug (format nil "Original filename: ~A" (second (tbnl:post-parameter "file"))))
+     (log-message :debug (format nil "Reported content-type: ~A" (third (tbnl:post-parameter "file"))))
      (let* ((requested-filename (tbnl:post-parameter "name"))
             ;; File-details should be a three-element list: (path file-name content-type)
             ;; Where do we store these, anyway?
@@ -832,11 +837,12 @@
                                           "/"
                                           (cdr filepath-target-parts))))
        ;; Does a file of this name already exist?
+       (log-message :debug (format nil "Checking for an existing file by name '~A'" requested-filename))
        (if (get-resources (datastore tbnl:*acceptor*)
                           (format nil "/files/~A" (sanitise-uid requested-filename)))
            ;; If it already exists, bail out now.
            (progn
-             (log-message :error)
+             (log-message :error "File already exists")
              ;; Return client-error message indicating name collision
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-conflict+)
@@ -851,16 +857,26 @@
                              `((uid . ,(sanitise-uid requested-filename))))
              ;; then if that succeeds move it to its new location.
              ;; Check whether this file already exists by another name
+             (log-message :debug "Moving the file to its new home.")
+             (log-message :debug (format nil "New home: '~A'" filepath-target))
              (if (probe-file filepath-target)
                  ;; If it does, don't bother overwriting it.
-                 (log-message :debug "File ~A already exists. Not overwriting it with a duplicate.")
+                 (log-message :debug
+                              (format nil "File ~A already exists. Not overwriting it with a duplicate."
+                                      filepath-target))
                  ;; If it doesn't, move it now.
                  (progn
-                   (log-message :debug "Moving received file '~A' to storage location '~A'"
-                                filepath-temp filepath-target)
+                   (log-message :debug
+                                (format nil "Moving received file '~A' to storage location '~A'"
+                                        filepath-temp filepath-target))
                    ;; Ensure the destination path actually exists
+                   (log-message :debug (format nil "Ensuring existence of target directory '~A'"
+                                               (car filepath-target-parts)))
                    (ensure-directories-exist (car filepath-target-parts))
                    ;; Now move the file.
+                   (log-message :debug
+                                (format nil "Actually moving received file '~A' to storage location '~A'"
+                                        filepath-temp filepath-target))
                    (rename-file filepath-temp filepath-target)))
              ;; If the location-move fails, we should probably remove the metadata and tell the client.
              ;;
