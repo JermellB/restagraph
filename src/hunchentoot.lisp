@@ -865,7 +865,7 @@
     ;;
     ;; Methods we don't support.
     ;; Take the whitelist approach
-    ((not (member (tbnl:request-method*) '(:POST :GET :PUT :DELETE)))
+    ((not (member (tbnl:request-method*) '(:POST :GET :DELETE)))
      (method-not-allowed))
     ;; Handle all other cases
     (t
