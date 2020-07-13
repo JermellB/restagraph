@@ -888,7 +888,38 @@
              (concatenate 'string "/files/" (sanitise-uid requested-filename))))))
     ;; Client requests a file
     ((equal (tbnl:request-method*) :GET)
-     ())
+     (log-message :debug
+                  (format nil "Dispatching GET request for URI ~A"
+                          (tbnl:request-uri*)))
+     (let* ((filename (first (get-uri-parts
+                               (get-sub-uri (tbnl:request-uri*)
+                                            (uri-base-files tbnl:*acceptor*)))))
+            ;; Do it separately because we use it again later in this function.
+            ;; Get the search result
+            (result (get-resources (datastore tbnl:*acceptor*)
+                                   (format nil "/files/~A" filename)
+                                   :directional nil
+                                   :filters nil)))
+       (log-message :debug (format nil "Retrieved resource details ~A" result))
+       ;; Return the file to the client if it's present
+       (cond
+         ((not (null result))
+          (let* ((source-path-parts (digest-to-filepath
+                                      (files-location tbnl:*acceptor*)
+                                      (cdr (assoc :sha-3256-sum result))))
+                 (source-path (concatenate 'string (car source-path-parts) (cdr source-path-parts))))
+            (log-message :debug (format nil "Returning the file from source-path '~A'"
+                                        source-path))
+            (tbnl:handle-static-file
+              source-path
+              ;; Specify the mime-type
+              (cdr (assoc :mime-type result)))))
+         ;; Fallthrough for not finding the file
+         (t
+          (log-message :debug "Null result returned")
+          (setf (tbnl:content-type*) "text/plain")
+          (setf (tbnl:return-code*) tbnl:+http-not-found+)
+          "File not found"))))
     ;;
     ;; Methods we don't support.
     ;; Take the whitelist approach
