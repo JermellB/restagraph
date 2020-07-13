@@ -963,10 +963,12 @@
            (type (or null string) schemapath))
   (log-message :info "Attempting to start up the restagraph application server")
   ;; Sanity-check: do we have a storage directory?
-  (ensure-directories-exist (getf *config-vars* :files-location))
-  (unless (probe-file (getf *config-vars* :files-location))
-    (error (format nil "File storage location ~A does not exist!"
-                   (getf *config-vars* :files-location))))
+  (let ((files-location (or (when (sb-ext:posix-getenv "FILES_LOCATION")
+                              (parse-integer (sb-ext:posix-getenv "FILES_LOCATION")))
+                            (getf *config-vars* :files-location))))
+    (ensure-directories-exist files-location)
+    (unless (probe-file files-location)
+      (error (format nil "File storage location ~A does not exist!" files-location))))
   ;; Sanity-check: is an acceptor already running?
   ;;; We can't directly check whether this acceptor is running,
   ;;; so we're using the existence of its special variable as a proxy.
