@@ -901,7 +901,7 @@
        (let ((query (format nil "MATCH ~A RETURN n"
                             (uri-node-helper uri-parts
                                              :path ""
-                                             :marker"n"
+                                             :marker "n"
                                              :directional directional))))
          (log-message :debug (concatenate 'string "Querying database: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))
