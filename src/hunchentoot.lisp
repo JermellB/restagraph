@@ -834,7 +834,6 @@
             (checksum (hash-file filepath-temp))
             (filepath-target-parts (digest-to-filepath (files-location tbnl:*acceptor*) checksum))
             (filepath-target (concatenate 'string (car filepath-target-parts)
-                                          "/"
                                           (cdr filepath-target-parts))))
        ;; Does a file of this name already exist?
        (log-message :debug (format nil "Checking for an existing file by name '~A'" requested-filename))
