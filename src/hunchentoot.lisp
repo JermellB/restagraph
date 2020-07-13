@@ -906,7 +906,7 @@
          ((not (null result))
           (let* ((source-path-parts (digest-to-filepath
                                       (files-location tbnl:*acceptor*)
-                                      (cdr (assoc :sha-3256-sum result))))
+                                      (cdr (assoc :sha3256sum result))))
                  (source-path (concatenate 'string (car source-path-parts) (cdr source-path-parts))))
             (log-message :debug (format nil "Returning the file from source-path '~A'"
                                         source-path))
@@ -1031,6 +1031,8 @@
   (declare (type (boolean) docker)
            (type (or null string) schemapath))
   (log-message :info "Attempting to start up the restagraph application server")
+  ;; Control the decoding of JSON identifiers
+  (setf JSON:*JSON-IDENTIFIER-NAME-TO-LISP* 'common-lisp:string-upcase)
   ;; Sanity-check: do we have a storage directory?
   (let ((files-location (or (when (sb-ext:posix-getenv "FILES_LOCATION")
                               (parse-integer (sb-ext:posix-getenv "FILES_LOCATION")))
