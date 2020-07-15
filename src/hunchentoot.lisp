@@ -224,11 +224,14 @@
 
 ;; Error response functions
 
-(defun four-oh-four ()
-  "Fallthrough handler, for anything we haven't already defined."
+(defun four-oh-four (&key file-p)
+  "Fallthrough handler, for anything we haven't already defined.
+   Also for requests for files we don't have."
   (setf (tbnl:content-type*) "text/plain")
   (setf (tbnl:return-code*) tbnl:+http-not-found+)
-  "This is not a valid URI")
+  (if file-p
+      "File not found"
+      "This is not a valid URI"))
 
 (defun method-not-allowed ()
   "Default response for a client making a request we don't support"
