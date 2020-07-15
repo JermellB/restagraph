@@ -280,6 +280,19 @@ Content-Type: text/plain; charset=utf-8
 No routers found with a UID of amchitka.
 ```
 
+## Files API
+
+Three methods are supported:
+- POST
+- GET
+- DELETE
+
+To use them via `curl`:
+```
+curl -F "file=@/path/to/file.jpg" -F "name=NameOfMyFile" http://localhost:4950/files/v1/
+```
+
+
 ## Test suite
 
 Two test suites are included:
@@ -290,3 +303,5 @@ Two test suites are included:
 # Docker image
 
 It's available from Dockerhub as `equill/restagraph`
+
+Wants a volume mounted at `/files` for storing uploaded files.
