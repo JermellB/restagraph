@@ -923,6 +923,44 @@
           (setf (tbnl:content-type*) "text/plain")
           (setf (tbnl:return-code*) tbnl:+http-not-found+)
           "File not found"))))
+    ;; Client requests deletion of a file
+    ((equal (tbnl:request-method*) :DELETE)
+     (log-message :debug "File deletion requested")
+     (let* ((filename (first (get-uri-parts
+                               (get-sub-uri (tbnl:request-uri*)
+                                            (uri-base-files tbnl:*acceptor*))))))
+       (log-message :debug (format nil "Client requested deletion of file '~A'" filename))
+       ;; Check whether the file is present.
+       (let ((result (get-resources (datastore tbnl:*acceptor*)
+                                    (format nil "/files/~A" filename)
+                                    :directional nil
+                                    :filters nil)))
+         (log-message :debug (format nil "Got result '~A'" result))
+         (if result
+             ;; If it is, delete its metadata and then the file itself.
+             (progn
+               (log-message :debug (format nil "Found file details '~A'" result))
+               ;; Delete the metadata
+               (delete-resource-by-path
+                 (datastore tbnl:*acceptor*)
+                 (concatenate 'string "/files/" filename)
+                 :recursive nil)
+               ;; Now delete the file itself
+               (let* ((source-path-parts (digest-to-filepath
+                                           (files-location tbnl:*acceptor*)
+                                           (cdr (assoc :sha3256sum result))))
+                      (source-path (concatenate 'string (car source-path-parts) (cdr source-path-parts))))
+                 (log-message :debug (format nil "Deleting the file at source-path '~A'"
+                                             source-path))
+                 (delete-file source-path))
+               ;; Now return a suitable message to the client
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-no-content+)
+               "")
+             ;; If not, return 404
+             (progn
+               (log-message :debug (format nil "Requested file '~A' not found. Returning 404" filename))
+               (four-oh-four :file-p t))))))
     ;;
     ;; Methods we don't support.
     ;; Take the whitelist approach
