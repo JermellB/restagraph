@@ -753,6 +753,14 @@
         ;;
         ;; DELETE -> Delete something
         ;;
+        ;; Attempting to delete a file
+        ((and (equal (tbnl:request-method*) :DELETE)
+              (equal (mod (length uri-parts) 3) 2)
+              (equal "files" (first uri-parts)))
+         (log-message :debug "Client is requesting deletion of a file")
+         (setf (tbnl:content-type*) "text/plain")
+         (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+         (format nil "Use the files API to delete files: /files/v1/~A" (second uri-parts)))
         ;; Resource
         ((and (equal (tbnl:request-method*) :DELETE)
               (equal (mod (length uri-parts) 3) 2))
