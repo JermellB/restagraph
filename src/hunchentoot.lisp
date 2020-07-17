@@ -819,6 +819,15 @@
     ;; Service errors, e.g. connection refused
     (neo4cl:service-error (e) (return-service-error (neo4cl:message e)))))
 
+(defun get-file-mime-type (filepath)
+  (string-right-trim
+    '(#\NewLine)
+    (with-output-to-string (str)
+      (sb-ext:run-program "/run/current-system/sw/bin/file"
+                          (list "-b" "--mime-type" (namestring filepath))
+                          :output str)
+      str)))
+
 (defun files-dispatcher-v1 ()
   "Files API handler, API version 1."
   (log-message :debug "Handling files request")
@@ -867,7 +876,8 @@
                              `(("uid" . ,(sanitise-uid requested-filename))
                                ("title" . ,requested-filename)
                                ("sha3256sum" . ,checksum)
-                               ("originalname" . ,(second (tbnl:post-parameter "file")))))
+                               ("originalname" . ,(second (tbnl:post-parameter "file")))
+                               ("mimetype" . ,(get-file-mime-type (namestring filepath-temp)))))
              ;; then if that succeeds move it to its new location.
              ;; Check whether this file already exists by another name
              (log-message :debug "Moving the file to its new home.")
