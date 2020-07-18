@@ -834,6 +834,21 @@
   (log-message :debug (format nil "Handling files '~A' request with content-type '~A'"
                               (tbnl:request-method*) (tbnl:content-type*)))
   (cond
+    ;; Client fails to upload a file
+    ((and (equal (tbnl:request-method*) :POST)
+          (or (null (tbnl:post-parameter "name"))
+              (equal "" (tbnl:post-parameter "name")))
+          (or (null (tbnl:post-parameter "file"))
+              (equal "" (tbnl:post-parameter "file"))))
+     (return-client-error "The 'name' and 'file' parameters must be supplied"))
+    ((and (equal (tbnl:request-method*) :POST)
+          (or (null (tbnl:post-parameter "name"))
+              (equal "" (tbnl:post-parameter "name"))))
+     (return-client-error "The 'name' parameter must be supplied"))
+    ((and (equal (tbnl:request-method*) :POST)
+          (or (null (tbnl:post-parameter "file"))
+              (equal "" (tbnl:post-parameter "file"))))
+     (return-client-error "The 'file' parameter must be supplied"))
     ;; Client uploads a file
     ((equal (tbnl:request-method*) :POST)
      (log-message :debug (format nil "Requested filename: ~A" (or (tbnl:post-parameter "name") "<not specified>")))
