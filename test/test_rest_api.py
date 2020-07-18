@@ -15,8 +15,10 @@ Test package for Restagraph's REST API.
 # pylint: disable=missing-function-docstring
 
 # Included batteries
-import unittest
+import filecmp
+import os
 import re
+import unittest
 
 # Third-party libraries
 import requests
@@ -26,9 +28,11 @@ import requests
 PROTOCOL = 'http'
 SERVER_URL = 'localhost:4950'
 API_PREFIX = '/raw/v1'
+FILES_PREFIX = '/files/v1'
 SCHEMA_PREFIX = '/schema/v1'
 
 API_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, API_PREFIX)
+FILES_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, FILES_PREFIX)
 SCHEMA_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, SCHEMA_PREFIX)
 
 
@@ -1054,6 +1058,45 @@ class TestAnyType(unittest.TestCase):
         requests.delete('%s/resourcetype/any' % (SCHEMA_BASE_URL))
         print('Test: schema should be empty')
         self.assertEqual(requests.get('%s/' % (SCHEMA_BASE_URL)).json(), None)
+
+class TestFilesApi(unittest.TestCase):
+    '''
+    Upload, download, metadata and deletion of files.
+    '''
+    file1source = 'cats_cuddling.jpg'
+    file1name = 'Cuddling cats'
+    file1sha3_256sum = '305664EB53010D52642594A3B3877A1BB811EAD9B610C5C1210F7F3B88B4C184'
+    def test_files_api_basic(self):
+        print('Test: file upload')
+        fhandle = open(self.file1source, 'rb')
+        self.assertEqual(
+            requests.post('%s/files/' % (FILES_BASE_URL),
+                          data={'name': self.file1name},
+                          files={'file': fhandle}).status_code,
+            201)
+        fhandle.close()
+        print('Test: file metadata')
+        result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)))
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json()['title'], self.file1name)
+        self.assertEqual(result.json()['sha3256sum'], self.file1sha3_256sum)
+        print('Test: file content')
+        result = requests.get('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file1name)))
+        # Write it to a file
+        fhandle = open('testfile', 'wb')
+        fhandle.write(result.content)
+        fhandle.close()
+        # Confirm that the file we got back is the same as the one we uploaded
+        self.assertTrue(filecmp.cmp(self.file1source, 'testfile'))
+        # Clean up
+        os.remove('testfile')
+        print('Test: file deletion')
+        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
+                                                    sanitise_uid(self.file1name))).status_code,
+                         204)
+        result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)))
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), [])
 
 # Make it happen
 if __name__ == '__main__':
