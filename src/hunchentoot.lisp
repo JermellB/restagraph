@@ -970,7 +970,7 @@
                                     :filters nil)))
          (log-message :debug (format nil "Got result '~A'" result))
          (if result
-             ;; If it is, delete its metadata and then the file itself.
+             ;; If it is, delete its metadata and then (conditionally) the file itself.
              (progn
                (log-message :debug (format nil "Found file details '~A'" result))
                ;; Delete the metadata
@@ -979,13 +979,19 @@
                  (concatenate 'string "/files/" filename)
                  :recursive nil)
                ;; Now delete the file itself
-               (let* ((source-path-parts (digest-to-filepath
-                                           (files-location tbnl:*acceptor*)
-                                           (cdr (assoc :sha3256sum result))))
-                      (source-path (concatenate 'string (car source-path-parts) (cdr source-path-parts))))
-                 (log-message :debug (format nil "Deleting the file at source-path '~A'"
-                                             source-path))
-                 (delete-file source-path))
+               (when (null (get-resources (datastore *restagraph-acceptor*)
+                                          "/files"
+                                          :filters '(("sha3256sum" .
+                                                      (cdr (assoc :SHA3256SUM (cdr result)))))))
+                 (let* ((source-path-parts (digest-to-filepath
+                                             (files-location tbnl:*acceptor*)
+                                             (cdr (assoc :sha3256sum result))))
+                        (source-path (concatenate 'string
+                                                  (car source-path-parts)
+                                                  (cdr source-path-parts))))
+                   (log-message :debug (format nil "Deleting the file at source-path '~A'"
+                                               source-path))
+                   (delete-file source-path)))
                ;; Now return a suitable message to the client
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-no-content+)

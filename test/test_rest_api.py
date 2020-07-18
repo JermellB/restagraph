@@ -1066,6 +1066,8 @@ class TestFilesApi(unittest.TestCase):
     file1source = 'cats_cuddling.jpg'
     file1name = 'Cuddling cats'
     file1sha3_256sum = '305664EB53010D52642594A3B3877A1BB811EAD9B610C5C1210F7F3B88B4C184'
+    file2source = 'cats_cuddling.jpg'
+    file2name = 'Cute kitties'
     def test_files_api_basic(self):
         print('Test: file upload')
         fhandle = open(self.file1source, 'rb')
@@ -1095,6 +1097,46 @@ class TestFilesApi(unittest.TestCase):
                                                     sanitise_uid(self.file1name))).status_code,
                          204)
         result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)))
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), [])
+    def test_files_conditional_deletion(self):
+        print("Test: only delete files from the filesystem if they're fully dereferenced.")
+        # Upload the first file
+        fhandle = open(self.file1source, 'rb')
+        self.assertEqual(
+            requests.post('%s/files/' % (FILES_BASE_URL),
+                          data={'name': self.file1name},
+                          files={'file': fhandle}).status_code,
+            201)
+        fhandle.close()
+        # Upload the second file
+        fhandle = open(self.file2source, 'rb')
+        self.assertEqual(
+            requests.post('%s/files/' % (FILES_BASE_URL),
+                          data={'name': self.file2name},
+                          files={'file': fhandle}).status_code,
+            201)
+        fhandle.close()
+        # Delete the first file
+        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
+                                                    sanitise_uid(self.file1name))).status_code,
+                         204)
+        # Confirm that the second file can still be downloaded
+        result = requests.get('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file2name)))
+        # Write it to a file
+        fhandle = open('testfile', 'wb')
+        fhandle.write(result.content)
+        fhandle.close()
+        # Confirm that the file we got back is the same as the one we uploaded
+        self.assertTrue(filecmp.cmp(self.file2source, 'testfile'))
+        # Clean up
+        os.remove('testfile')
+        # Delete the second file
+        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
+                                                    sanitise_uid(self.file2name))).status_code,
+                         204)
+        # Confirm that it's no longer there
+        result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file2name)))
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), [])
 
