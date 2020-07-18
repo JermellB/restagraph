@@ -74,7 +74,7 @@
 (defun uri-node-helper (uri-parts &key (path "") (marker "n") (directional t))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."
-  (declare (type (cons) uri-parts)
+  (declare (type (or null cons) uri-parts)
            (type (string) path marker)
            (type (boolean) directional))
   (cond
@@ -141,7 +141,7 @@
 (defun build-cypher-path (uri-parts &optional (path "") (marker "m"))
   "Build a Cypher path from the list of strings supplied.
   Attach a marker variable to the last node in the list, defaulting to 'm'."
-  (declare (type (cons) uri-parts)
+  (declare (type (or null cons) uri-parts)
            (type (string) path)
            (type (string) marker))
   ;; sep == separator
