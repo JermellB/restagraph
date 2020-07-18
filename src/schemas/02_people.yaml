@@ -1,0 +1,23 @@
+name: people
+version: 1
+
+resourcetypes:
+  people:
+    dependent: 'false'
+    attributes:
+      displayname:
+        description: The human-friendly version of their name, to be displayed in the UI.
+    notes: UID should be their login name or some other compact reference
+  roles:
+    dependent: 'false'
+    notes: Principally for role-based access control, but can also tie neatly into organisational roles.
+    attributes:
+      displayname:
+        description: The human-friendly version of the role´s name, to be displayed in the UI.
+      comments:
+        description: Clarification of what this role is for.
+
+relationships:
+- uri: /people/Member/roles
+  cardinality: many:many
+  dependent: 'false'

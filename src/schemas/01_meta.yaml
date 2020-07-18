@@ -12,5 +12,7 @@ resourcetypes:
 relationships:
 - uri: /any/Tags/tags
   cardinality: many:many
+  dependent: 'false'
 - uri: /any/Groups/groups
   cardinality: many:many
+  dependent: 'false'

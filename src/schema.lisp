@@ -225,9 +225,10 @@
 (defun inject-all-schemas (db parent-dir)
   "Read all .yaml files in parent-dir in alphabetical order,
    and inject the schema described in each one, in turn."
-  (declare (type (string) parent-dir))
+  (declare (type (or null string) parent-dir))
   (log-message :info
                (format nil "Attempting to apply any/all schemas specified in directory '~A'" parent-dir))
   (mapcar #'(lambda (schema)
               (inject-schema db schema))
-          (read-schemas parent-dir)))
+          (append *core-schemas*
+                  (when parent-dir (read-schemas parent-dir)))))

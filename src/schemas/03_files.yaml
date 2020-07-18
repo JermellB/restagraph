@@ -30,7 +30,10 @@ resourcetypes:
 relationships:
 - uri: /people/Uploaded/files
   cardinality: many:1
+  dependent: 'false'
 - uri: /people/Owner/files
   cardinality: many:1
+  dependent: 'false'
 - uri: /files/Thumbnail/thumbnails
   cardinality: 1:many
+  dependent: 'false'
