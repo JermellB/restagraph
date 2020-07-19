@@ -137,16 +137,6 @@
     ;; Does the specified resourcetype exist?
     ((not (resourcetype-exists-p db (sanitise-uid resourcetype)))
      (signal 'client-error :message "Resourcetype '~A' does not exist."))
-    ;; Was a name supplied for the attribute? As a string?
-    ;; This should be covered by the type declarations
-    ((not (and name
-               (stringp name)))
-     (signal 'client-error :message "The 'name' attribute is mandatory."))
-    ;; If a description was supplied, is it a string?
-    ;; This should be covered by the type declarations
-    ((and description
-          (not (stringp description)))
-     (signal 'client-error :message "The 'description' attribute must be a string."))
     ;; All sanity-checks have passed; carry on.
     (t
      (log-message :debug (format nil "Attempting to add to resourcetype '~A' an attribute called '~A', with description '~A'."
