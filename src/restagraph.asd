@@ -14,6 +14,7 @@
                #:cl-yaml
                #:ironclad)
   :components ((:file "package")
+               (:file "structures")
                (:file "config")
                (:file "conditions")
                (:file "logging")
