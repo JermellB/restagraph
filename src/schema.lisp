@@ -108,13 +108,53 @@
     (format nil "/rgSchemas/~A/Versions/rgSchemaVersions" name)
     `(("uid" . ,(format nil "~A" version)))))
 
+(defun inject-schema-from-struct (db schema)
+  "Apply the supplied schema, if it's a newer version than the one already present,
+   or if there isn't one already there.
+   `db` must be of type `neo4cl:neo4j-rest-server`
+   `schemas` is a list of `schema` structs."
+  (log-message :info (format nil "Attempting to apply version ~A of core schema ~A."
+                             (schema-version schema) (schema-name schema)))
+  ;; Test whether the db is already up to date with this schema
+  (let ((current-version (get-schema-version db (schema-name schema))))
+    ;; If it is, take no action.
+    (if (and current-version
+             (>= current-version (schema-version schema)))
+        (log-message
+          :info
+          (format nil "Core schema ~A is at version ~A. Not attempting to replace it with version ~A."
+                  (schema-name schema) current-version (schema-version schema)))
+        ;; DB schema is not up to date. Make it so.
+        (progn
+          (log-message :info "Superseding existing schema version ~A with version ~A."
+                       current-version (schema-version schema))
+          ;; Ensure the resourcetypes are present
+          (log-message :info "Adding resources")
+          (mapcar #'(lambda (rtype)
+                      (log-message :info "Adding attribute '~A'" (schema-rtypes-name rtype))
+                      (add-resourcetype db
+                                        (schema-rtypes-name rtype)
+                                        :dependent (schema-rtypes-dependent rtype)
+                                        :notes (schema-rtypes-notes rtype))
+                      ;; Ensure the attributes for each resourcetype
+                      (mapcar #'(lambda (attribute)
+                                  (log-message :info "Adding attribute '~A' to resourcetype '~A'"
+                                               (schema-rtype-attrs-name attribute)
+                                               (schema-rtypes-name rtype))
+                                  (set-resourcetype-attribute
+                                    db
+                                    (schema-rtypes-name rtype) ; resource-type
+                                    :name (schema-rtype-attrs-name attribute)
+                                    :description (schema-rtype-attrs-description attribute)
+                                    :vals (schema-rtype-attrs-values attribute)))
+                              (schema-rtypes-attributes rtype)))
+                  (schema-resourcetypes schema))))))
+
 (defun inject-schema (db schema)
   "Apply the supplied schema, if it's a newer version than the one already present,
   or if there isn't one already there.
   schema is expected to be the output of cl-yaml:parse."
   (log-message :info (format nil "Attempting to inject schema '~A'" (gethash "name" schema)))
-  ;; Ensure the schema-schema is in place
-  (ensure-schema-schema db)
   ;; Now do the actual thing
   ;; Get these values now because current-version is used repeatedly
   (let* ((schema-name (gethash "name" schema))
@@ -226,9 +266,15 @@
   "Read all .yaml files in parent-dir in alphabetical order,
    and inject the schema described in each one, in turn."
   (declare (type (or null string) parent-dir))
+  ;; Ensure the schema-schema is in place
+  (ensure-schema-schema db)
+  ;; Now ensure the core schemas are present and up to date
+  (log-message :info "Ensuring core schemas are present and up to date")
   (log-message :info
                (format nil "Attempting to apply any/all schemas specified in directory '~A'" parent-dir))
+  (mapcar #'(lambda (schema) (inject-schema-from-struct db schema))
+          *core-schemas*)
+  ;; Lastly, if there were any user-defined schemas, apply those as well.
   (mapcar #'(lambda (schema)
               (inject-schema db schema))
-          (append *core-schemas*
-                  (when parent-dir (read-schemas parent-dir)))))
+          (when parent-dir (read-schemas parent-dir))))
