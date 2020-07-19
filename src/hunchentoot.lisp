@@ -827,7 +827,7 @@
   (string-right-trim
     '(#\NewLine)
     (with-output-to-string (str)
-      (sb-ext:run-program "/run/current-system/sw/bin/file"
+      (sb-ext:run-program "/bin/file"
                           (list "-b" "--mime-type" (namestring filepath))
                           :output str)
       str)))
@@ -1114,6 +1114,10 @@
   (log-message :info "Attempting to start up the restagraph application server")
   ;; Control the decoding of JSON identifiers
   (setf JSON:*JSON-IDENTIFIER-NAME-TO-LISP* 'common-lisp:string-upcase)
+  ;; Sanity-check: is the `file` program where we expect?
+  #+(or)
+  (unless (probe-file (getf *config-vars* :path-to-file-utility))
+    (error (format nil "'file' utility not found at path '~A'" (getf *config-vars* :path-to-file-utility))))
   ;; Sanity-check: do we have a storage directory?
   (let ((files-location (or (sb-ext:posix-getenv "FILES_LOCATION")
                             (getf *config-vars* :files-location))))
