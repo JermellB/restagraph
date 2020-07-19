@@ -304,7 +304,7 @@
     (let ((uri-parts (get-uri-parts
                        (get-sub-uri (tbnl:request-uri*)
                                     (uri-base-schema tbnl:*acceptor*)))))
-      (log-message :debug "Handling schema ~A request ~{/~A~}" (tbnl:request-method*) uri-parts)
+      (log-message :debug "Handling schema ~A request /~{/~A~}" (tbnl:request-method*) uri-parts)
       (cond
         ;; Get the description of a single resource-type
         ((and
@@ -330,6 +330,7 @@
         ;; Get a description of the whole schema in JSON format
         ((equal (tbnl:request-method*) :GET)
          (progn
+           (log-message :info "Dumping schema in native JSON format")
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-to-string
