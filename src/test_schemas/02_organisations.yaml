@@ -20,7 +20,7 @@ resourcetypes:
         description: Where this product is in its lifecycle
         vals: "Rumoured,Announced,Cancelled,Current,Past"
   modelVersions:
-    dependent: true'
+    dependent: 'true'
     attributes:
       description:
         description: Comments about this particular model version.
