@@ -1127,18 +1127,16 @@
       ;; There's an acceptor already in play; bail out.
       (log-message :warn "Acceptor already exists; refusing to create a new one.")
       ;; No existing acceptor; we're good to go.
+      ;;
       ;; Figure out whether we have a schema directory to work with
       (let ((schemadir
               (cond
                 ;; Were we passed one explicitly?
-                (schemapath
-                  schemapath)
+                (schemapath schemapath)
                 ;; Is one set via an environment variable?
-                ((sb-ext:posix-getenv "SCHEMAPATH")
-                 (sb-ext:posix-getenv "SCHEMAPATH"))
+                ((sb-ext:posix-getenv "SCHEMAPATH") (sb-ext:posix-getenv "SCHEMAPATH"))
                 ;; Default case
-                (t
-                 nil))))
+                (t nil))))
         ;; Ensure we have an acceptor to work with
         (unless acceptor (setf acceptor (make-default-acceptor)))
         ;; Make it available as a dynamic variable, for shutdown to work on
@@ -1155,8 +1153,7 @@
           ;; If this fails because we already did it, that's fine.
           (neo4cl:client-error
             (e)
-            ;; If we already have this constraint, that's fine.
-            ;; Catch the error and move on.
+            ;; If we already have this constraint, catch the error and move on.
             (if (and
                   (equal "Schema" (neo4cl:category e))
                   (equal "EquivalentSchemaRuleAlreadyExists" (neo4cl:title e)))
