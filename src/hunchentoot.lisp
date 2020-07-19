@@ -59,10 +59,13 @@
 (defun get-sub-uri (uri base-uri)
   (declare (type (string) uri base-uri))
   "Extract the URI from the full request string,
-   excluding the base URL and any GET parameters."
-  (first (cl-ppcre:split
-           "\\?"
-           (cl-ppcre:regex-replace base-uri uri ""))))
+  excluding the base URL and any GET parameters."
+  ;; The (or) is to prevent breakage when the URI matches the base-uri,
+  ;; which would return NIL instead of a string.
+  (or (first (cl-ppcre:split
+               "\\?"
+               (cl-ppcre:regex-replace base-uri uri "")))
+      ""))
 
 (defun get-uri-parts (uri)
   "Break the URI into parts for processing by uri-node-helper.
