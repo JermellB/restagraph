@@ -1188,7 +1188,11 @@
                 ;; Default fallback
                 (list (tbnl:create-prefix-dispatcher "/" 'four-oh-four))))
         ;; Prepare for file upload
-        (ensure-directories-exist (getf *config-vars* :files-temp-location))
+        (log-message :info "Ensuring the file-upload temp directory is present")
+        (ensure-directories-exist
+          (if (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
+            (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
+            (getf *config-vars* :files-temp-location)))
         (setf tbnl:*tmp-directory* (getf *config-vars* :files-temp-location))
         ;; Start up the server
         (log-message :info "Starting up Hunchentoot to serve HTTP requests")
