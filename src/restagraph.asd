@@ -20,5 +20,7 @@
                (:file "logging")
                (:file "generics")
                (:file "neo4j")
+               (:file "utilities")
                (:file "schema")
+               (:file "dispatchers")
                (:file "hunchentoot")))
