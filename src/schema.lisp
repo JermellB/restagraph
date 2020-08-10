@@ -112,7 +112,9 @@
   "Apply the supplied schema, if it's a newer version than the one already present,
    or if there isn't one already there.
    `db` must be of type `neo4cl:neo4j-rest-server`
-   `schemas` is a list of `schema` structs."
+   `schemas` is a `schema` struct."
+   (declare (type neo4cl:neo4j-rest-server db)
+            (type schema schema))
   (log-message :info (format nil "Attempting to apply version ~A of core schema ~A."
                              (schema-version schema) (schema-name schema)))
   ;; Test whether the db is already up to date with this schema
