@@ -8,6 +8,89 @@
 
 (in-package #:restagraph)
 
+(defun read-schema-yaml-to-structs (filepath)
+  "Digest a single YAML file, and return it as a set of structs.
+  for use by inject-schema-from-struct."
+  (declare (type pathname filepath))
+  (log-message :info "Attempting to digest schema file ~A into structs" filepath)
+  (let ((schema (cl-yaml:parse filepath)))
+    (make-schema
+      :name (gethash "name" schema)
+      :version (gethash "version" schema)
+      ;; Don't assume there _are_ resourcetypes defined in this schema.
+      ;; Also, `maphash` breaks when you feed it '().
+      :resourcetypes
+      (if (gethash "resourcetypes" schema)
+        (loop for resourcename being the hash-keys
+              in (gethash "resourcetypes" schema)
+              using (hash-value value)
+              collect (make-schema-rtypes
+                        :name resourcename
+                        :dependent (gethash "dependent" value)
+                        :notes (or (gethash "notes" value) "")
+                        :attributes
+                        ;; Don't assume this resourcetype has attributes defined.
+                        ;; Again, `maphash` doesn't cope with NIL.
+                        (when (gethash "attributes" value)
+                          (loop for attrname being the hash-keys
+                                in (gethash "attributes" value)
+                                using (hash-value attrdetails)
+                                collect (make-schema-rtype-attrs
+                                          :name attrname
+                                          :description (if (and attrdetails
+                                                                (hash-table-p attrdetails)
+                                                                (gethash "description" attrdetails))
+                                                         (gethash "description" attrdetails)
+                                                         "")
+                                          :values (when (and attrdetails
+                                                             (hash-table-p attrdetails)
+                                                             (gethash "vals" attrdetails))
+                                                    (cl-ppcre:split ","
+                                                                    (gethash "vals" attrdetails))))))))
+        (log-message :info "No resourcetypes found in schema '~A'"
+                     (gethash "name" schema)))
+      ;; Don't assume there _are_ relationships defined in this schema.
+      :relationships (if (gethash "relationships" schema)
+                       (remove-if
+                         #'null
+                         (mapcar
+                           #'(lambda (rel)
+                               (log-message :info "Attempting to create a schema-rel struct with URI '~A" (gethash "uri" rel))
+                               ;; Sanity checks are required here
+                               (cond
+                                 ;; It doesn't have a URI
+                                 ((not (gethash "uri" rel))
+                                  (log-message :warn "No URI in this entry. Skipping.")
+                                  '())
+                                 ;; The happy path: it's OK
+                                 (t (make-schema-rels
+                                      :uri (gethash "uri" rel)
+                                      :cardinality (or (gethash "cardinality" rel) "many:many")
+                                      :dependent (gethash "dependent" rel)
+                                      :notes (gethash "notes" rel)))))
+                           (gethash "relationships" schema)))
+                       (log-message "No relationships found in schema '~A'"
+                                    (gethash "name" schema))))))
+
+(defun enumerate-schemas-in-dir (schemadir)
+  "Return a list of pathnames for .yaml files in the specified directory."
+  (log-message :info (format nil "Attempting to read schemas in directory ~A" schemadir))
+  ;; Safety first: is the directory even there?
+  (let ((schemapath (directory-namestring schemadir)))
+    (if (probe-file schemapath)
+      ;; This is _really_ ugly, but guarantees alphabetical order.
+      (mapcar #'pathname
+              (sort (mapcar #'namestring
+                            (directory (make-pathname
+                                         :name :wild
+                                         :type "yaml"
+                                         :directory schemapath)))
+                    #'string<))
+      ;; Safety-check failed. Complain loudly.
+      (let ((message (format nil "Schema directory ~A doesn't exist!" schemapath)))
+        (log-message :fatal message)
+        (error message)))))
+
 (defun read-schemas (parent-dir)
   "Parse the .yaml files in the specified directory, in alphabetical order.
   Return the result as a list of objects output by cl-yaml:parse,
@@ -148,125 +231,15 @@
                                     (schema-rtypes-name rtype) ; resource-type
                                     :name (schema-rtype-attrs-name attribute)
                                     :description (schema-rtype-attrs-description attribute)
-                                    :vals (schema-rtype-attrs-values attribute)))
+                                    ;; Condense the vals back into a comma-separated string
+                                    :vals (format nil "~{~A~^,~}"
+                                                  (schema-rtype-attrs-values attribute))))
                               (schema-rtypes-attributes rtype)))
                   (schema-resourcetypes schema))))))
 
-(defun inject-schema (db schema)
-  "Apply the supplied schema, if it's a newer version than the one already present,
-  or if there isn't one already there.
-  schema is expected to be the output of cl-yaml:parse."
-  (log-message :info (format nil "Attempting to inject schema '~A'" (gethash "name" schema)))
-  ;; Now do the actual thing
-  ;; Get these values now because current-version is used repeatedly
-  (let* ((schema-name (gethash "name" schema))
-         (schema-version (gethash "version" schema))
-         (current-version (get-schema-version db schema-name)))
-    ;; Sanity-check: is there already a schema in place,
-    ;; of a version equal to or greater than the one we've read in?
-    (if (and current-version
-             (>= current-version schema-version))
-      ;; Schema is already in place, and this one isn't newer.
-      (log-message
-        :info
-        "Schema '~A' version ~A is present. Not attempting to supersede it with version ~A."
-        schema-name current-version schema-version)
-      ;; This schema is newer than the existing one. Carry on.
-      (progn
-        (log-message
-          :info
-          "Superseding existing schema version ~A with version ~A."
-          current-version schema-version)
-        ;; Update resourcetypes
-        (log-message :info "Adding resources")
-        (when (gethash "resourcetypes" schema)
-          (maphash
-            #'(lambda (resourcename value)
-                (log-message
-                  :info
-                  (format nil "Attempting to add resource '~A'" resourcename))
-                ;; Build the resource definition,
-                ;; including only the attributes actually supplied
-                (let ((resource
-                        (append
-                          (list db resourcename)
-                          (when (gethash "dependent" value)
-                            (list :dependent (gethash "dependent" value)))
-                          (when (gethash "notes" value)
-                            (list :notes (gethash "notes" value))))))
-                  (apply #'add-resourcetype resource))
-                ;; Now add the attributes.
-                ;; Looks like a really clunky way to go about it,
-                ;; but is designed to be extended with other attribute-attributes,
-                ;; such as type and input validation.
-                (when
-                  ;; Only do this if the resourcetype has an 'attributes' subhash
-                  (gethash "attributes" value)
-                  ;; Process each attribute-attribute in turn
-                  (log-message
-                    :debug
-                    (format nil "Processing attributes for resourcetype ~A"
-                            resourcename))
-                  (maphash #'(lambda (attrname attrdetails)
-                               (log-message
-                                 :debug
-                                 (format nil "Processing attribute ~A"
-                                         attrname))
-                               (let ((description (when (and attrdetails
-                                                             (hash-table-p attrdetails)
-                                                             (gethash "description" attrdetails))
-                                                    (gethash "description" attrdetails)))
-                                     (vals (when (and attrdetails
-                                                      (hash-table-p attrdetails)
-                                                      (gethash "vals" attrdetails))
-                                             (gethash "vals" attrdetails))))
-                                 (set-resourcetype-attribute
-                                   db
-                                   resourcename
-                                   :name attrname
-                                   :description description
-                                   :vals vals)))
-                           (gethash "attributes" value))))
-            (gethash "resourcetypes" schema)))
-        ;; Update relationships between resourcetypes
-        (log-message :info "Adding relationships between resources")
-        (when (gethash "relationships" schema)
-          (mapcar
-            #'(lambda (rel)
-                ;; Sanity-check
-                (if (and
-                      rel
-                      (hash-table-p rel)
-                      (gethash "uri" rel))
-                  ;; We're OK; carry on
-                  (let ((relparts (cl-ppcre:split "/" (gethash "uri" rel))))
-                    (log-message
-                      :debug
-                      "Requesting to add relationship '~A' from '~A' to '~A'"
-                      (third relparts) (second relparts) (fourth relparts))
-                    (handler-case
-                      (add-resource-relationship
-                        db
-                        (second relparts)   ; parent-type
-                        (third relparts)    ; relationship
-                        (fourth relparts)   ; dependent-type
-                        :dependent (gethash "dependent" rel)
-                        :cardinality (gethash "cardinality" rel)
-                        :notes (gethash "notes" rel))
-                      (restagraph:integrity-error (e)
-                                                  (log-message :error (restagraph:message e)))))
-                  ;; Sanity-check failed
-                  (log-message :warning
-                               (format nil "Invalid entry ~A" rel))))
-            (gethash "relationships" schema)))
-        ;; Record the current version of the schema
-        (log-message :info "Update version number for schema '~A' in database to ~A"
-                     schema-name schema-version)
-        (set-schema-version db schema-name schema-version)))))
-
 (defun inject-all-schemas (db parent-dir)
   "Read all .yaml files in parent-dir in alphabetical order,
-   and inject the schema described in each one, in turn."
+  and inject the schema described in each one, in turn."
   (declare (type (or null string) parent-dir))
   ;; Ensure the schema-schema is in place
   (ensure-schema-schema db)
@@ -277,6 +250,11 @@
   (mapcar #'(lambda (schema) (inject-schema-from-struct db schema))
           *core-schemas*)
   ;; Lastly, if there were any user-defined schemas, apply those as well.
-  (mapcar #'(lambda (schema)
-              (inject-schema db schema))
-          (when parent-dir (read-schemas parent-dir))))
+  ;; The point of digesting all the schema files before beginning to inject them,
+  ;; instead of simply doing it as a single loop, is to ensure that we don't get
+  ;; partway through injecting the schemas before discovering a problem in the files.
+  (when parent-dir
+    (mapcar #'(lambda (schemafile)
+                (inject-schema-from-struct db schemafile))
+            (mapcar #'read-schema-yaml-to-structs
+                    (enumerate-schemas-in-dir parent-dir)))))
