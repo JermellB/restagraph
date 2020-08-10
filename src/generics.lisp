@@ -33,7 +33,7 @@
 (defgeneric delete-resourcetype-attribute (db resourcetype name)
   (:documentation "Remove an attribute from a resourcetype. Don't delete existing data; leave it in place bu inaccessible via this API."))
 
-(defgeneric delete-resourcetype (db resourcetype)
+(defgeneric delete-resourcetype (db resourcetype &key delete-instances-p)
   (:documentation "Delete a resource-type, and all its instances along with any relationships to other types."))
 
 (defgeneric add-resource-relationship (db parent-type relationship dependent-type &key dependent cardinality notes)

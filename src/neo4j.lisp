@@ -243,7 +243,8 @@
                          (escape-neo4j name))))))))))
 
 (defmethod delete-resourcetype ((db neo4cl:neo4j-rest-server)
-                                (resourcetype string))
+                                (resourcetype string)
+                                &key delete-instances-p)
   ;; If it's not a dependent type, delete its uniqueness constraint.
   (when (not (dependent-resource-p db resourcetype))
     (log-message
@@ -264,12 +265,15 @@
                                            (neo4cl:category e)
                                            (neo4cl:title e)
                                            (neo4cl:message e)))))))
-  (log-message :debug "Delete all instances of this resource-type.")
-  (neo4cl:neo4j-transaction
-    db
-    `((:STATEMENTS
-        ((:STATEMENT
-           . ,(format nil "MATCH (n:~A) DETACH DELETE n;" (sanitise-uid resourcetype)))))))
+  (if delete-instances-p
+    (progn
+      (log-message :debug "Delete all instances of this resource-type.")
+      (neo4cl:neo4j-transaction
+        db
+        `((:STATEMENTS
+            ((:STATEMENT
+               . ,(format nil "MATCH (n:~A) DETACH DELETE n;" (sanitise-uid resourcetype))))))))
+    (log-message :debug "delete-instances-p is NIL: leaving any existing instances of this resourcetype in place."))
   (log-message :debug "Delete this type, along with any relationships it has to other types.")
   (neo4cl:neo4j-transaction
     db
