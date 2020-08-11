@@ -24,7 +24,8 @@
   "Relationships between resourcetypes, for use in schema definitions."
   (uri nil :type string :read-only t)
   (cardinality "many:many" :type string :read-only t)
-  (dependent nil :type boolean :read-only t))
+  (dependent nil :type boolean :read-only t)
+  (notes "" :type (or null string) :read-only t))
 
 ;;; Customised Hunchentoot acceptor.
 ;;; Carries information about the datastore being used.
