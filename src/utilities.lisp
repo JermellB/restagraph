@@ -165,7 +165,7 @@
   (let ((err (cdr (assoc :errors
                     (neo4cl:neo4j-transaction
                       server
-                      '((:statements ((:statement . "MATCH (n) RETURN n")))))))))
+                      '((:statements ((:statement . "RETURN \"test\"")))))))))
     ;; Crude error handling
     (if (and (listp err)
              (null err))
