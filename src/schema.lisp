@@ -248,7 +248,7 @@
   (log-message :info
                (format nil "Attempting to apply any/all schemas specified in directory '~A'" parent-dir))
   (mapcar #'(lambda (schema) (inject-schema-from-struct db schema))
-          *core-schemas*)
+          restagraph::*core-schemas*)
   ;; Lastly, if there were any user-defined schemas, apply those as well.
   ;; The point of digesting all the schema files before beginning to inject them,
   ;; instead of simply doing it as a single loop, is to ensure that we don't get

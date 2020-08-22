@@ -97,10 +97,10 @@
       ;; Figure out whether we have a schema directory to work with
       (let ((schemadir
               (cond
-                ;; Were we passed one explicitly?
-                (schemapath schemapath)
                 ;; Is one set via an environment variable?
                 ((sb-ext:posix-getenv "SCHEMAPATH") (sb-ext:posix-getenv "SCHEMAPATH"))
+                ;; Were we passed one explicitly?
+                (schemapath schemapath)
                 ;; Default case
                 (t nil))))
         ;; Ensure we have an acceptor to work with
