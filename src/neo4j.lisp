@@ -148,7 +148,7 @@
              (sanitise-uid resourcetype)
              (sanitise-uid name))
        (progn
-         (log-message :info (format nil "Attribute ~A is already present. Deleting it." name)))
+         (log-message :info (format nil "Attribute ~A is already present. Deleting it before re-creating it, to make sure." name)))
        (delete-resourcetype-attribute
          db
          (sanitise-uid resourcetype)
