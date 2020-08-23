@@ -481,6 +481,9 @@
        ;; Add notes if they were supplied
        (when notes
          (pushnew (format nil "notes: '~A'" (escape-neo4j notes)) attrs))
+       ;; Debug step
+       (log-message :debug "Sanity checks have passed; creating relationship '~A' from '~A' to '~A'"
+                    relationship parent-type dependent-type)
        ;; Create it
        (neo4cl:neo4j-transaction
          db
