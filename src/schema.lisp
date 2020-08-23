@@ -193,49 +193,65 @@
 
 (defun inject-schema-from-struct (db schema)
   "Apply the supplied schema, if it's a newer version than the one already present,
-   or if there isn't one already there.
-   `db` must be of type `neo4cl:neo4j-rest-server`
-   `schemas` is a `schema` struct."
-   (declare (type neo4cl:neo4j-rest-server db)
-            (type schema schema))
-  (log-message :info (format nil "Attempting to apply version ~A of core schema ~A."
+  or if there isn't one already there.
+  `db` must be of type `neo4cl:neo4j-rest-server`
+  `schemas` is a `schema` struct."
+  (declare (type neo4cl:neo4j-rest-server db)
+           (type schema schema))
+  (log-message :info (format nil "Attempting to apply version ~A of schema ~A."
                              (schema-version schema) (schema-name schema)))
   ;; Test whether the db is already up to date with this schema
   (let ((current-version (get-schema-version db (schema-name schema))))
     ;; If it is, take no action.
     (if (and current-version
              (>= current-version (schema-version schema)))
-        (log-message
-          :info
-          (format nil "Core schema ~A is at version ~A. Not attempting to replace it with version ~A."
-                  (schema-name schema) current-version (schema-version schema)))
-        ;; DB schema is not up to date. Make it so.
-        (progn
-          (log-message :info "Superseding existing schema version ~A with version ~A."
-                       current-version (schema-version schema))
-          ;; Ensure the resourcetypes are present
-          (log-message :info "Adding resources")
-          (mapcar #'(lambda (rtype)
-                      (log-message :info "Adding attribute '~A'" (schema-rtypes-name rtype))
-                      (add-resourcetype db
-                                        (schema-rtypes-name rtype)
-                                        :dependent (schema-rtypes-dependent rtype)
-                                        :notes (schema-rtypes-notes rtype))
-                      ;; Ensure the attributes for each resourcetype
-                      (mapcar #'(lambda (attribute)
-                                  (log-message :info "Adding attribute '~A' to resourcetype '~A'"
-                                               (schema-rtype-attrs-name attribute)
-                                               (schema-rtypes-name rtype))
-                                  (set-resourcetype-attribute
-                                    db
-                                    (schema-rtypes-name rtype) ; resource-type
-                                    :name (schema-rtype-attrs-name attribute)
-                                    :description (schema-rtype-attrs-description attribute)
-                                    ;; Condense the vals back into a comma-separated string
-                                    :vals (format nil "~{~A~^,~}"
-                                                  (schema-rtype-attrs-values attribute))))
-                              (schema-rtypes-attributes rtype)))
-                  (schema-resourcetypes schema))))))
+      (log-message
+        :info
+        (format nil "Core schema ~A is at version ~A. Not attempting to replace it with version ~A."
+                (schema-name schema) current-version (schema-version schema)))
+      ;; DB schema is not up to date. Make it so.
+      (progn
+        (log-message :info "Superseding existing schema version ~A with version ~A."
+                     current-version (schema-version schema))
+        ;; Ensure the resourcetypes are present
+        (log-message :info "Adding resources")
+        (mapcar #'(lambda (rtype)
+                    (log-message :info "Adding attribute '~A'" (schema-rtypes-name rtype))
+                    (add-resourcetype db
+                                      (schema-rtypes-name rtype)
+                                      :dependent (schema-rtypes-dependent rtype)
+                                      :notes (schema-rtypes-notes rtype))
+                    ;; Ensure the attributes for each resourcetype
+                    (mapcar #'(lambda (attribute)
+                                (log-message :info "Adding attribute '~A' to resourcetype '~A'"
+                                             (schema-rtype-attrs-name attribute)
+                                             (schema-rtypes-name rtype))
+                                (set-resourcetype-attribute
+                                  db
+                                  (schema-rtypes-name rtype) ; resource-type
+                                  :name (schema-rtype-attrs-name attribute)
+                                  :description (schema-rtype-attrs-description attribute)
+                                  ;; Condense the vals back into a comma-separated string
+                                  :vals (format nil "~{~A~^,~}"
+                                                (schema-rtype-attrs-values attribute))))
+                            (schema-rtypes-attributes rtype)))
+                (schema-resourcetypes schema))
+        ;; Ensure the relationships for this schema are present
+        (mapcar #'(lambda (rel)
+                    (log-message :info "Adding relationship '~A'" (schema-rels-uri rel))
+                    (let* ((rel-parts (remove-if #'(lambda (element)
+                                                     (equal "" element))
+                                                 (cl-ppcre:split "/" (schema-rels-uri rel))))
+                           (source-type (first rel-parts))
+                           (relationship (second rel-parts))
+                           (dest-type (third rel-parts)))
+                      (add-resource-relationship db source-type relationship dest-type
+                                                 :dependent (schema-rels-dependent rel)
+                                                 :cardinality (schema-rels-cardinality rel)
+                                                 :notes (schema-rels-notes rel))))
+                (schema-relationships schema))
+        ;; Ensure the version's recorded in the database
+        (set-schema-version db (schema-name schema) (schema-version schema))))))
 
 (defun inject-all-schemas (db parent-dir)
   "Read all .yaml files in parent-dir in alphabetical order,
