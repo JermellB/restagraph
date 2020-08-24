@@ -889,6 +889,8 @@
     ;; Delete the single primary resource
     (restagraph:log-message :info ";TEST Delete one primary resource")
     (fiveam:is (restagraph:delete-resourcetype *server* ptype1-name))
+    ;; Confirm it's gone again
+    (fiveam:is (null (restagraph:get-resource-types *server*)))
     ;; Create a single dependent resource
     (restagraph:log-message :info ";TEST Create a single dependent resource")
     (fiveam:is (restagraph:add-resourcetype *server* dtype1-name :dependent t))
@@ -900,6 +902,37 @@
     ;; Delete the single dependent resource
     (restagraph:log-message :info ";TEST Delete the single dependent resource")
     (fiveam:is (restagraph:delete-resourcetype *server* dtype1-name))))
+
+(fiveam:test
+  schema-delete-instances
+  :depends-on 'resources-basic
+  "Confirm that the delete-instances-p argument to delete-resourcetype works as intended."
+  (let ((ptype1-name "foo")
+        (ptype1-value "bar"))
+    ;; Create the resourcetype
+    (restagraph:log-message :info "Create a primary resourcetype")
+    (restagraph:add-resourcetype *server* ptype1-name)
+    ;; Create an instance
+    (restagraph:log-message :info "Store an instance for the resourcetype")
+    (fiveam:is (restagraph:store-resource *server* ptype1-name `(("uid" . ,ptype1-value))))
+    ;; Delete the resourcetype _without_ the delete-instances-p argument
+    (restagraph:log-message :info ";TEST Delete the primary resource, leaving instances in place")
+    (fiveam:is (restagraph:delete-resourcetype *server* ptype1-name))
+    ;; Confirm the instance is still there
+    (restagraph:log-message :info ";TEST Confirm that the instance is still there")
+    (fiveam:is (restagraph:get-resources *server* (format nil "/~A/~A" ptype1-name ptype1-value)))
+    ;; Re-create the resourcetype
+    (restagraph:log-message :info "Recreate the primary resourcetype")
+    (restagraph:add-resourcetype *server* ptype1-name)
+    ;; Confirm the instance is still there
+    (restagraph:log-message :info ";TEST Confirm that the instance is still there")
+    (fiveam:is (restagraph:get-resources *server* (format nil "/~A/~A" ptype1-name ptype1-value)))
+    ;; Delete the resourcetype _with_ the delete-instances-p argument
+    (restagraph:log-message :info ";TEST Delete the primary resource, along with any instances")
+    (fiveam:is (restagraph::delete-resourcetype *server* ptype1-name :delete-instances-p t))
+    ;; Confirm the instance is gone
+    (fiveam:is (null (restagraph:get-resources
+                       *server* (format nil "/~A/~A" ptype1-name ptype1-value))))))
 
 (fiveam:test
   schema-relationships
