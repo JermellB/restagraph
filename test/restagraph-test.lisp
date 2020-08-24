@@ -31,15 +31,16 @@
   validate-attributes
   "Check the validation of attributes"
   (let ((attrs '(((:NAME . "status")
-                   (:DESCRIPTION
-                     . "Task status.")
+                   (:DESCRIPTION . "Task status.")
                    (:VALS . "idea,active,waiting,scheduled,done,cancelled"))
                  ((:NAME . "urgency") (:DESCRIPTION . "How soon it needs to be done."))
                  ((:NAME . "importance")
                    (:DESCRIPTION . "How important it is that it's done."))
                  ((:NAME . "scale") (:DESCRIPTION . "How big the job appears to be."))
                  ((:NAME . "deadline") (:DESCRIPTION . "When the task should be done by."))
-                 ((:NAME . "description") (:DESCRIPTION . "More details about the task."))
+                 ((:NAME . "description")
+                  (:DESCRIPTION . "More details about the task.")
+                  (:VALS . ""))
                  ((:NAME . "scheduled") (:DESCRIPTION . "A date/time.")))))
     ;; Simple check for no attributes at all
     (fiveam:is (equal '(nil nil)
@@ -53,10 +54,14 @@
     ;; Simple check for invalid value
     (fiveam:is (equalp '(nil (("status" . "inactive")))
                        (restagraph::validate-attributes '(("status" . "inactive")) attrs)))
+    ;; Value with a null enum set
+    (fiveam:is (equalp '(nil nil)
+    (restagraph::validate-attributes '(("description" . "I love kung foooooo!")) attrs)))
     ;; Obvious combo-check
     (fiveam:is (equalp '((("foo" . "active")) (("status" . "inactive")))
                        (restagraph::validate-attributes '(("status" . "active")
                                                           ("foo" . "active")
+                                                          ("description" . "The legends were true.")
                                                           ("status" . "inactive"))
                                                         attrs)))))
 
