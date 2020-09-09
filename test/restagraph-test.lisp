@@ -222,6 +222,45 @@
     (restagraph:delete-resourcetype *server* restype)))
 
 (fiveam:test
+  character-encoding
+  :depends-on 'resources-basic-attributes
+  "Check handling of non-ASCII characters."
+  (let ((restype "dogs")
+        (attr1name "fullname")
+        (uid "Spot")
+        (attr1val "Röver Edwárd Petrusky the fourth"))
+    ;; Create a resource
+    (restagraph:log-message :info ";TEST Set up the fixtures")
+    (restagraph:add-resourcetype *server* restype)
+    (restagraph:set-resourcetype-attribute
+      *server*
+      restype
+      :name attr1name)
+    (restagraph:store-resource *server* restype `(("uid" . ,uid)))
+    ;; Add an attribute whose value has non-ASCII characters
+    (restagraph:log-message :info ";TEST Try to set the attribute")
+    (fiveam:is (restagraph:update-resource-attributes
+                 *server*
+                 (list restype uid)
+                 `((,attr1name . ,attr1val))))
+    ;; Verify that the same string is returned when we query it
+    (let ((result (restagraph:get-resource
+                    *server* (format nil "/~A/~A" restype uid)))
+          (attr1kw (intern (string-upcase attr1name) 'keyword)))
+      (fiveam:is (assoc :UID result))
+      (fiveam:is (equal (restagraph:sanitise-uid uid)
+                        (cdr (assoc :UID result))))
+      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (equal uid
+                        (cdr (assoc :ORIGINAL--UID result))))
+      (fiveam:is (assoc attr1kw result))
+      (fiveam:is (equal attr1val (cdr (assoc attr1kw result)))))
+    ;; Delete the resource
+    (restagraph:log-message :info ";TEST Remove the fixtures")
+    (restagraph:delete-resource-by-path *server* (format nil "/~A/~A" restype uid))
+    (restagraph:delete-resourcetype *server* restype)))
+
+(fiveam:test
   resources-attributes-enums
   :depends-on 'resources-basic-attributes
   "Enumerated attributes"
