@@ -6,8 +6,6 @@ stdenv.mkDerivation rec {
     buildInputs = [
         # General utilities
         pkgs.bash
-        # Neo4j
-        pkgs.neo4j
         # Lisp env
         pkgs.libyaml
         pkgs.openssl
