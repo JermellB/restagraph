@@ -139,23 +139,28 @@
 
 (defun digest-to-filepath (basedir digest)
   "Take a 64-bit digest string and the basedir, and return the target path to the file
-   as a cons of two strings: the directory path and the filename"
-  (declare (string basedir)
+  as a cons of two strings: the directory path and the filename"
+  (declare (type pathname basedir)
            (type string digest))
-  (log-message :debug (format nil "Generating a filepath from base-dir '~A' and digest '~A'" basedir digest))
-  (cons (format nil "~A/~A/~A/~A/"
-                basedir
-                (subseq digest 0 2)
-                (subseq digest 2 4)
-                (subseq digest 4 6))
-        (subseq digest 6)))
+  (log-message :debug "Generating a filepath from base-dir '~A' and digest '~A'" basedir digest)
+  (merge-pathnames (make-pathname :directory `(:relative
+                                                ,(format nil "~A/~A/~A" (subseq digest 0 2)
+                                                        (subseq digest 2 4)
+                                                        (subseq digest 4 6)))
+                                  :name (subseq digest 6))
+                   (make-pathname :defaults basedir)))
 
 (defun get-file-mime-type (filepath)
+  "Return the MIME-type of a file, as a string.
+  The path argument must be a string, as it's passed verbatim to the Unix shell."
+  (declare (type string filepath))
+  (log-message :debug "Identifying MIME-type for file '~A'" filepath)
   (string-right-trim
     '(#\NewLine)
     (with-output-to-string (str)
-      (sb-ext:run-program "/bin/file"
-                          (list "-b" "--mime-type" (namestring filepath))
+      (sb-ext:run-program "env"
+                          (list "file" "-b" "--mime-type" filepath)
+                          :search t
                           :output str)
       str)))
 

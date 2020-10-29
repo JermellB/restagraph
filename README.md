@@ -287,9 +287,14 @@ Three methods are supported:
 - GET
 - DELETE
 
-To use them via `curl`:
+To upload a file via `curl`:
 ```
 curl -F "file=@/path/to/file.jpg" -F "name=NameOfMyFile" http://localhost:4950/files/v1/
+```
+
+To fetch a file via `curl`:
+```
+curl http://localhost:4950/files/v1/NameOfMyFile
 ```
 
 

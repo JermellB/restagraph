@@ -680,37 +680,46 @@
             (filepath-temp (first (tbnl:post-parameter "file")))
             ;; Get the checksum of the file
             (checksum (hash-file filepath-temp))
-            (filepath-target-parts (digest-to-filepath (files-location tbnl:*acceptor*) checksum))
-            (filepath-target (concatenate 'string (car filepath-target-parts)
-                                          (cdr filepath-target-parts))))
+            (mimetype (get-file-mime-type (namestring filepath-temp)))
+            (filepath-target (digest-to-filepath (make-pathname :defaults (files-location tbnl:*acceptor*))
+                                                                checksum)))
        ;; Does a file of this name already exist?
-       (log-message :debug (format nil "Checking for an existing file by name '~A'" requested-filename))
+       (log-message :debug (format nil "Checking for an existing file by name '~A'"
+                                   (sanitise-uid requested-filename)))
        (if (get-resources (datastore tbnl:*acceptor*)
                           (format nil "/files/~A" (sanitise-uid requested-filename)))
-           ;; If it already exists, bail out now.
-           (progn
-             (log-message :error "File already exists")
-             ;; Return client-error message indicating name collision
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-conflict+)
-             "Filename already exists")
-           ;; Name isn't already taken; rock on.
-           (progn
-             ;; Now we need to store the file's metadata,
-             (log-message :debug "Storing file metadata: name = '~A', checksum = '~A'"
-                          requested-filename checksum)
-             (store-resource (datastore tbnl:*acceptor*)
-                             "files"
-                             `(("uid" . ,(sanitise-uid requested-filename))
-                               ("title" . ,requested-filename)
-                               ("sha3256sum" . ,checksum)
-                               ("originalname" . ,(second (tbnl:post-parameter "file")))
-                               ("mimetype" . ,(get-file-mime-type (namestring filepath-temp)))))
-             ;; then if that succeeds move it to its new location.
-             ;; Check whether this file already exists by another name
-             (log-message :debug "Moving the file to its new home.")
-             (log-message :debug (format nil "New home: '~A'" filepath-target))
-             (if (probe-file filepath-target)
+         ;; If it already exists, bail out now.
+         (progn
+           (log-message :error "File ~A already exists; bailing out."
+                        (sanitise-uid requested-filename))
+           ;; Return client-error message indicating name collision
+           (setf (tbnl:content-type*) "text/plain")
+           (setf (tbnl:return-code*) tbnl:+http-conflict+)
+           "Filename already exists")
+         ;; Name isn't already taken; rock on.
+         (progn
+           (log-message :debug "File ~A does not already exist; proceeding."
+                        (sanitise-uid requested-filename))
+           ;; Now we need to store the file's metadata,
+           (log-message :debug "Storing file metadata: name = '~A', checksum = '~A', original name '~A', mimetype '~A'"
+                        requested-filename
+                        checksum
+                        (second (tbnl:post-parameter "file"))
+                        mimetype)
+           (handler-case
+             (progn
+               (store-resource (datastore tbnl:*acceptor*)
+                               "files"
+                               `(("uid" . ,(sanitise-uid requested-filename))
+                                 ("title" . ,requested-filename)
+                                 ("sha3256sum" . ,checksum)
+                                 ("originalname" . ,(second (tbnl:post-parameter "file")))
+                                 ("mimetype" . ,mimetype)))
+               ;; then if that succeeds move it to its new location.
+               ;; Check whether this file already exists by another name
+               (log-message :debug "Moving the file to its new home.")
+               (log-message :debug (format nil "New home: '~A'" filepath-target))
+               (if (probe-file filepath-target)
                  ;; If it does, don't bother overwriting it.
                  (log-message :debug
                               (format nil "File ~A already exists. Not overwriting it with a duplicate."
@@ -722,19 +731,45 @@
                                         filepath-temp filepath-target))
                    ;; Ensure the destination path actually exists
                    (log-message :debug (format nil "Ensuring existence of target directory '~A'"
-                                               (car filepath-target-parts)))
-                   (ensure-directories-exist (car filepath-target-parts))
+                                               (directory-namestring filepath-target)))
+                   (ensure-directories-exist (directory-namestring filepath-target))
                    ;; Now move the file.
                    (log-message :debug
                                 (format nil "Actually moving received file '~A' to storage location '~A'"
                                         filepath-temp filepath-target))
                    (rename-file filepath-temp filepath-target)))
-             ;; If the location-move fails, we should probably remove the metadata and tell the client.
-             ;;
-             ;; Now return success to the client
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             (concatenate 'string "/files/" (sanitise-uid requested-filename))))))
+               ;; If the location-move fails, we should probably remove the metadata and tell the client.
+               ;;
+               ;; Now return success to the client
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               (concatenate 'string "/files/" (sanitise-uid requested-filename)))
+             ;; Catch errors
+             (integrity-error
+               (e)
+               (let ((error-message (format nil "Integrity error: ~A"
+                                            (message e))))
+                 (log-message :error error-message)
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                 error-message))
+             (neo4cl::client-error
+               (e)
+               (let ((error-message (format nil "~A.~A: ~A"
+                                            (neo4cl:category e)
+                                            (neo4cl:title e)
+                                            (neo4cl:message e))))
+                 (log-message :error error-message)
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                 error-message))
+             (error
+               (e)
+               (let ((error-message (format nil "Error: ~A" (neo4cl:message e))))
+                 (log-message :error error-message)
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                 error-message)))))))
     ;; Client requests a file
     ((equal (tbnl:request-method*) :GET)
      (log-message :debug
@@ -753,10 +788,9 @@
        ;; Return the file to the client if it's present
        (cond
          ((not (null result))
-          (let* ((source-path-parts (digest-to-filepath
-                                      (files-location tbnl:*acceptor*)
-                                      (cdr (assoc :sha3256sum result))))
-                 (source-path (concatenate 'string (car source-path-parts) (cdr source-path-parts))))
+          (let* ((source-path (digest-to-filepath
+                                      (make-pathname :defaults (files-location tbnl:*acceptor*))
+                                      (cdr (assoc :sha3256sum result)))))
             (log-message :debug (format nil "Returning the file from source-path '~A'"
                                         source-path))
             (tbnl:handle-static-file
@@ -765,10 +799,10 @@
               (cdr (assoc :mime-type result)))))
          ;; Fallthrough for not finding the file
          (t
-          (log-message :debug "Null result returned")
-          (setf (tbnl:content-type*) "text/plain")
-          (setf (tbnl:return-code*) tbnl:+http-not-found+)
-          "File not found"))))
+           (log-message :debug "Null result returned")
+           (setf (tbnl:content-type*) "text/plain")
+           (setf (tbnl:return-code*) tbnl:+http-not-found+)
+           "File not found"))))
     ;; Client requests deletion of a file
     ((equal (tbnl:request-method*) :DELETE)
      (log-message :debug "File deletion requested")
@@ -783,36 +817,37 @@
                                     :filters nil)))
          (log-message :debug (format nil "Got result '~A'" result))
          (if result
-             ;; If it is, delete its metadata and then (conditionally) the file itself.
-             (progn
-               (log-message :debug (format nil "Found file details '~A'" result))
-               ;; Delete the metadata
-               (delete-resource-by-path
-                 (datastore tbnl:*acceptor*)
-                 (concatenate 'string "/files/" filename)
-                 :recursive nil)
-               ;; Now delete the file itself
-               (when (null (get-resources (datastore *restagraph-acceptor*)
-                                          "/files"
-                                          :filters '(("sha3256sum" .
-                                                      (cdr (assoc :SHA3256SUM (cdr result)))))))
-                 (let* ((source-path-parts (digest-to-filepath
-                                             (files-location tbnl:*acceptor*)
-                                             (cdr (assoc :sha3256sum result))))
-                        (source-path (concatenate 'string
-                                                  (car source-path-parts)
-                                                  (cdr source-path-parts))))
-                   (log-message :debug (format nil "Deleting the file at source-path '~A'"
-                                               source-path))
-                   (delete-file source-path)))
-               ;; Now return a suitable message to the client
-               (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-no-content+)
-               "")
-             ;; If not, return 404
-             (progn
-               (log-message :debug (format nil "Requested file '~A' not found. Returning 404" filename))
-               (four-oh-four :file-p t))))))
+           ;; If it is, delete its metadata and then (conditionally) the file itself.
+           (progn
+             (log-message :debug (format nil "Found file details '~A'" result))
+             ;; Delete the metadata
+             (delete-resource-by-path
+               (datastore tbnl:*acceptor*)
+               (concatenate 'string "/files/" filename)
+               :recursive nil)
+             ;; Now delete the file itself
+             (when (null (get-resources (datastore *restagraph-acceptor*)
+                                        "/files"
+                                        :filters '(("sha3256sum" .
+                                                    (cdr (assoc :SHA3256SUM (cdr result)))))))
+               (let* ((source-path (digest-to-filepath
+                                           (make-pathname :defaults (files-location tbnl:*acceptor*))
+                                           (cdr (assoc :sha3256sum result)))))
+                 (if (probe-file source-path)
+                   (progn
+                     (log-message :debug (format nil "Deleting the file at source-path '~A'"
+                                                 source-path))
+                     (delete-file source-path))
+                   (log-message :warn (format nil "No file found at source-path '~A'"
+                                              source-path)))))
+             ;; Now return a suitable message to the client
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-no-content+)
+             "")
+           ;; If not, return 404
+           (progn
+             (log-message :debug (format nil "Requested file '~A' not found. Returning 404" filename))
+             (four-oh-four :file-p t))))))
     ;;
     ;; Methods we don't support.
     ;; Take the whitelist approach
