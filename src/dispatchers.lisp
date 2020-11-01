@@ -763,9 +763,16 @@
                  (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
                  error-message))
+             (file-error
+               (e)
+               (let ((error-message (format nil "File error: ~A" (file-error-pathname e))))
+                 (log-message :error error-message)
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                 error-message))
              (error
                (e)
-               (let ((error-message (format nil "Error: ~A" (neo4cl:message e))))
+               (let ((error-message (format nil "Error: ~A" (type-of e))))
                  (log-message :error error-message)
                  (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
