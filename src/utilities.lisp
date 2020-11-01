@@ -155,6 +155,7 @@
   The path argument must be a string, as it's passed verbatim to the Unix shell."
   (declare (type string filepath))
   (log-message :debug "Identifying MIME-type for file '~A'" filepath)
+  (log-message :debug "PATH value: ~A" (sb-ext:posix-getenv "PATH"))
   (string-right-trim
     '(#\NewLine)
     (with-output-to-string (str)
