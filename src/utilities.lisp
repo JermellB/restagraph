@@ -165,6 +165,20 @@
                           :output str)
       str)))
 
+(defun move-file (old-path new-path)
+  "Move a file by calling out to the Unix 'mv' utility.
+   Do this because rename-file doesn't work across filesystem boundaries."
+  (let ((oldpath (format nil "~A" old-path))
+        (newpath (format nil "~A" new-path)))
+    (log-message :debug "Moving file '~A' to new location '~A'" oldpath newpath)
+    (log-message :debug "Result of file move: ~A"
+                 (with-output-to-string (outstr)
+                   (sb-ext:run-program "mv"
+                                       (list oldpath newpath)
+                                       :search t
+                                       :output outstr)
+                   outstr))))
+
 (defun ensure-db-passwd (server)
   "Check the credentials for the database, and return a boolean."
   (log-message :info "Checking database credentials.")

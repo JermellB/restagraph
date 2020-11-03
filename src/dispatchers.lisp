@@ -737,7 +737,7 @@
                    (log-message :debug
                                 (format nil "Actually moving received file '~A' to storage location '~A'"
                                         filepath-temp filepath-target))
-                   (rename-file filepath-temp filepath-target)))
+                   (move-file filepath-temp (namestring filepath-target))))
                ;; If the location-move fails, we should probably remove the metadata and tell the client.
                ;;
                ;; Now return success to the client
