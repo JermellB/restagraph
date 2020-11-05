@@ -366,16 +366,13 @@
 
 ;;;; Resources
 
-(defmethod dependent-resource-p ((db neo4cl:neo4j-rest-server) (resourcetype string))
-  (neo4cl:extract-data-from-get-request
-    (neo4cl:neo4j-transaction
-      db
-      `((:STATEMENTS
-          ((:STATEMENT .
-            ,(format nil "MATCH (c:rgResource { name: '~A' }) RETURN c.dependent"
-                     (sanitise-uid resourcetype)))))))))
+(defmethod dependent-resource-p ((db hash-table)
+                                 (resourcetype string))
+  (let ((rtype (gethash resourcetype db)))
+    (when rtype
+      (schema-rtypes-dependent rtype))))
 
-(defmethod dependent-relationship-p ((db neo4cl:neo4j-rest-server)
+(defmethod dependent-relationship-p ((db hash-table)
                                      (source-type string)
                                      (relationship string)
                                      (dest-type string))
@@ -404,7 +401,7 @@
      (error 'client-error
             :message "The UID must be a non-empty string"))
     ;; If this is a dependent resource, bail out now
-    ((dependent-resource-p db resourcetype)
+    ((dependent-resource-p schema-hash resourcetype)
      (error 'integrity-error
             :message "This is a dependent resource; it must be created as a sub-resource of an existing resource."))
     ;; OK so far: carry on
