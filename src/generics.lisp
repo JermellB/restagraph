@@ -52,6 +52,9 @@
                    from this resource-type.
                    The :resources-seen key is used internally to break loops when recursing."))
 
+(defgeneric fetch-resource-type (source type-name)
+  (:documentation "Return a schema-rtypes struct defining the named resourcetype."))
+
 (defgeneric describe-resource-type-for-graphql (db
                                                 resourcetype
                                                 all-resourcetype-names
@@ -76,6 +79,13 @@
   (:documentation "Confirm whether the provided data is valid, before attempting to use it to create a resource.
   If the data is valid, return a list of attributes suitable for feeding to Neo4J.
   If not, raise a suitable error"))
+
+(defgeneric add-rel-to-schema-rtype (rtype new-rel)
+  (:documentation "Add a relationship to a schema-rtypes struct. If it already has a relationship of the same type to the same target-type, the one being added replaces the old one."))
+
+(defgeneric get-relationship (rtype rel-type target-rtype)
+  (:documentation "Check for a named type of relationship from a resourcetype to a target resourcetype. Return a schema-rels struct if present, otherwise nil.
+  Note that it returns a list, which will have more than one element if we screwed up and allowed two relationships of the same type to the same target."))
 
 
 ;;;; Resource instances

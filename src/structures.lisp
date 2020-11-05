@@ -32,6 +32,7 @@
   (dependent nil :type boolean :read-only t)
   (notes "" :type (or null string) :read-only t))
 
+
 (defclass restagraph-acceptor (tbnl:easy-acceptor)
   ;; Class attributes
   ((datastore :initarg :datastore
@@ -58,3 +59,40 @@
   ;; Class defaults
   (:default-initargs :address "127.0.0.1")
   (:documentation "Customised Hunchentoot acceptor, subclassed from tbnl:easy-acceptor. Carries additional configuration data for the site."))
+
+
+;;; Methods
+
+(defmethod get-relationship ((rtype schema-rtypes)
+                             (rel-type string)
+                             (target-rtype string))
+  (remove-if-not #'(lambda (rel)
+                     (and
+                       (equal rel-type (schema-rels-relationship rel))
+                       (equal target-rtype (schema-rels-target-type rel))))
+                 (schema-rtypes-relationships rtype)))
+
+(defmethod add-rel-to-schema-rtype ((rtype schema-rtypes)
+                                    (new-rel schema-rels))
+  ;; Replace the existing list of relationships with an updated list featuring the new relationship.
+  (log-message :debug "Attempting to add relationship '~A' from source-type '~A' to target-type '~A'"
+               (schema-rels-relationship new-rel)
+               (schema-rtypes-name rtype)
+               (schema-rels-target-type new-rel))
+  (setf (schema-rtypes-relationships rtype)
+        (append
+          ;; Is there already a relationship of this type?
+          (if (get-relationship rtype (schema-rels-relationship new-rel) (schema-rels-target-type new-rel))
+              ;; If there is, filter it out.
+              ;; We could have done this more elegantly by matching the relationship we already found,
+              ;; but it's possible that more than one is already there.
+              ;; This way, we remove any duplicates.
+              (remove-if #'(lambda (rel)
+                             (and
+                               (equal (schema-rels-relationship new-rel) (schema-rels-relationship rel))
+                               (equal (schema-rels-target-type new-rel) (schema-rels-target-type rel))))
+                         (schema-rtypes-relationships rtype))
+              ;; If not, use the list as-is.
+              (schema-rtypes-relationships rtype))
+          ;; Either way, we're adding the new relationship.
+          (list new-rel))))
