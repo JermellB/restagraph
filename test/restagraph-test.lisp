@@ -81,7 +81,7 @@
 
 (fiveam:test
   resources-basic
-  :depends-on 'schema-relationships
+  :depends-on 'authentication
   "Basic operations on resources"
   (let ((restype "routers")
         (uid "amchitka")
@@ -912,37 +912,6 @@
     (restagraph:delete-resourcetype *server* valid-resourcetype)))
 
 (fiveam:test
-  schema-basic
-  :depends-on 'authentication
-  "Simple operations to create and delete resource-types and relationships between them."
-  (let ((ptype1-name "foo")
-        (dtype1-name "bar"))
-    ;; Create one primary resource
-    (restagraph:log-message :info "Create one primary resource")
-    (fiveam:is (restagraph:add-resourcetype *server* ptype1-name))
-    ;; Confirm it's there
-    (restagraph:log-message :info "Confirm presence of single primary resource")
-    (fiveam:is (equal
-                 `(((:NAME . ,ptype1-name)))
-                 (restagraph:get-resource-types *server*)))
-    ;; Delete the single primary resource
-    (restagraph:log-message :info ";TEST Delete one primary resource")
-    (fiveam:is (restagraph:delete-resourcetype *server* ptype1-name))
-    ;; Confirm it's gone again
-    (fiveam:is (null (restagraph:get-resource-types *server*)))
-    ;; Create a single dependent resource
-    (restagraph:log-message :info ";TEST Create a single dependent resource")
-    (fiveam:is (restagraph:add-resourcetype *server* dtype1-name :dependent t))
-    ;; Confirm the presence of the single dependent resource
-    (restagraph:log-message :info ";TEST Confirm the presence of the single dependent resource")
-    (fiveam:is (equal
-                 `(((:NAME . ,dtype1-name) (:DEPENDENT . "true")))
-                 (restagraph:get-resource-types *server*)))
-    ;; Delete the single dependent resource
-    (restagraph:log-message :info ";TEST Delete the single dependent resource")
-    (fiveam:is (restagraph:delete-resourcetype *server* dtype1-name))))
-
-(fiveam:test
   schema-delete-instances
   :depends-on 'resources-basic
   "Confirm that the delete-instances-p argument to delete-resourcetype works as intended."
@@ -972,33 +941,3 @@
     ;; Confirm the instance is gone
     (fiveam:is (null (restagraph:get-resources
                        *server* (format nil "/~A/~A" ptype1-name ptype1-value))))))
-
-(fiveam:test
-  schema-relationships
-  :depends-on 'schema-basic
-  "Relationships between resource types in the schema"
-  (let ((p1type-name "rum")
-        (d1type-name "cola")
-        (rel1name "complements")
-        ;(cardinality1 "1:1")
-        )
-    ;; Create the fixtures
-    (restagraph:log-message :info "Creating test fixtures")
-    (restagraph:add-resourcetype *server* p1type-name)
-    (restagraph:add-resourcetype *server* d1type-name)
-    ;; Create a simple (non-dependent) relationship between them
-    (restagraph:log-message :info ";TEST Create simple relationship between resources")
-    (fiveam:is (restagraph:add-resource-relationship *server* p1type-name rel1name d1type-name))
-    ;; Delete that simple relationship
-    (restagraph:log-message :info ";TEST Delete simple relationship between resources")
-    (fiveam:is (restagraph:delete-resource-relationship *server* p1type-name rel1name d1type-name))
-    ;; Create a dependent relationship between them
-    (restagraph:log-message :info ";TEST Create dependent relationship between resources")
-    (fiveam:is (restagraph:add-resource-relationship *server* p1type-name rel1name d1type-name :dependent t))
-    ;; Delete that dependent relationship
-    (restagraph:log-message :info ";TEST Delete dependent relationship between resources")
-    (fiveam:is (restagraph:delete-resource-relationship *server* p1type-name rel1name d1type-name))
-    ;; Delete the fixtures
-    (restagraph:log-message :info "Deleting test fixtures")
-    (restagraph:delete-resourcetype *server* p1type-name)
-    (restagraph:delete-resourcetype *server* d1type-name)))
