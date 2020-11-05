@@ -298,6 +298,40 @@
               `((:STATEMENTS
                   ((:STATEMENT . "MATCH (c:rgResource) RETURN c"))))))))
 
+;; Implementation for Neo4j database
+(defmethod fetch-resource-type ((source neo4cl:neo4j-rest-server)
+                                (resourcetype string))
+  (log-message :debug (format nil "Fetching definition for resourcetype '~A'" resourcetype))
+  (when (resourcetype-exists-p source resourcetype)
+    (let ((resourcedata (car (neo4cl:extract-rows-from-get-request
+                               (neo4cl:neo4j-transaction
+                                 source
+                                 `((:STATEMENTS
+                                     ((:STATEMENT
+                                        . ,(format nil "MATCH (r:rgResource {name: '~A'}) RETURN r"
+                                                   (sanitise-uid resourcetype))))))))))
+          (attributes (mapcar #'car
+                              (neo4cl:extract-rows-from-get-request
+                                (neo4cl:neo4j-transaction
+                                  source
+                                  `((:STATEMENTS
+                                      ((:STATEMENT
+                                         . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n"
+                                                    (sanitise-uid resourcetype))))))))))
+          (relationships (describe-dependent-resources
+                           source
+                           (sanitise-uid resourcetype)
+                           ;:resources-seen resources-seen
+                           )))
+      (list resourcedata
+            attributes
+            relationships
+            #+(or)
+            (make-schema-rtypes :name (cdr (assoc :NAME resourcedata))
+                                :notes (cdr (assoc :NOTES resourcedata))
+                                :dependent (when (cdr (assoc :NOTES resourcedata)) t)
+                                )))))
+
 (defmethod describe-resource-type ((db neo4cl:neo4j-rest-server)
                                    (resourcetype string)
                                    &key resources-seen)

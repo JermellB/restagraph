@@ -30,7 +30,15 @@
                      :resourcetypes
                      (list (make-schema-rtypes
                              :name "any"
-                             :notes "Special-case meta-resource, representing an instance of any type of resource.")
+                             :notes "Special-case meta-resource, representing an instance of any type of resource."
+                             :relationships (list (make-schema-rels :relationship "Tags"
+                                                                    :target-type "tags")
+                                                  (make-schema-rels :relationship "Groups"
+                                                                    :target-type "groups")
+                                                  (make-schema-rels :relationship "Comments"
+                                                                    :target-type "comments"
+                                                                    :cardinality "1:many"
+                                                                    :dependent t)))
                            (make-schema-rtypes
                              :name "tags"
                              :notes "For categorising resources of any type."
@@ -49,12 +57,7 @@
                              :notes "Comments on things."
                              :attributes (list (make-schema-rtype-attrs
                                                  :name "fulltext"
-                                                 :description "The full text of the comment"))))
-                     :relationships (list (make-schema-rels :uri "any/Tags/tags")
-                                          (make-schema-rels :uri "/any/Groups/groups")
-                                          (make-schema-rels :uri "/any/Comments/comments"
-                                                            :cardinality "1:many"
-                                                            :dependent t)))
+                                                 :description "The full text of the comment")))))
         (make-schema :name "people"
                      :version 1
                      :resourcetypes
@@ -105,5 +108,4 @@
                                                  :description "Height of the thumbnail, in pixels.")
                                                (make-schema-rtype-attrs
                                                  :name "sha3256sum"
-                                                 :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."))))
-                     :relationships ())))
+                                                 :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions.")))))))

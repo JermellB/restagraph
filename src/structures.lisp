@@ -4,15 +4,19 @@
   "Defines a schema."
   (name nil :type string :read-only t)
   (version 0 :type integer :read-only t)
-  (resourcetypes nil :type list :read-only t)   ; List of schema-rtypes structs
-  (relationships nil :type list :read-only t))  ; List of schema-rels structs
+  ;; List of schema-rtypes structs:
+  (resourcetypes nil :type list :read-only t))
 
 (defstruct schema-rtypes
   "Resource-type definition, for use in schema definitions."
   (name nil :type string :read-only t)
   (dependent nil :type boolean :read-only t)
   (notes nil :type string :read-only t)
-  (attributes nil :type list :read-only t))
+  ;; list of `schema-rtype-attrs` structs
+  (attributes nil :type list :read-only t)
+  ;; List of `schema-rels` structs, which is expected to be updated repeatedly
+  ;; as new schemas back-reference existing types.
+  (relationships nil :type list :read-only nil))
 
 (defstruct schema-rtype-attrs
   "Attributes of resource-types"
@@ -22,7 +26,8 @@
 
 (defstruct schema-rels
   "Relationships between resourcetypes, for use in schema definitions."
-  (uri nil :type string :read-only t)
+  (relationship nil :type string :read-only t)
+  (target-type nil :type string :read-only t)
   (cardinality "many:many" :type string :read-only t)
   (dependent nil :type boolean :read-only t)
   (notes "" :type (or null string) :read-only t))
