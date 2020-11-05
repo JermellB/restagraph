@@ -99,9 +99,11 @@
       (let ((schemadir
               (cond
                 ;; Is one set via an environment variable?
-                ((sb-ext:posix-getenv "SCHEMAPATH") (sb-ext:posix-getenv "SCHEMAPATH"))
+                ((sb-ext:posix-getenv "SCHEMAPATH")
+                 (make-pathname :defaults (sb-ext:posix-getenv "SCHEMAPATH")))
                 ;; Were we passed one explicitly?
-                (schemapath schemapath)
+                (schemapath
+                  (make-pathname :defaults schemapath))
                 ;; Default case
                 (t nil))))
         ;; Ensure we have an acceptor to work with
@@ -137,7 +139,8 @@
                             (neo4cl:title e)
                             (neo4cl:message e)))))))
         ;; Update the schema, if one has been specified
-        (inject-all-schemas (datastore acceptor) schemadir)
+        (when schemadir
+          (inject-all-schemas (schema acceptor) schemadir))
         ;; Set the dispatch table
         (restagraph:log-message :info "Configuring the dispatch table")
         (setf tbnl:*dispatch-table*

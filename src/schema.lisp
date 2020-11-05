@@ -160,6 +160,14 @@
         (log-message :fatal message)
         (error message)))))
 
+(defun inject-all-schemas (hash schemadir)
+  "Update the supplied hash-table with the digested contents of the schema directory."
+  (declare (type hash-table hash)
+           (type pathname schemadir))
+  (mapcar #'(lambda (schemafile)
+              (update-hash-from-digest hash (digest-schema-yaml schemafile)))
+          (enumerate-schemas-in-dir schemadir)))
+
 (defun read-schemas (parent-dir)
   "Parse the .yaml files in the specified directory, in alphabetical order.
   Return the result as a list of objects output by cl-yaml:parse,
