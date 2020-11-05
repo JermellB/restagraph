@@ -288,9 +288,10 @@
            . ,(format nil "MATCH (r:rgResource {name: '~A'}) DETACH DELETE r;"
            (sanitise-uid resourcetype))))))))
 
-(defmethod get-resource-types ((db neo4cl:neo4j-rest-server))
-  (log-message :debug "Getting all resource-types")
-  (mapcar #'car
+(defmethod get-resourcetype-names ((db neo4cl:neo4j-rest-server))
+  (log-message :debug "Fetching resourcetype names from the Neo4j database.")
+  (mapcar #'(lambda (foo)
+              (cdr (assoc :NAME (car foo))))
           (neo4cl::extract-rows-from-get-request
             (neo4cl:neo4j-transaction
               db

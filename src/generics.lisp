@@ -42,8 +42,8 @@
 (defgeneric delete-resource-relationship (db parent-type relationship dependent-type)
   (:documentation "Delete a dependency between two resource types. If this removes the last relationship on which a dependent resource-type depends, that type and all its instances will also be deleted."))
 
-(defgeneric get-resource-types (db)
-  (:documentation "Extract resource definitions from the database"))
+(defgeneric get-resourcetype-names (db)
+  (:documentation "Return the names of resourcetypes, as a list of strings."))
 
 (defgeneric describe-resource-type (db resourcetype &key resources-seen)
   (:documentation "Return the description of a resource-type, as an alist.

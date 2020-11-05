@@ -97,11 +97,7 @@
                 (member name
                         '("any" "rgSchemas" "rgSchemaVersions")
                         :test #'equal))
-            (mapcar
-              #'(lambda (r)
-                  ; Pull out just the name of the resource
-                  (cdr (assoc :name r)))
-              (get-resource-types db)))))
+            (get-resourcetype-names db))))
     (format nil "~{~A~^~%~%~}"
             (mapcar
               #'(lambda (r)
@@ -157,10 +153,8 @@
            (cl-json:encode-json-to-string
              (mapcar
                #'(lambda (r)
-                   (describe-resource-type
-                     (datastore tbnl:*acceptor*)
-                     (cdr (assoc :name r))))
-               (get-resource-types (datastore tbnl:*acceptor*))))))
+                   (describe-resource-type (datastore tbnl:*acceptor*) r))
+               (get-resourcetype-names (datastore tbnl:*acceptor*))))))
         ;; Add a resource-type
         ((and
            (equal (tbnl:request-method*) :POST)

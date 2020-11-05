@@ -30,7 +30,6 @@
     delete-resourcetype
     add-resource-relationship
     delete-resource-relationship
-    get-resource-types
     describe-resource-type
     relationship-valid-p
     enforce-db-schema
