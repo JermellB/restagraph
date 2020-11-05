@@ -167,26 +167,3 @@
   (mapcar #'(lambda (schemafile)
               (update-hash-from-digest hash (digest-schema-yaml schemafile)))
           (enumerate-schemas-in-dir schemadir)))
-
-(defun read-schemas (parent-dir)
-  "Parse the .yaml files in the specified directory, in alphabetical order.
-  Return the result as a list of objects output by cl-yaml:parse,
-  expected to be hash objects."
-  (declare (type (string) parent-dir))
-  (log-message :info (format nil "Attempting to read schemas in directory ~A" parent-dir))
-  ;; Safety first: is the directory even there?
-  (if (probe-file parent-dir)
-    ;; This is _really_ ugly, but guarantees alphabetical order.
-    (mapcar #'cl-yaml:parse
-            (mapcar #'pathname
-                    (sort
-                      (mapcar #'namestring
-                              (directory (make-pathname
-                                           :name :wild
-                                           :type "yaml"
-                                           :directory parent-dir)))
-                      #'string<)))
-    ;; Safety-check failed. Complain loudly.
-    (let ((message (format nil "Schema directory ~A doesn't exist!" parent-dir)))
-      (log-message :fatal message)
-      (error message))))

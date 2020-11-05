@@ -28,12 +28,6 @@
   (setf (tbnl:return-code*) tbnl:+http-method-not-allowed+)
   "Method not allowed")
 
-(defun uri-not-implemented ()
-  "It's an API request, but not one we're configured for."
-  (setf (tbnl:content-type*) "text/plain")
-  (setf (tbnl:return-code*) tbnl:+http-not-implemented+)
-  "Not implemented")
-
 (defun return-integrity-error (logmessage &optional client-message)
   "Report to the client that their request would have violated an integrity constraint.
   The optional client-message "

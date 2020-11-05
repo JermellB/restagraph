@@ -20,23 +20,14 @@
     ;; Functions
     sanitise-uid
     ;; Methods
-    add-resourcetype
     resourcetype-exists-p
-    set-resourcetype-attribute
-    resourcetype-attribute-exists-p
     get-resource-attributes-from-db
-    update-resourcetype-attribute
-    delete-resourcetype-attribute
-    delete-resourcetype
     add-resource-relationship
-    delete-resource-relationship
     describe-resource-type
-    relationship-valid-p
     enforce-db-schema
     dependent-resource-p
     store-resource
     update-resource-attributes
-    delete-resource-attributes
     store-dependent-resource
     move-dependent-resource
     get-resources
@@ -44,7 +35,6 @@
     get-dependent-relationships-for-type
     dependent-relationship-p
     create-relationship-by-path
-    get-resources-with-relationship
     check-relationship-by-path
     delete-relationship-by-path
     get-relationship-attrs

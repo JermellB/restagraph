@@ -8,39 +8,14 @@
 
 ;;;; Schema
 
-(defgeneric add-resourcetype (db resourcetype &key dependent notes)
-  (:documentation "Create a resource, add its attributes, and update the database's uniqueness constraints. Attributes are supplied as a list of strings, naming them. If :dependent evaluates to True, it will be created as a dependent type. Notes provide the opportunity to explain the intent of each resourcetype."))
-
 (defgeneric resourcetype-exists-p (db resourcetype)
   (:documentation "Verify whether we have a definition for a resourcetype by this name."))
 
 (defgeneric resourcetype-relationship-exists-p (db source relationship dest)
   (:documentation "Verify whether a specific relationship is present. Return a boolean."))
 
-(defgeneric set-resourcetype-attribute (db resourcetype &key name description)
-  (:documentation "Ensure the state of an attribute to an existing resourcetype.
-                  If one already exists, it will be deleted and then re-created according to the new definition."))
-
-(defgeneric resourcetype-attribute-exists-p (db resourcetype attribute)
-  (:documentation "Verify whether we have a definition for a resourcetype attribute by this name"))
-
 (defgeneric get-resource-attributes-from-db (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database"))
-
-(defgeneric update-resourcetype-attribute (db resourcetype name &key description)
-  (:documentation "Update the attributes of a resourcetype's attributes."))
-
-(defgeneric delete-resourcetype-attribute (db resourcetype name)
-  (:documentation "Remove an attribute from a resourcetype. Don't delete existing data; leave it in place bu inaccessible via this API."))
-
-(defgeneric delete-resourcetype (db resourcetype &key delete-instances-p)
-  (:documentation "Delete a resource-type, and all its instances along with any relationships to other types."))
-
-(defgeneric add-resource-relationship (db parent-type relationship dependent-type &key dependent cardinality notes)
-  (:documentation "Create a relationship between two resource types. Notes provide the opportunity to explain the intent of each resourcetype."))
-
-(defgeneric delete-resource-relationship (db parent-type relationship dependent-type)
-  (:documentation "Delete a dependency between two resource types. If this removes the last relationship on which a dependent resource-type depends, that type and all its instances will also be deleted."))
 
 (defgeneric get-resourcetype-names (db)
   (:documentation "Return the names of resourcetypes, as a list of strings."))
@@ -51,9 +26,6 @@
                    The :recursive key is a boolean indicating whether to recursively traverse all the relationships
                    from this resource-type.
                    The :resources-seen key is used internally to break loops when recursing."))
-
-(defgeneric fetch-resource-type (source type-name)
-  (:documentation "Return a schema-rtypes struct defining the named resourcetype."))
 
 (defgeneric describe-resource-type-for-graphql (db
                                                 resourcetype
@@ -71,9 +43,6 @@
                    The :resources-seen key is used internally to break loops when recursing.
                    Return format is a list of conses, whose car is a relationship-attrs struct,
                    and whose cdr is the name of the target resourcetype."))
-
-(defgeneric relationship-valid-p (db from-resource relationship to-resource)
-  (:documentation "Checks whether this type of relationship is permitted between these types of resources. Returns a boolean."))
 
 (defgeneric validate-resource-before-creating (db resourcetype params)
   (:documentation "Confirm whether the provided data is valid, before attempting to use it to create a resource.
@@ -138,10 +107,6 @@ Return an error if
 
 (defgeneric create-relationship-by-path (db sourcepath destpath)
   (:documentation "Create a relationship between two arbitrary, pre-existing resources. The last element of the sourcepath must be the relationship type."))
-
-(defgeneric get-resources-with-relationship (db resourcetype uid reltype)
-  (:documentation "Retrieve a summary of all resources with a given relationship to this one.
-  Return a list of two-element lists, where the first element is the resource-type and the second is the UID."))
 
 (defgeneric check-relationship-by-path (db sourcepath relationship destpath)
   (:documentation "Confirm whether this relationship exists between these resources.

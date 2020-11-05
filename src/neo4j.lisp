@@ -65,109 +65,6 @@
                           (sanitise-uid dest))))))))
     t))
 
-(defmethod add-resourcetype ((db neo4cl:neo4j-rest-server)
-                             (resourcetype string)
-                             &key dependent notes)
-  (declare (type (boolean) dependent)
-           (type (or string null) notes))
-  (log-message :info
-               (format nil "Attempting to create resourcetype '~A'" resourcetype))
-  ;; Do we already have one of these?
-  (if (resourcetype-exists-p db resourcetype)
-    ;; Already have one; return early
-    (progn
-      (log-message
-        :info
-        (format nil "Resourcetype '~A' already exists" resourcetype))
-      ;; FIXME: return 200, not 201
-      t)
-    ;; Not already present; create it
-    (progn
-      (neo4cl:neo4j-transaction
-        db
-        `((:STATEMENTS
-            ((:STATEMENT
-               . ,(format nil "CREATE (r:rgResource {name: '~A'~A~A});"
-                          (sanitise-uid resourcetype)
-                          (if dependent
-                            ", dependent: 'true'"
-                            "")
-                          (if notes
-                            (format nil ", notes: '~A'" (escape-neo4j notes))
-                            "")))))))
-      (log-message :debug "Add a uniqueness constraint in the database, but only if it's a primary resource.")
-      (unless dependent
-        (handler-case
-          (neo4cl:neo4j-transaction
-            db
-            `((:STATEMENTS
-                ((:STATEMENT
-                   . ,(format nil "CREATE CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE"
-                              (sanitise-uid resourcetype)))))))
-          (neo4cl:client-error
-            (e)
-            ;; If we already have this constraint, that's fine.
-            ;; Catch the error and move on.
-            (if (and
-                  (equal "Schema" (neo4cl:category e))
-                  (equal "EquivalentSchemaRuleAlreadyExists" (neo4cl:title e)))
-              nil
-              ;; If anything else went wrong, log it and pass it on up the stack
-              (progn
-                (log-message :debug (format nil "Received error '~A.~A ~A'"
-                                            (neo4cl:category e)
-                                            (neo4cl:title e)
-                                            (neo4cl:message e)))
-                (return-database-error
-                  (format nil "~A.~A: ~A"
-                          (neo4cl:category e)
-                          (neo4cl:title e)
-                          (neo4cl:message e))))))))
-      ;; Return a uniform response, either way.
-      t)))
-
-(defmethod set-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
-                                       (resourcetype string)
-                                       &key name description vals)
-  (declare (type (string) name)
-           (type (or string null) description)
-           (type (or string null) vals))
-  ;; Perform some sanity checks before proceeding.
-  (cond
-    ;; Does the specified resourcetype exist?
-    ((not (resourcetype-exists-p db (sanitise-uid resourcetype)))
-     (signal 'client-error :message "Resourcetype '~A' does not exist."))
-    ;; All sanity-checks have passed; carry on.
-    (t
-     (log-message :debug (format nil "Attempting to add to resourcetype '~A' an attribute called '~A', with description '~A'."
-                                 resourcetype name (if description description "")))
-     ;; Now that we have all the attributes, proceed.
-     ;; If the attribute already exists, remove it.
-     (when (resourcetype-attribute-exists-p
-             db
-             (sanitise-uid resourcetype)
-             (sanitise-uid name))
-       (progn
-         (log-message :info (format nil "Attribute ~A is already present. Deleting it before re-creating it, to make sure." name)))
-       (delete-resourcetype-attribute
-         db
-         (sanitise-uid resourcetype)
-         (sanitise-uid name)))
-     ;; Create the attribute
-     (log-message :info
-                  (format nil "Adding attribute ~A to resourcetype ~A" name resourcetype))
-     (neo4cl:neo4j-transaction
-       db
-       `((:STATEMENTS
-           ((:STATEMENT
-              . ,(format nil "MATCH (r:rgResource {name: '~A'}) CREATE (r)-[:rgHasAttribute]->(:rgAttribute {~{~{~A: '~A'~}~^, ~}});"
-                         (sanitise-uid resourcetype)
-                         ;; Handle the optional attribute-attributes with an accumulator
-                         (append `(("name" ,(sanitise-uid name)))
-                                 (when description
-                                   `(("description" ,(escape-neo4j description))))
-                                 (when vals
-                                   `(("vals" ,(escape-neo4j vals))))))))))))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))
@@ -180,114 +77,6 @@
             ,(format nil "MATCH (c:rgResource { name: '~A' })-[:rgHasAttribute]-(a:rgAttribute) RETURN a"
                      (sanitise-uid resourcetype)))))))))
 
-(defmethod update-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
-                                          (resourcetype string)
-                                          (attribute string)
-                                          &key description)
-  ;; Sanity checks
-  (cond
-    ;; Is the description a string?
-    ((or (not description) ; Client could have explicitly passed a null
-         (not (stringp description)))
-     (signal 'client-error :message "Description attribute must be in the form of a string"))
-    ;; Looks good; proceed.
-    (t
-     (log-message :debug (format nil "Updating attribute '~A' of resourcetype '~A' with description '~A'"
-                                 attribute resourcetype description))
-     (neo4cl:neo4j-transaction
-       db
-       `((:STATEMENTS
-           ((:STATEMENT
-              . ,(format nil "MATCH (r:rgResource {name: '~A'})-[:rgHasAttribute]->(a:rgAttribute {name: '~A'}) SET n.description = '~A';"
-                         (sanitise-uid resourcetype)
-                         (sanitise-uid attribute)
-                         (sanitise-uid description))))))))))
-
-(defmethod resourcetype-attribute-exists-p ((db neo4cl:neo4j-rest-server)
-                                            (resourcetype string)
-                                            (attribute string))
-  (member (escape-neo4j attribute)
-          (mapcar #'(lambda (attr) (cdr (assoc :name (car attr))))
-                  (get-resource-attributes-from-db db (sanitise-uid resourcetype)))
-          :test #'equal))
-
-(defmethod delete-resourcetype-attribute ((db neo4cl:neo4j-rest-server)
-                                          (resourcetype string)
-                                          (name string))
-  (log-message :debug "Was requested to delete attribute '~A' from resourcetype '~A'"
-               name resourcetype)
-  ;; Sanity checks
-  (cond
-    ;; Resourcetype doesn't exist
-    ((not (resourcetype-exists-p db resourcetype))
-     (log-message :debug (format nil "Can't delete attributes from nonexistent resourcetype ~A"
-                                 resourcetype))
-     (signal 'client-error :message "No such resourcetype"))
-    ;; Attribute doesn't exist
-    ((not (resourcetype-attribute-exists-p db resourcetype name))
-     (log-message :debug
-                  (format nil "Can't delete nonexistent attribute '~A' from resourcetype '~A'"
-                          name resourcetype))
-     (signal 'client-error :message (format nil "Resourcetype '~A' has no attribute with name '~A'"
-                                   resourcetype name)))
-    ;; Looks OK; go ahead.
-    (t
-     (log-message :debug "Deleting attribute '~A' from resourcetype '~A'"
-                  name resourcetype)
-     (neo4cl:neo4j-transaction
-       db
-       `((:STATEMENTS
-           ((:STATEMENT
-              . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(a:rgAttribute {name: '~A'}) DETACH DELETE a;"
-                         (sanitise-uid resourcetype)
-                         (escape-neo4j name))))))))))
-
-(defmethod delete-resourcetype ((db neo4cl:neo4j-rest-server)
-                                (resourcetype string)
-                                &key delete-instances-p)
-  ;; If it's not a dependent type, delete its uniqueness constraint.
-  (when (not (dependent-resource-p db resourcetype))
-    (log-message
-      :debug
-      (format nil "Dropping uniqueness constraint for resource-type ~A" resourcetype))
-    (handler-case
-      (neo4cl:neo4j-transaction
-        db
-        `((:STATEMENTS
-            ((:STATEMENT
-               .  ,(format nil "DROP CONSTRAINT ON (r:~A) ASSERT r.uid IS UNIQUE"
-               (sanitise-uid resourcetype)))))))
-      (neo4cl:database-error (e)
-                             (if (equal (neo4cl:title e) "ConstraintDropFailed")
-                                 nil   ; This is OK - do nothing
-                                 (return-database-error
-                                   (format nil "~A.~A: ~A"
-                                           (neo4cl:category e)
-                                           (neo4cl:title e)
-                                           (neo4cl:message e)))))))
-  (if delete-instances-p
-    (progn
-      (log-message :debug "Delete all instances of this resource-type.")
-      (neo4cl:neo4j-transaction
-        db
-        `((:STATEMENTS
-            ((:STATEMENT
-               . ,(format nil "MATCH (n:~A) DETACH DELETE n;" (sanitise-uid resourcetype))))))))
-    (log-message :debug "delete-instances-p is NIL: leaving any existing instances of this resourcetype in place."))
-  (log-message :debug "Delete this type, along with any relationships it has to other types.")
-  (neo4cl:neo4j-transaction
-    db
-    `((:STATEMENTS
-        ((:STATEMENT
-           . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(r) DETACH DELETE r;"
-           (sanitise-uid resourcetype)))))))
-  (neo4cl:neo4j-transaction
-    db
-    `((:STATEMENTS
-        ((:STATEMENT
-           . ,(format nil "MATCH (r:rgResource {name: '~A'}) DETACH DELETE r;"
-           (sanitise-uid resourcetype))))))))
-
 (defmethod get-resourcetype-names ((db neo4cl:neo4j-rest-server))
   (log-message :debug "Fetching resourcetype names from the Neo4j database.")
   (mapcar #'(lambda (foo)
@@ -297,40 +86,6 @@
               db
               `((:STATEMENTS
                   ((:STATEMENT . "MATCH (c:rgResource) RETURN c"))))))))
-
-;; Implementation for Neo4j database
-(defmethod fetch-resource-type ((source neo4cl:neo4j-rest-server)
-                                (resourcetype string))
-  (log-message :debug (format nil "Fetching definition for resourcetype '~A'" resourcetype))
-  (when (resourcetype-exists-p source resourcetype)
-    (let ((resourcedata (car (neo4cl:extract-rows-from-get-request
-                               (neo4cl:neo4j-transaction
-                                 source
-                                 `((:STATEMENTS
-                                     ((:STATEMENT
-                                        . ,(format nil "MATCH (r:rgResource {name: '~A'}) RETURN r"
-                                                   (sanitise-uid resourcetype))))))))))
-          (attributes (mapcar #'car
-                              (neo4cl:extract-rows-from-get-request
-                                (neo4cl:neo4j-transaction
-                                  source
-                                  `((:STATEMENTS
-                                      ((:STATEMENT
-                                         . ,(format nil "MATCH (:rgResource {name: '~A'})-[:rgHasAttribute]->(n:rgAttribute) RETURN n"
-                                                    (sanitise-uid resourcetype))))))))))
-          (relationships (describe-dependent-resources
-                           source
-                           (sanitise-uid resourcetype)
-                           ;:resources-seen resources-seen
-                           )))
-      (list resourcedata
-            attributes
-            relationships
-            #+(or)
-            (make-schema-rtypes :name (cdr (assoc :NAME resourcedata))
-                                :notes (cdr (assoc :NOTES resourcedata))
-                                :dependent (when (cdr (assoc :NOTES resourcedata)) t)
-                                )))))
 
 (defmethod describe-resource-type ((db neo4cl:neo4j-rest-server)
                                    (resourcetype string)
@@ -488,68 +243,6 @@
                        ((:STATEMENT
                           .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r]->(n:rgResource) WHERE type(r) <> 'rgHasAttribute' RETURN n.name, type(r), r.dependent, r.cardinality, r.notes"
                                       (sanitise-uid resourcetype)))))))))))
-
-(defmethod add-resource-relationship ((db neo4cl:neo4j-rest-server)
-                                      (parent-type string)
-                                      (relationship string)
-                                      (dependent-type string)
-                                      &key dependent cardinality notes)
-  (log-message :info
-               (format nil "Attempting to create relationship '~A' from '~A' to '~A'"
-                       relationship parent-type dependent-type))
-  (cond
-    ;; Sanity checks
-    ((not (describe-resource-type db parent-type))
-     (error 'restagraph:integrity-error :message
-            (format nil "Parent resource type ~A does not exist" parent-type)))
-    ((not (describe-resource-type db dependent-type))
-     (error 'restagraph:integrity-error :message
-            (format nil "Dependent resource type ~A does not exist" dependent-type)))
-    ;; catch the case where this relationship already exists
-    ((resourcetype-relationship-exists-p db parent-type relationship dependent-type)
-     t)
-    ;; FIXME catch attempts to create dependent relationships to non-dependent types
-    ;; All sanity checks have passed. Create it.
-    (t
-     (let ((attrs (list
-                    (format nil "dependent: '~A'" (if dependent "true" "false"))
-                    (format nil "cardinality: '~A'"
-                            (if (member cardinality '("1:1" "many:1" "1:many" "many:many") :test #'equal)
-                                cardinality
-                                "many:many")))))
-       ;; Add notes if they were supplied
-       (when notes
-         (pushnew (format nil "notes: '~A'" (escape-neo4j notes)) attrs))
-       ;; Debug step
-       (log-message :debug "Sanity checks have passed; creating relationship '~A' from '~A' to '~A'"
-                    relationship parent-type dependent-type)
-       ;; Create it
-       (neo4cl:neo4j-transaction
-         db
-         `((:STATEMENTS
-             ((:STATEMENT .
-               ,(format
-                  nil
-                  "MATCH (s:rgResource { name: '~A' }), (d:rgResource { name: '~A'}) CREATE (s)-[:~A {~{~A~^, ~}}]->(d)"
-                  (sanitise-uid parent-type)
-                  (sanitise-uid dependent-type)
-                  (sanitise-uid relationship)
-                  attrs))))))))))
-
-(defmethod delete-resource-relationship ((db neo4cl:neo4j-rest-server)
-                                         (parent-type string)
-                                         (relationship string)
-                                         (dependent-type string))
-  (neo4cl:neo4j-transaction
-    db
-    `((:STATEMENTS
-        ((:STATEMENT .
-          ,(format
-             nil
-             "MATCH (s:rgResource { name: '~A' })-[r:~A]->(d:rgResource { name: '~A'}) DELETE r"
-             (sanitise-uid parent-type)
-             (sanitise-uid relationship)
-             (sanitise-uid dependent-type))))))))
 
 (defun format-post-params-as-properties (params)
   "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map that Neo4J expects in the :PROPERTIES section of a query."
@@ -975,20 +668,6 @@
 
 ;;;; Relationships
 
-(defmethod relationship-valid-p ((db neo4cl:neo4j-rest-server)
-                                 (source-type string)
-                                 (reltype string)
-                                 (dest-type string))
-  (neo4cl:extract-rows-from-get-request
-    (neo4cl:neo4j-transaction
-      db
-      `((:STATEMENTS
-          ((:STATEMENT
-             . ,(format nil "MATCH (a:rgResource)-[r:~A]->(b:rgResource {name: '~A'}) WHERE a.name IN ['~A', 'any'] RETURN a, type(r), b"
-                        (sanitise-uid reltype)
-                        (sanitise-uid dest-type)
-                        (sanitise-uid source-type)))))))))
-
 (defstruct relationship-attrs
   "Describes the attributes of a relationship:
   relationship-attrs-dependent = boolean, indication whether this is a dependent relationship
@@ -1333,22 +1012,6 @@
                      `(("createddate" . ,(get-universal-time))))))))))))
             ;; We already have one of these
             (error 'integrity-error :message (format nil "Resource ~A already exists" resource-path))))))))
-
-(defmethod get-resources-with-relationship ((db neo4cl:neo4j-rest-server)
-                                            (resourcetype string)
-                                            (uid string)
-                                            (relationship string))
-  (mapcar #'(lambda (row)
-              `(("resource-type" . ,(caar row)) ("uid" . ,(second row))))
-          (neo4cl:extract-rows-from-get-request
-            (neo4cl:neo4j-transaction
-              db
-              `((:STATEMENTS
-                  ((:STATEMENT .
-                    ,(format nil "MATCH (a:~A {uid: '~A' })-[:~A]->(b) RETURN labels(b), b.uid"
-                             (sanitise-uid resourcetype)
-                             (sanitise-uid uid)
-                             (sanitise-uid relationship))))))))))
 
 (defmethod get-dependent-resources ((db neo4cl:neo4j-rest-server)
                                     (sourcepath list))

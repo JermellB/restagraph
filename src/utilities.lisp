@@ -225,7 +225,3 @@
                                  :counter (+ counter 1)
                                  :max-count max-count
                                  :sleep-time sleep-time))))))
-
-(defun save-image (&optional (path "/tmp/restagraph"))
-  (declare (type (string) path))
-  (sb-ext:save-lisp-and-die path :executable t :toplevel 'restagraph::dockerstart))
