@@ -27,8 +27,6 @@
   (dependent nil :type boolean :read-only t)
   (notes "" :type (or null string) :read-only t))
 
-;;; Customised Hunchentoot acceptor.
-;;; Carries information about the datastore being used.
 (defclass restagraph-acceptor (tbnl:easy-acceptor)
   ;; Class attributes
   ((datastore :initarg :datastore
@@ -37,13 +35,16 @@
               :documentation "An object representing the datastore, on which the generic functions will be dispatched.")
    (uri-base-api :initarg :uri-base-api
                  :reader uri-base-api
-                 :initform (error "uri-base-api is required"))
+                 :initform "/raw/v1"
+                 :documentation "Base URI on which the raw API is to be presented.")
    (uri-base-schema :initarg :uri-base-schema
                     :reader uri-base-schema
-                    :initform (error "uri-base-schema is required"))
+                    :initform "/schema/v1"
+                    :documentation "Base URI on which the schema API is to be presented.")
    (uri-base-files :initarg :uri-base-files
                    :reader uri-base-files
-                   :initform (error "uri-base-files is required"))
+                   :initform "/files/v1"
+                   :documentation "Base URI on which the files API is to be presented.")
    (files-location :initarg :files-location
                    :reader files-location
                    :initform (error "files-location is required"))
@@ -51,4 +52,4 @@
            :initform (make-hash-table :test #'equal)))
   ;; Class defaults
   (:default-initargs :address "127.0.0.1")
-  (:documentation "vhost object, subclassed from tbnl:easy-acceptor"))
+  (:documentation "Customised Hunchentoot acceptor, subclassed from tbnl:easy-acceptor. Carries additional configuration data for the site."))
