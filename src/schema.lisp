@@ -163,7 +163,17 @@
 (defun inject-all-schemas (hash schemadir)
   "Update the supplied hash-table with the digested contents of the schema directory."
   (declare (type hash-table hash)
-           (type pathname schemadir))
-  (mapcar #'(lambda (schemafile)
-              (update-hash-from-digest hash (digest-schema-yaml schemafile)))
-          (enumerate-schemas-in-dir schemadir)))
+           (type (or null pathname) schemadir))
+  ;; Ensure the core schemas are present and up to date
+  (log-message :info "Ensuring core schemas are present and up to date")
+  (mapcar #'(lambda (schema)
+              (update-hash-from-digest hash schema))
+          restagraph::*core-schemas*)
+  ;; Lastly, if there were any user-defined schemas, apply those as well.
+  ;; The point of digesting all the schema files before beginning to inject them,
+  ;; instead of simply doing it as a single loop, is to ensure that we don't get
+  ;; partway through injecting the schemas before discovering a problem in the files.
+  (when schemadir
+    (mapcar #'(lambda (schemafile)
+                (update-hash-from-digest hash (digest-schema-yaml schemafile)))
+            (enumerate-schemas-in-dir schemadir))))
