@@ -1041,6 +1041,8 @@
                                                                 :marker "n"
                                                                 :directional t))))))))))))
 
+;; Suspected to be unused
+#+(or)
 (defmethod critical-dependency-p ((db neo4cl:neo4j-rest-server)
                                   (path list))
   ;; The path must end in a resource UID and be long enough to contain a dependency
