@@ -34,18 +34,11 @@
 
 ;;;; Schema methods and functions
 
-(defmethod resourcetype-exists-p ((db neo4cl:neo4j-rest-server)
+(defmethod resourcetype-exists-p ((db hash-table)
                                   (resourcetype string))
-  (log-message :debug
-               (format nil "Checking for existence of resourcetype '~A'"
-                       resourcetype))
-  (neo4cl:extract-data-from-get-request
-    (neo4cl:neo4j-transaction
-      db
-      `((:STATEMENTS
-          ((:STATEMENT
-             . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n"
-             (sanitise-uid resourcetype)))))))))
+  (log-message :debug (format nil "Checking for existence of resourcetype '~A'"
+                              resourcetype))
+  (gethash resourcetype db))
 
 (defmethod resourcetype-relationship-exists-p ((db neo4cl:neo4j-rest-server)
                                   (source string)
