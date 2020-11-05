@@ -46,7 +46,9 @@
                    :initform (error "uri-base-files is required"))
    (files-location :initarg :files-location
                    :reader files-location
-                   :initform (error "files-location is required")))
+                   :initform (error "files-location is required"))
+   (schema :accessor schema
+           :initform (make-hash-table :test #'equal)))
   ;; Class defaults
   (:default-initargs :address "127.0.0.1")
   (:documentation "vhost object, subclassed from tbnl:easy-acceptor"))
