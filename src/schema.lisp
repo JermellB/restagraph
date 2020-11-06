@@ -345,38 +345,6 @@
                         (sanitise-uid resourcetype)))))))))
 
 
-(defgeneric resourcetype-relationship-exists-p (db source relationship dest)
-  (:documentation "Verify whether a specific relationship is present. Return a boolean."))
-
-(defmethod resourcetype-relationship-exists-p ((db hash-table)
-                                               (source string)
-                                               (relationship string)
-                                               (dest string))
-  (log-message :debug
-               (format nil "Checking for relationship '~A'-'~A'->'~A'" source relationship dest))
-  (let ((source-struct (gethash source db)))
-    (when source-struct
-      (when (relationship-in-struct-p source-struct relationship dest) t))))
-
-(defmethod resourcetype-relationship-exists-p ((db neo4cl:neo4j-rest-server)
-                                               (source string)
-                                               (relationship string)
-                                               (dest string))
-  (log-message :debug
-               (format nil "Checking for relationship '~A'-'~A'->'~A'" source relationship dest))
-  (when
-    (neo4cl:extract-data-from-get-request
-      (neo4cl:neo4j-transaction
-        db
-        `((:STATEMENTS
-            ((:STATEMENT
-               . ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r"
-                          (sanitise-uid source)
-                          (sanitise-uid relationship)
-                          (sanitise-uid dest))))))))
-    t))
-
-
 (defgeneric get-resource-attributes-from-db (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database"))
 
