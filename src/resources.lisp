@@ -8,13 +8,14 @@
 (in-package #:restagraph)
 
 
-(defgeneric store-resource (db resourcetype attributes)
+(defgeneric store-resource (db schema resourcetype attributes)
   (:documentation "Store a resource in the database. Attributes argument is expected in the form of an alist.
 Return an error if
 - the resource type is not present in the schema
 - the client attempts to set attributes that aren't defined for this resourcetype."))
 
 (defmethod store-resource ((db neo4cl:neo4j-rest-server)
+                           (schema hash-table)
                            (resourcetype string)
                            ;; `attributes` is an alist, where the car is the name
                            ;; and the cdr is the value
@@ -26,7 +27,7 @@ Return an error if
      (error 'client-error
             :message "The UID must be a non-empty string"))
     ;; If this is a dependent resource, bail out now
-    ((dependent-resource-p schema-hash resourcetype)
+    ((dependent-resource-p schema resourcetype)
      (error 'integrity-error
             :message "This is a dependent resource; it must be created as a sub-resource of an existing resource."))
     ;; OK so far: carry on
