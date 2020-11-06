@@ -270,8 +270,7 @@
 (defgeneric dependent-resource-p (db resourcetype)
   (:documentation "Determine whether a resource-type is dependent or first-class"))
 
-(defmethod dependent-resource-p ((db hash-table)
-                                 (resourcetype string))
+(defmethod dependent-resource-p ((db hash-table) (resourcetype string))
   (let ((rtype (gethash resourcetype db)))
     (when rtype
       (schema-rtypes-dependent rtype))))

@@ -318,8 +318,10 @@
                    (uid (tbnl:post-parameter "uid")))
                (log-message :debug (format nil "Attempting to create dependent resource ~A:~A on ~A"
                                            newtype uid sub-uri))
-               (store-dependent-resource
-                 (datastore tbnl:*acceptor*) sub-uri (tbnl:post-parameters*))
+               (store-dependent-resource (datastore tbnl:*acceptor*)
+                                         sub-uri
+                                         (tbnl:post-parameters*)
+                                         (schema tbnl:*acceptor*))
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
                ;; Return the URI to the resource at the end of the newly-created resource

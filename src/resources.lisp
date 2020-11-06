@@ -77,12 +77,13 @@ Return an error if
                     :message (message e))))))))
 
 
-(defgeneric store-dependent-resource (db uri attributes)
+(defgeneric store-dependent-resource (db uri attributes schema)
   (:documentation "Create a dependent resource, at the end of the path given by URI. Its parent resource must exist, and the relationship must be a valid dependent relationship."))
 
 (defmethod store-dependent-resource ((db neo4cl:neo4j-rest-server)
                                      (uri string)
-                                     (attributes list))
+                                     (attributes list)
+                                     schema)
   (log-message :debug (format nil "Attempting to create a dependent resource at path ~A" uri))
   (let* ((uri-parts (get-uri-parts uri))
          (relationship (car (last (butlast uri-parts))))
@@ -116,7 +117,7 @@ Return an error if
          (log-message :debug message)
          (error 'client-error :message message)))
       ;; Sanity check: is this a dependent resource type?
-      ((not (dependent-resource-p db dest-type))
+      ((not (dependent-resource-p schema dest-type))
        (let ((message "This is not a dependent resource type"))
          (log-message :debug message)
          (error 'client-error :message message)))
