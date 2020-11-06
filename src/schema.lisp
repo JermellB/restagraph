@@ -294,6 +294,7 @@
                                   (equal dest-type (schema-rels-target-type rel))))
                          (schema-rtypes-relationships stype)))))))
 
+
 (defgeneric resourcetype-exists-p (db resourcetype)
   (:documentation "Verify whether we have a definition for a resourcetype by this name."))
 
@@ -307,10 +308,20 @@
 (defgeneric resourcetype-relationship-exists-p (db source relationship dest)
   (:documentation "Verify whether a specific relationship is present. Return a boolean."))
 
+(defmethod resourcetype-relationship-exists-p ((db hash-table)
+                                               (source string)
+                                               (relationship string)
+                                               (dest string))
+  (log-message :debug
+               (format nil "Checking for relationship '~A'-'~A'->'~A'" source relationship dest))
+  (let ((source-struct (gethash source db)))
+    (when source-struct
+      (when (get-relationship source-struct relationship dest) t))))
+
 (defmethod resourcetype-relationship-exists-p ((db neo4cl:neo4j-rest-server)
-                                  (source string)
-                                  (relationship string)
-                                  (dest string))
+                                               (source string)
+                                               (relationship string)
+                                               (dest string))
   (log-message :debug
                (format nil "Checking for relationship '~A'-'~A'->'~A'" source relationship dest))
   (when
