@@ -519,7 +519,7 @@
            (handler-case
              (progn
                (store-resource (datastore tbnl:*acceptor*)
-                               (schema tbnl:*acceptor)
+                               (schema tbnl:*acceptor*)
                                "files"
                                `(("uid" . ,(sanitise-uid requested-filename))
                                  ("title" . ,requested-filename)
