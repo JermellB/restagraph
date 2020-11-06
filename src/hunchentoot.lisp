@@ -24,8 +24,7 @@
 (pushnew :DELETE tbnl:*methods-for-post-parameters*)
 
 
-;; Appserver startup/shutdown
-
+;; Helper function
 (defun make-default-acceptor ()
   (make-instance 'restagraph-acceptor
                  :address (or (sb-ext:posix-getenv "LISTEN_ADDR")
@@ -58,6 +57,9 @@
                                           (getf *config-vars* :dbusername))
                               :dbpasswd (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
                                             (getf *config-vars* :dbpasswd)))))
+
+
+;;; Appserver startup/shutdown
 
 (defun startup (&key acceptor dispatchers docker schemapath)
   "Start up the appserver.
