@@ -376,6 +376,7 @@
                           (sanitise-uid dest))))))))
     t))
 
+
 (defgeneric get-resource-attributes-from-db (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database"))
 
@@ -456,6 +457,7 @@
                                      db
                                      (sanitise-uid resourcetype)
                                      :resources-seen resources-seen)))))))
+
 
 (defgeneric describe-dependent-resources (db resourcetype &key resources-seen)
   (:documentation "Return a list of descriptions of all the dependent resourcetypes for this resource.

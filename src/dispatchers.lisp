@@ -125,9 +125,7 @@
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-alist-to-string
-             (describe-resource-type
-               (datastore tbnl:*acceptor*)
-               (first uri-parts)))))
+             (describe-resource-type (schema tbnl:*acceptor*) (first uri-parts)))))
         ;; Get a description of the whole schema for the GraphQL engine
         ((and
            (equal (tbnl:request-method*) :GET)
@@ -137,7 +135,7 @@
            (log-message :info "Dumping schema in GraphQL format")
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
-           (format-schema-for-graphql (datastore tbnl:*acceptor*))))
+           (format-schema-for-graphql (schema tbnl:*acceptor*))))
         ;; Get a description of the whole schema in JSON format
         ((equal (tbnl:request-method*) :GET)
          (progn
@@ -147,8 +145,8 @@
            (cl-json:encode-json-to-string
              (mapcar
                #'(lambda (r)
-                   (describe-resource-type (datastore tbnl:*acceptor*) r))
-               (get-resourcetype-names (datastore tbnl:*acceptor*))))))
+                   (describe-resource-type (schema tbnl:*acceptor*) r))
+               (get-resourcetype-names (schema tbnl:*acceptor*))))))
         ;;
         ;; Methods we don't support.
         ;; Take the whitelist approach
@@ -251,9 +249,9 @@
              (handler-case
                (progn
                  (store-resource (datastore tbnl:*acceptor*)
-                                 (schema tbnl:*acceptor*)
                                  resourcetype
-                                 (tbnl:post-parameters*))
+                                 (tbnl:post-parameters*)
+                                 (schema tbnl:*acceptor*))
                  ;; Return it from the database, for confirmation
                  (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
                  (setf (tbnl:content-type*) "text/plain")
@@ -345,7 +343,8 @@
              (move-dependent-resource
                (datastore tbnl:*acceptor*)
                sub-uri
-               (tbnl:post-parameter "target"))
+               (tbnl:post-parameter "target")
+               (schema tbnl:*acceptor*))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-created+)
              ;; Return the URI to the new path for this resource
@@ -375,7 +374,8 @@
                               (or (null (cdr param))
                                   (equal (cdr param) "")))
                           (append (tbnl:post-parameters*)
-                                  (tbnl:get-parameters*))))
+                                  (tbnl:get-parameters*)))
+               (schema tbnl:*acceptor*))
              (setf (tbnl:content-type*) "application/json")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
@@ -404,6 +404,7 @@
              (delete-resource-by-path
                (datastore tbnl:*acceptor*)
                sub-uri
+               (schema tbnl:*acceptor*)
                :recursive (tbnl:post-parameter "recursive"))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
@@ -521,13 +522,13 @@
            (handler-case
              (progn
                (store-resource (datastore tbnl:*acceptor*)
-                               (schema tbnl:*acceptor*)
                                "files"
                                `(("uid" . ,(sanitise-uid requested-filename))
                                  ("title" . ,requested-filename)
                                  ("sha3256sum" . ,checksum)
                                  ("originalname" . ,(second (tbnl:post-parameter "file")))
-                                 ("mimetype" . ,mimetype)))
+                                 ("mimetype" . ,mimetype))
+                               (schema tbnl:*acceptor*))
                ;; then if that succeeds move it to its new location.
                ;; Check whether this file already exists by another name
                (log-message :debug "Moving the file to its new home.")
@@ -644,6 +645,7 @@
              (delete-resource-by-path
                (datastore tbnl:*acceptor*)
                (concatenate 'string "/files/" filename)
+               (schema tbnl:*acceptor*)
                :recursive nil)
              ;; Now delete the file itself
              (when (null (get-resources (datastore *restagraph-acceptor*)
