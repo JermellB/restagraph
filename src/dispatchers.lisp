@@ -251,6 +251,7 @@
              (handler-case
                (progn
                  (store-resource (datastore tbnl:*acceptor*)
+                                 (schema tbnl:*acceptor*)
                                  resourcetype
                                  (tbnl:post-parameters*))
                  ;; Return it from the database, for confirmation
@@ -491,7 +492,7 @@
             (checksum (hash-file filepath-temp))
             (mimetype (get-file-mime-type (namestring filepath-temp)))
             (filepath-target (digest-to-filepath (make-pathname :defaults (files-location tbnl:*acceptor*))
-                                                                checksum)))
+                                                 checksum)))
        ;; Does a file of this name already exist?
        (log-message :debug (format nil "Checking for an existing file by name '~A'"
                                    (sanitise-uid requested-filename)))
@@ -518,6 +519,7 @@
            (handler-case
              (progn
                (store-resource (datastore tbnl:*acceptor*)
+                               (schema tbnl:*acceptor)
                                "files"
                                `(("uid" . ,(sanitise-uid requested-filename))
                                  ("title" . ,requested-filename)
@@ -605,8 +607,8 @@
        (cond
          ((not (null result))
           (let* ((source-path (digest-to-filepath
-                                      (make-pathname :defaults (files-location tbnl:*acceptor*))
-                                      (cdr (assoc :sha3256sum result)))))
+                                (make-pathname :defaults (files-location tbnl:*acceptor*))
+                                (cdr (assoc :sha3256sum result)))))
             (log-message :debug (format nil "Returning the file from source-path '~A'"
                                         source-path))
             (tbnl:handle-static-file
@@ -647,8 +649,8 @@
                                         :filters '(("sha3256sum" .
                                                     (cdr (assoc :SHA3256SUM (cdr result)))))))
                (let* ((source-path (digest-to-filepath
-                                           (make-pathname :defaults (files-location tbnl:*acceptor*))
-                                           (cdr (assoc :sha3256sum result)))))
+                                     (make-pathname :defaults (files-location tbnl:*acceptor*))
+                                     (cdr (assoc :sha3256sum result)))))
                  (if (probe-file source-path)
                    (progn
                      (log-message :debug (format nil "Deleting the file at source-path '~A'"
