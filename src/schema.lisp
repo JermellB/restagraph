@@ -46,13 +46,13 @@
 
 ;;; Structure methods
 
-(defgeneric get-relationship (rtype rel-type target-rtype)
+(defgeneric relationship-in-struct-p (rtype rel-type target-rtype)
   (:documentation "Check for a named type of relationship from a resourcetype to a target resourcetype. Return a schema-rels struct if present, otherwise nil.
   Note that it returns a list, which will have more than one element if we screwed up and allowed two relationships of the same type to the same target."))
 
-(defmethod get-relationship ((rtype schema-rtypes)
-                             (rel-type string)
-                             (target-rtype string))
+(defmethod relationship-in-struct-p ((rtype schema-rtypes)
+                                     (rel-type string)
+                                     (target-rtype string))
   (remove-if-not #'(lambda (rel)
                      (and
                        (equal rel-type (schema-rels-relationship rel))
@@ -73,7 +73,9 @@
   (setf (schema-rtypes-relationships rtype)
         (append
           ;; Is there already a relationship of this type?
-          (if (get-relationship rtype (schema-rels-relationship new-rel) (schema-rels-target-type new-rel))
+          (if (relationship-in-struct-p rtype
+                                        (schema-rels-relationship new-rel)
+                                        (schema-rels-target-type new-rel))
               ;; If there is, filter it out.
               ;; We could have done this more elegantly by matching the relationship we already found,
               ;; but it's possible that more than one is already there.
@@ -316,7 +318,7 @@
                (format nil "Checking for relationship '~A'-'~A'->'~A'" source relationship dest))
   (let ((source-struct (gethash source db)))
     (when source-struct
-      (when (get-relationship source-struct relationship dest) t))))
+      (when (relationship-in-struct-p source-struct relationship dest) t))))
 
 (defmethod resourcetype-relationship-exists-p ((db neo4cl:neo4j-rest-server)
                                                (source string)
