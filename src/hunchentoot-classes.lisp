@@ -29,8 +29,10 @@
    (files-location :initarg :files-location
                    :reader files-location
                    :initform (error "files-location is required"))
-   (schema :accessor schema
-           :initform (make-hash-table :test #'equal)))
+   (schema :initarg :schema
+           :accessor schema
+           :initform (make-hash-table :test #'equal)
+           :documentation "What to use for schema actions. Valid options are a hash-table or the datastore object, as methods are specialised on both."))
   ;; Class defaults
   (:default-initargs :address "127.0.0.1")
   (:documentation "Customised Hunchentoot acceptor, subclassed from tbnl:easy-acceptor. Carries additional configuration data for the site."))

@@ -276,6 +276,15 @@
     (when rtype
       (schema-rtypes-dependent rtype))))
 
+(defmethod dependent-resource-p ((db neo4cl:neo4j-rest-server) (resourcetype string))
+  (neo4cl:extract-data-from-get-request
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS
+          ((:STATEMENT .
+            ,(format nil "MATCH (c:rgResource { name: '~A' }) RETURN c.dependent"
+                     (sanitise-uid resourcetype)))))))))
+
 
 (defgeneric dependent-relationship-p (db source-type relationship dest-type)
   (:documentation "Determine whether this relationship is a dependent one between these two resource-types."))
@@ -296,6 +305,23 @@
                                   (equal dest-type (schema-rels-target-type rel))))
                          (schema-rtypes-relationships stype)))))))
 
+(defmethod dependent-relationship-p ((db neo4cl:neo4j-rest-server)
+                                     (source-type string)
+                                     (relationship string)
+                                     (dest-type string))
+  (log-message :debug
+               (format nil "Checking whether ~A is a valid dependent relationship from ~A to ~A"
+                       relationship source-type dest-type))
+  (neo4cl:extract-data-from-get-request
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS
+          ((:STATEMENT
+             . ,(format nil "MATCH (a:rgResource { name: '~A' })-[r:~A { dependent: 'true' } ]->(b:rgResource { name: '~A', dependent: 'true' }) WHERE r.dependent = 'true' RETURN type(r)"
+                        (sanitise-uid source-type)
+                        (sanitise-uid relationship)
+                        (sanitise-uid dest-type)))))))))
+
 
 (defgeneric resourcetype-exists-p (db resourcetype)
   (:documentation "Verify whether we have a definition for a resourcetype by this name."))
@@ -305,6 +331,19 @@
   (log-message :debug (format nil "Checking for existence of resourcetype '~A'"
                               resourcetype))
   (gethash resourcetype db))
+
+(defmethod resourcetype-exists-p ((db neo4cl:neo4j-rest-server)
+                                  (resourcetype string))
+  (log-message :debug
+               (format nil "Checking for existence of resourcetype '~A'"
+                       resourcetype))
+  (neo4cl:extract-data-from-get-request
+    (neo4cl:neo4j-transaction
+      db
+      `((:STATEMENTS
+          ((:STATEMENT
+             . ,(format nil "MATCH (n:rgResource {name: '~A'}) RETURN n"
+                        (sanitise-uid resourcetype)))))))))
 
 
 (defgeneric resourcetype-relationship-exists-p (db source relationship dest)
