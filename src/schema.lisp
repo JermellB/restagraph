@@ -23,8 +23,9 @@
   (name nil :type string :read-only t)
   (dependent nil :type boolean :read-only t)
   (notes nil :type string :read-only t)
-  ;; list of `schema-rtype-attrs` structs
-  (attributes nil :type list :read-only t)
+  ;; List of `schema-rtype-attrs` structs.
+  ;; Read-write to enable user-augmentation of existing resourcetypes.
+  (attributes nil :type list :read-only nil)
   ;; List of `schema-rels` structs, which is expected to be updated repeatedly
   ;; as new schemas back-reference existing types.
   (relationships nil :type list :read-only nil))
@@ -185,6 +186,39 @@
           (log-message "No relationships found in schema '~A'"
                        (gethash "name" schema))))))
 
+
+(defgeneric add-resource-to-schema (schema resourcetype)
+  (:documentation "Add a new resourcetype to the schema. In the event of a collision, merge the new definition into the existing one."))
+
+;; WARNING: Mutates existing state
+(defmethod add-resource-to-schema ((schema hash-table)
+                                   (resourcetype schema-rtypes))
+  (let ((existing (resourcetype-exists-p schema (schema-rtypes-name resourcetype))))
+    (if existing
+        ;; If it already exists, try to merge them
+        (progn
+          (log-message :info "Definition already exists for resourcetype '~A'. Attempting to merge them."
+                       (schema-rtypes-name resourcetype))
+          (mapcar #'(lambda (newattr)
+                      ;; Is there already an attribute by this name?
+                      (if (remove-if-not
+                            #'(lambda (existingattr)
+                                (equal (schema-rtype-attrs-name newattr)
+                                       (schema-rtype-attrs-name existingattr)))
+                            (schema-rtypes-attributes existing))
+                          ;; There is. Log it and move on.
+                          (log-message :error "Resourcetype '~A' already has an attribute named '~A'. Skipping this one.")
+                          ;; Not already there. Add it.
+                          (setf (schema-rtypes-attributes existing)
+                                (append (list newattr) (schema-rtypes-attributes existing)))))
+                  (schema-rtypes-attributes resourcetype)))
+        ;; Not a dupe; add it to the schema as-is, by prepending it to the existing list of attributes.
+        (progn
+          (log-message :debug "Adding resourcetype '~A' to the schema."
+                       (schema-rtypes-name resourcetype))
+          (setf (gethash (schema-rtypes-name resourcetype) schema) resourcetype)))))
+
+
 (defun update-hash-from-digest (hash digest)
   "Update the contents of a hash-table (with test #'equal),
    from the output of digest-schema-yaml."
@@ -193,17 +227,7 @@
   (log-message :debug "Attempting to update a hash-table with the contents of digest ~A"
                (getf digest :name))
   ;; Add the resourcetypes to the hash
-  (mapcar #'(lambda (rtype)
-              ;; Check for duplicates
-              (if (gethash (schema-rtypes-name rtype) hash)
-                  ;; If it's a dupe, warn and move on.
-                  (log-message :error "Refusing to create duplicate entry for resourcetype '~A'"
-                               (schema-rtypes-name rtype))
-                  ;; Not a dupe; add it to the hash.
-                  (progn
-                    (log-message :debug "Adding resourcetype '~A' to the hash"
-                                 (schema-rtypes-name rtype))
-                    (setf (gethash (schema-rtypes-name rtype) hash) rtype))))
+  (mapcar #'(lambda (rtype) (add-resource-to-schema hash rtype))
           (getf digest :resourcetypes))
   ;; Update the relationships between resourcetypes.
   ;; Do this as a separate step, to allow for back-references.
