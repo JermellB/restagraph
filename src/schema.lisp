@@ -559,10 +559,15 @@
   If the data is valid, return a list of attributes suitable for feeding to Neo4J.
   If not, raise a suitable error"))
 
-(defmethod validate-resource-before-creating ((db neo4cl:neo4j-rest-server)
-                                              (resourcetype string)
-                                              ;; params is what Hunchentoot received via POST
-                                              (params list))
+;; This actually works as-is for both types, hence the funky approach of
+;; not-specialising and then manually declaring types.
+(defmethod validate-resource-before-creating (db
+                                               resourcetype
+                                               ;; params is what Hunchentoot received via POST
+                                               params)
+  (declare (type (or neo4cl:neo4j-rest-server hash-table))
+           (type string resourcetype)
+           (type list params))
   (log-message
     :debug
     (format nil "validate-resource-before-creating resourcetype ~A with params ~{~A~^, ~}"
