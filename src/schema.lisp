@@ -441,6 +441,36 @@
                                      (sanitise-uid resourcetype)
                                      :resources-seen resources-seen)))))))
 
+(defmethod describe-resource-type ((db hash-table)
+                                   (resourcetype string)
+                                   &key resources-seen)
+  (declare (ignore resources-seen))
+  (log-message :debug (format nil "Describing resource-type '~A'" resourcetype))
+  ;; Confirm whether this resourcetype exists at all.
+  ;; If it doesn't, automatically return NIL.
+  (let ((node (resourcetype-exists-p db resourcetype)))
+    (when node
+      ;; Construct the return values
+      `((:NAME . ,(schema-rtypes-name node))
+        (:ATTRIBUTES . ,(sort
+                          (mapcar
+                            #'(lambda (s) `(("name" . ,(schema-rtype-attrs-name s))
+                                            ("description" . ,(schema-rtype-attrs-description s))
+                                            ("vals" . ,(schema-rtype-attrs-values s))))
+                            (schema-rtypes-attributes node))
+                          #'string-lessp
+                          :key #'caar))
+        (:DEPENDENT . ,(if (schema-rtypes-dependent node) "true" "false"))
+        (:NOTES . ,(or (schema-rtypes-notes node) ""))
+        (:RELATIONSHIPS . ,(mapcar #'(lambda (rel)
+                                       ;; Return an alist of the values, ready for rendering into Javascript
+                                       `((:RELATIONSHIP . ,(schema-rels-relationship rel))
+                                         (:DEPENDENT . ,(if (schema-rels-dependent rel) "true" "false"))
+                                         (:CARDINALITY . ,(schema-rels-cardinality rel))
+                                         (:NOTES . ,(or (schema-rels-notes rel) ""))
+                                         (:RESOURCETYPE ,(schema-rels-target-type rel))))
+                                   (schema-rtypes-relationships node)))))))
+
 
 (defgeneric describe-dependent-resources (db resourcetype &key resources-seen)
   (:documentation "Return a list of descriptions of all the dependent resourcetypes for this resource.
