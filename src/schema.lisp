@@ -346,7 +346,14 @@
 
 
 (defgeneric get-resource-attributes-from-db (db resourcetype)
-  (:documentation "Extract the attributes from resource definitions from the database"))
+  (:documentation "Extract the attributes from resource definitions from the database, and return them as a list of schema-rtype-attrs structs."))
+
+(defmethod get-resource-attributes-from-db ((db hash-table)
+                                            (resourcetype string))
+  (log-message :debug "Getting attributes for resourcetype '~A'" resourcetype)
+  (let ((struct (gethash resourcetype db)))
+    (when struct
+      (schema-rtypes-attributes struct))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))
@@ -364,7 +371,7 @@
   (:documentation "Return the names of resourcetypes, as a list of strings."))
 
 (defmethod get-resourcetype-names ((db neo4cl:neo4j-rest-server))
-  (log-message :debug "Fetching resourcetype names from the Neo4j database.")
+  (log-message :debug "Fetching resourcetype names.")
   (mapcar #'(lambda (foo)
               (cdr (assoc :NAME (car foo))))
           (neo4cl::extract-rows-from-get-request
@@ -372,6 +379,11 @@
               db
               `((:STATEMENTS
                   ((:STATEMENT . "MATCH (c:rgResource) RETURN c"))))))))
+
+(defmethod get-resourcetype-names ((db hash-table))
+  (log-message :debug "Fetching resourcetype names.")
+  (loop for key being the hash-keys in db collecting key))
+
 
 
 (defgeneric describe-resource-type (db resourcetype &key resources-seen)
