@@ -94,6 +94,10 @@
 
 ;;; Functions - schema creation
 
+(defun make-schema-hash-table ()
+  "Convenience function for repeatably creating the kind of hash-table we expect."
+  (make-hash-table :test #'equal))
+
 (defun digest-schema-yaml (filepath)
   "Digest a single YAML file, and return it as a plist with the following keys:
    :name = string. Schema name, as reported in the YAML file.

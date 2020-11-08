@@ -32,7 +32,7 @@
                    :documentation "Parent directory under which file objects are to be stored.")
    (schema :initarg :schema
            :accessor schema
-           :initform (make-hash-table :test #'equal)
+           :initform (make-schema-hash-table)
            :documentation "What to use for schema actions. Valid options are a hash-table or the datastore object, as methods are specialised on both."))
   ;; Class defaults for initalising the superclass
   (:default-initargs :address "127.0.0.1")
