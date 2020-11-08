@@ -141,7 +141,7 @@
                             (neo4cl:title e)
                             (neo4cl:message e)))))))
         ;; Update the schema, if one has been specified
-        (inject-all-schemas (schema acceptor) schemadir)
+        (inject-all-schemas (schema acceptor) schemadir *core-schemas*)
         ;; Set the dispatch table
         (restagraph:log-message :info "Configuring the dispatch table")
         (setf tbnl:*dispatch-table*
