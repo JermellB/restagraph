@@ -44,6 +44,60 @@
   (dependent nil :type boolean :read-only t)
   (notes "" :type (or null string) :read-only t))
 
+(defstruct relationship-attrs
+  "Describes the attributes of a relationship:
+  relationship-attrs-dependent = boolean, indication whether this is a dependent relationship
+  relationship-attrs-cardinality = string, returning the cardinality of the relationship"
+  (name nil :type string :read-only t)
+  (dependent nil :type boolean :read-only t)
+  (cardinality "many:many" :type string :read-only t)
+  (notes "" :type string :read-only t))
+
+
+(defgeneric get-relationship-attrs (db source-type relationship dest-type)
+  (:documentation "Extract the attributes of interest for a given relationship.
+                  Return a 'relationship-attrs struct.
+                  cardinality defaults to many:many."))
+
+(defmethod get-relationship-attrs ((db neo4cl:neo4j-rest-server)
+                                   (source-type string)
+                                   (relationship string)
+                                   (dest-type string))
+  (log-message
+    :debug
+    (format nil "Retrieving the dependency and cardinality attributes of relationship ~A from ~A to ~A"
+            relationship source-type dest-type))
+  (let ((result
+          (car
+            (neo4cl:extract-rows-from-get-request
+              (neo4cl:neo4j-transaction
+                db
+                `((:STATEMENTS
+                    ((:STATEMENT
+                       .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r.dependent, r.cardinality, r.notes"
+                                   (sanitise-uid source-type)
+                                   (sanitise-uid relationship)
+                                   (sanitise-uid dest-type)))))))))))
+    (when result
+      ;; Sanity-check: is this relationship properly defined?
+      (progn
+        (log-message :debug "Got a result. Making a relationship object now.")
+        (log-message :debug "Result structure: ~A" result)
+        (make-relationship-attrs
+          ;; The relationship name we return will be used in a URL.
+          ;; Sanitise it for safety, just in case an unsafe version slipped through.
+          :name (sanitise-uid relationship)
+          ;; Avoid false positives for :dependent
+          :dependent (when (equal (first result) "true") t)
+          ;; Apply a sane default to cardinality (many:many)
+          :cardinality (or (second result) "many:many")
+          ;; Cautious approach: ensure we set :notes to a string.
+          :notes (if (and (third result) (stringp (third result)))
+                   (third result)
+                   ""))))))
+
+
+
 
 ;;; Structure methods
 
