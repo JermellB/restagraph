@@ -28,6 +28,111 @@
                  (cdr (assoc :uid f :test #'equal)))))
 
 (fiveam:test
+  schema-hash-basic
+  "Basic tests of functions and methods on a schema implemented as a hash-table."
+  (let ((schema (restagraph::make-schema-hash-table))
+        (rtype1 (restagraph::make-schema-rtypes :name "foo"
+                                                   :dependent nil
+                                                   :notes nil
+                                                   :attributes nil
+                                                   :relationships nil))
+        (rtype2 (restagraph::make-schema-rtypes
+                     :name "foo"
+                     :dependent nil
+                     :notes "Should be ignored"
+                     :attributes (list (restagraph::make-schema-rtype-attrs
+                                         :name "bar"
+                                         :description "Hell if I know."))
+                     :relationships nil))
+        (rtype3 (restagraph::make-schema-rtypes
+                     :name "foo"
+                     :dependent nil
+                     :notes "Should be ignored"
+                     :attributes (list (restagraph::make-schema-rtype-attrs
+                                         :name "bar"
+                                         :description "Should be ignored."
+                                         :values '("baz" "quux"))
+                                       (restagraph::make-schema-rtype-attrs
+                                         :name "seasons"
+                                         :description "This one has values."
+                                         :values '("Spring" "Summer" "Autumn" "Winter")))
+                     :relationships nil)))
+    ;; Confirm we can't retrieve this definition
+    (fiveam:is (equal ()
+                      (restagraph::resourcetype-exists-p
+                        schema
+                        (restagraph::schema-rtypes-name rtype1))))
+    ;; Add a resourcetype to the schema
+    (fiveam:is (restagraph::add-resource-to-schema schema rtype1))
+    ;; Confirm the resourcetype is there
+    (fiveam:is (equal rtype1
+                      (restagraph::resourcetype-exists-p
+                        schema
+                        (restagraph::schema-rtypes-name rtype1))))
+    ;; Confirm it's the only resourcetype in there
+    (fiveam:is (equal (list (restagraph::schema-rtypes-name rtype1))
+                      (restagraph::get-resourcetype-names schema)))
+    ;; Confirm it isn't dependent
+    (fiveam:is (null (restagraph::dependent-resource-p
+                       schema
+                       (restagraph::schema-rtypes-name rtype1))))
+    ;; Check its attributes
+    (fiveam:is (equal (restagraph::schema-rtypes-attributes rtype1)
+                      (restagraph::get-resource-attributes-from-db
+                        schema
+                        (restagraph::schema-rtypes-name rtype1))))
+    ;; Dump it to an alist for conversion to JSON
+    (fiveam:is (equal '((:NAME . "foo")
+                        (:ATTRIBUTES)
+                        (:DEPENDENT . "false")
+                        (:NOTES . "")
+                        (:RELATIONSHIPS))
+                      (restagraph::describe-resource-type
+                        schema
+                        (restagraph::schema-rtypes-name rtype1))))
+    ;; Merge in new attributes for the resourcetype.
+    (fiveam:is (restagraph::add-resource-to-schema schema rtype2))
+    ;; Confirm they were merged correctly.
+    (fiveam:is (equalp (restagraph::make-schema-rtypes
+                         :name "foo"
+                         :dependent nil
+                         :notes nil
+                         :attributes (list (restagraph::make-schema-rtype-attrs
+                                             :name "bar"
+                                             :description "Hell if I know."))
+                         :relationships nil)
+                       (restagraph::resourcetype-exists-p
+                         schema
+                         (restagraph::schema-rtypes-name rtype1))))
+    ;; Confirm it's still the only resourcetype in there
+    (fiveam:is (equal (list (restagraph::schema-rtypes-name rtype1))
+                      (restagraph::get-resourcetype-names schema)))
+    ;; Merge in more attributes, but now with a collision with the existing ones.
+    (fiveam:is (restagraph::add-resource-to-schema schema rtype3))
+    ;; Confirm they were merged correctly
+    (fiveam:is (equalp (restagraph::make-schema-rtypes
+                         :name "foo"
+                         :dependent nil
+                         :notes nil
+                         :attributes (list (restagraph::make-schema-rtype-attrs
+                                             :name "seasons"
+                                             :description "This one has values."
+                                             :values '("Spring"
+                                                       "Summer"
+                                                       "Autumn"
+                                                       "Winter"))
+                                           (restagraph::make-schema-rtype-attrs
+                                             :name "bar"
+                                             :description "Hell if I know."))
+                         :relationships nil)
+                       (restagraph::resourcetype-exists-p
+                         schema
+                         (restagraph::schema-rtypes-name rtype1))))
+    ;; Confirm it's still the only resourcetype in there
+    (fiveam:is (equal (list (restagraph::schema-rtypes-name rtype1))
+                      (restagraph::get-resourcetype-names schema)))))
+
+(fiveam:test
   validate-attributes
   "Check the validation of attributes"
   (let ((attrs '(((:NAME . "status")
