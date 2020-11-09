@@ -22,7 +22,7 @@
   "Resource-type definition, for use in schema definitions."
   (name nil :type string :read-only t)
   (dependent nil :type boolean :read-only t)
-  (notes nil :type string :read-only t)
+  (notes nil :type (or null string) :read-only t)
   ;; List of `schema-rtype-attrs` structs.
   ;; Read-write to enable user-augmentation of existing resourcetypes.
   (attributes nil :type list :read-only nil)
