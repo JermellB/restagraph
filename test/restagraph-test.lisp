@@ -167,6 +167,42 @@
                          (restagraph::schema-rtypes-name rtype4))))))
 
 (fiveam:test
+  schema-hash-relationships
+  :depends-on 'schema-hash-basic
+  "Test basic relationships operations in a hash-table schema"
+  (let ((rtype1 (restagraph::make-schema-rtypes
+                  :name "foo"
+                  :dependent nil
+                  :notes nil
+                  :attributes nil
+                  :relationships (list (restagraph::make-schema-rels
+                                         :relationship "Owns"
+                                         :target-type "bar"
+                                         :dependent nil
+                                         :cardinality "1:many")
+                                       (restagraph::make-schema-rels
+                                         :relationship "Has"
+                                         :target-type "baz"
+                                         :dependent t
+                                         :cardinality "1:1"))))
+        (rtype2 (restagraph::make-schema-rtypes :name "bar"
+                                                :dependent nil
+                                                :notes nil
+                                                :attributes nil
+                                                :relationships nil))
+        (rtype3 (restagraph::make-schema-rtypes :name "baz"
+                                                :dependent t
+                                                :notes nil
+                                                :attributes nil
+                                                :relationships nil)))
+    ;; Create the types
+    ;; Create a valid non-dependent relationship
+    ;; Create a valid dependent relationship
+    ;; Fail to create an invalid non-dependent relationship
+    ;; Fail to create an invalid dependent relationship
+    (fiveam:is t)))
+
+(fiveam:test
   validate-attributes
   "Check the validation of attributes"
   (let ((attrs '(((:NAME . "status")
