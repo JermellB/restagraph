@@ -275,12 +275,40 @@
 ;; WARNING: Mutates existing state
 (defmethod add-resource-to-schema ((schema hash-table)
                                    (resourcetype schema-rtypes))
-  (let ((existing (resourcetype-exists-p schema (schema-rtypes-name resourcetype))))
+  (log-message :info "Attempting to add definition for resourcetype '~A'" (schema-rtypes-name resourcetype))
+  (let ((existing (resourcetype-exists-p schema (schema-rtypes-name resourcetype)))
+        ;; We'll create a new definition based on the one we were given,
+        ;; after validating a few things first.
+        ;; Start with the skeleton:
+        (newtype (make-schema-rtypes
+                   :name (schema-rtypes-name resourcetype)
+                   :dependent (schema-rtypes-dependent resourcetype)
+                   :notes (schema-rtypes-notes resourcetype))))
+    ;; Add the attributes from the supplied definition,
+    ;; filtering out any duplicates
+    (mapcar #'(lambda (attr)
+                (if (attribute-exists-p newtype
+                                        (schema-rtype-attrs-name attr))
+                    ;; Duplicate found; log it and move on.
+                    (log-message
+                      :warning
+                      "Duplicate attribute '~A' detected while sanity-checking resourcetype '~A'"
+                      (schema-rtype-attrs-name attr)
+                      (schema-rtypes-name resourcetype))
+                    ;; No duplicate found; add it.
+                    (setf (schema-rtypes-attributes newtype)
+                          (append (list attr) (schema-rtypes-attributes newtype)))))
+            (schema-rtypes-attributes resourcetype))
+    ;; Add the relationships from the supplied definition
+    (mapcar #'(lambda (rel)
+                (add-rel-to-schema-rtype newtype rel))
+            (schema-rtypes-relationships resourcetype))
+    ;; Try to add the newly-created resourcetype definition to the schema
     (if existing
         ;; If it already exists, try to merge them
         (progn
           (log-message :info "Definition already exists for resourcetype '~A'. Attempting to merge them."
-                       (schema-rtypes-name resourcetype))
+                       (schema-rtypes-name newtype))
           (mapcar #'(lambda (newattr)
                       ;; Is there already an attribute by this name?
                       (if (remove-if-not
@@ -289,16 +317,21 @@
                                        (schema-rtype-attrs-name existingattr)))
                             (schema-rtypes-attributes existing))
                           ;; There is. Log it and move on.
-                          (log-message :error "Resourcetype '~A' already has an attribute named '~A'. Skipping this one.")
+                          (log-message :error "Resourcetype '~A' already has an attribute named '~A'. Skipping this one."
+                                       (schema-rtypes-name newtype)
+                                       (schema-rtype-attrs-name newattr))
                           ;; Not already there. Add it.
                           (setf (schema-rtypes-attributes existing)
                                 (append (list newattr) (schema-rtypes-attributes existing)))))
-                  (schema-rtypes-attributes resourcetype)))
+                  (schema-rtypes-attributes newtype)))
         ;; Not a dupe; add it to the schema as-is, by prepending it to the existing list of attributes.
         (progn
           (log-message :debug "Adding resourcetype '~A' to the schema."
-                       (schema-rtypes-name resourcetype))
-          (setf (gethash (schema-rtypes-name resourcetype) schema) resourcetype)))))
+                       (schema-rtypes-name newtype))
+          (setf (gethash (schema-rtypes-name newtype) schema) newtype))))
+          ;; Return a success value for anything testing output for success.
+          ;; Like a fiveAM test suite, as an imaginary hypothetical example.
+          t)
 
 
 (defun update-hash-from-digest (hash digest)
