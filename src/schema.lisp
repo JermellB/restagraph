@@ -245,6 +245,30 @@
                        (gethash "name" schema))))))
 
 
+(defgeneric attribute-exists-p (resourcetype attribute-name)
+  (:documentation "Check whether the given resourcetype already has an attribute by this name."))
+
+(defmethod attribute-exists-p ((resourcetype schema-rtypes)
+                               (attribute-name string))
+  (log-message :debug "Checking for attribute '~A' in resourcetype '~A'"
+               attribute-name
+               (schema-rtypes-name resourcetype))
+  ;; Strategy: remove all attributes whose names don't match the given string.
+  ;; If anything's left after that, we have a match
+  (let ((result (remove-if-not
+                  #'(lambda (existingattr)
+                      (equal attribute-name
+                             (schema-rtype-attrs-name existingattr)))
+                  (schema-rtypes-attributes resourcetype))))
+    (if result
+        ;; Found a match; log it and return NIL for false.
+        (progn
+          (log-message :debug "Found attribute by name '~A'" attribute-name)
+          t)
+        ;; Nothing found; we're clear
+        nil)))
+
+
 (defgeneric add-resource-to-schema (schema resourcetype)
   (:documentation "Add a new resourcetype to the schema. In the event of a collision, merge the new definition into the existing one."))
 
