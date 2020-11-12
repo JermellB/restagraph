@@ -115,35 +115,57 @@
                  (schema-rtypes-relationships rtype)))
 
 
-(defgeneric add-rel-to-schema-rtype (rtype new-rel)
+(defgeneric add-rel-to-schema-rtype (schema source-type relationship)
   (:documentation "Add a relationship to a schema-rtypes struct. If it already has a relationship of the same type to the same target-type, the one being added replaces the old one."))
 
-(defmethod add-rel-to-schema-rtype ((rtype schema-rtypes)
-                                    (new-rel schema-rels))
-  ;; Replace the existing list of relationships with an updated list featuring the new relationship.
-  (log-message :debug "Attempting to add relationship '~A' from source-type '~A' to target-type '~A'"
-               (schema-rels-relationship new-rel)
-               (schema-rtypes-name rtype)
-               (schema-rels-target-type new-rel))
-  (setf (schema-rtypes-relationships rtype)
-        (append
-          ;; Is there already a relationship of this type?
-          (if (relationship-in-struct-p rtype
-                                        (schema-rels-relationship new-rel)
-                                        (schema-rels-target-type new-rel))
-              ;; If there is, filter it out.
-              ;; We could have done this more elegantly by matching the relationship we already found,
-              ;; but it's possible that more than one is already there.
-              ;; This way, we remove any duplicates.
-              (remove-if #'(lambda (rel)
-                             (and
-                               (equal (schema-rels-relationship new-rel) (schema-rels-relationship rel))
-                               (equal (schema-rels-target-type new-rel) (schema-rels-target-type rel))))
-                         (schema-rtypes-relationships rtype))
-              ;; If not, use the list as-is.
-              (schema-rtypes-relationships rtype))
-          ;; Either way, we're adding the new relationship.
-          (list new-rel))))
+(defmethod add-rel-to-schema-rtype ((schema hash-table)
+                                  (source-type schema-rtypes)
+                                  (relationship schema-rels))
+  (log-message :info "Attempting to create relationship '~A' from type '~A' to type '~A'"
+               (schema-rels-relationship relationship)
+               (schema-rtypes-name source-type)
+               (schema-rels-target-type relationship))
+  (let ((target-type (resourcetype-exists-p schema (schema-rels-target-type relationship))))
+    (cond
+      ;; Target-type doesn't exist
+      ((not target-type)
+       ;; FIXME: should I be signalling an error here?
+       (log-message :error "Target resourcetype '~A' does not exist!"
+                    (schema-rels-target-type relationship)))
+      ;; Attempting to create dependent relationship to non-dependent resourcetype
+      ((and (schema-rels-dependent relationship)
+            (not (schema-rtypes-dependent target-type)))
+       (log-message :error "Refusing to create a dependent relationship to a non-dependent type."))
+      ;; Attempting to create non-dependent relationship to dependent resourcetype
+      ((and (not (schema-rels-dependent relationship))
+            (schema-rtypes-dependent target-type))
+       (log-message :error "Refusing to create a non-dependent relationship to a dependent type."))
+      ;; We're clear to proceed
+      (t
+       (log-message :debug "Sanity-tests passed; creating relationship.")
+       (setf (schema-rtypes-relationships source-type)
+             (append
+               ;; Is there already a relationship of this type?
+               (if (relationship-in-struct-p source-type
+                                             (schema-rels-relationship relationship)
+                                             (schema-rels-target-type relationship))
+                   ;; If there is, replace it.
+                   (progn
+                     (log-message :warning "Duplicate found. Replacing the existing relationship.")
+                     ;; We could have done this more elegantly by matching the relationship we already found,
+                     ;; but it's possible that more than one is already there.
+                     ;; This way, we remove any duplicates.
+                     (remove-if #'(lambda (rel)
+                                    (and
+                                      (equal (schema-rels-relationship relationship)
+                                             (schema-rels-relationship rel))
+                                      (equal (schema-rels-target-type relationship)
+                                             (schema-rels-target-type rel))))
+                                (schema-rtypes-relationships source-type)))
+                   ;; If not, use the list as-is.
+                   (schema-rtypes-relationships source-type))
+               ;; Either way, we're adding the new relationship.
+               (list relationship)))))))
 
 
 ;;; Functions - schema creation
@@ -301,7 +323,7 @@
             (schema-rtypes-attributes resourcetype))
     ;; Add the relationships from the supplied definition
     (mapcar #'(lambda (rel)
-                (add-rel-to-schema-rtype newtype rel))
+                (add-rel-to-schema-rtype schema newtype rel))
             (schema-rtypes-relationships resourcetype))
     ;; Try to add the newly-created resourcetype definition to the schema
     (if existing
@@ -357,7 +379,7 @@
               (let ((sourcetype (gethash (car rel) hash)))
                 (if sourcetype
                     ;; If so, go ahead.
-                    (add-rel-to-schema-rtype sourcetype (cdr rel))
+                    (add-rel-to-schema-rtype hash sourcetype (cdr rel))
                     ;; If it's not there, complain and move on.
                     (log-message :error "Doomed attempt to update nonexistent resourcetype '~A' with relationship '~A' to resourcetype '~A'"
                                  (car rel)
