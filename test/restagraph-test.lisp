@@ -170,7 +170,8 @@
   schema-hash-relationships
   :depends-on 'schema-hash-basic
   "Test basic relationships operations in a hash-table schema"
-  (let ((rtype1 (restagraph::make-schema-rtypes
+  (let ((schema (restagraph::make-schema-hash-table))
+        (rtype1 (restagraph::make-schema-rtypes
                   :name "foo"
                   :dependent nil
                   :notes nil
@@ -195,12 +196,46 @@
                                                 :notes nil
                                                 :attributes nil
                                                 :relationships nil)))
-    ;; Create the types
+    ;; Create the types.
+    ;; Note the repeat of rtype1 - the first attempt should fail,
+    ;; due to its relationships' dependencies on types that aren't yet present.
+    (restagraph:log-message :info "; TEST Add resourcetypes")
+    (fiveam:is (restagraph::add-resource-to-schema schema rtype1))
+    (fiveam:is (equal ()
+                      (restagraph::schema-rtypes-relationships
+                        (restagraph::resourcetype-exists-p
+                          schema
+                          (restagraph::schema-rtypes-name rtype1)))))
+    (fiveam:is (restagraph::add-resource-to-schema schema rtype2))
+    (fiveam:is (restagraph::add-resource-to-schema schema rtype3))
+    (fiveam:is (restagraph::add-resource-to-schema schema rtype1))
+    (fiveam:is (equalp (list (restagraph::make-schema-rels
+                               :relationship "Owns"
+                               :target-type "bar"
+                               :dependent nil
+                               :cardinality "1:many")
+                             (restagraph::make-schema-rels
+                               :relationship "Has"
+                               :target-type "baz"
+                               :dependent t
+                               :cardinality "1:1"))
+                       (restagraph::schema-rtypes-relationships
+                         (restagraph::resourcetype-exists-p
+                           schema
+                           (restagraph::schema-rtypes-name rtype1)))))
     ;; Create a valid non-dependent relationship
+    (restagraph:log-message :info "; TEST Add a valid non-dependent relationship")
+    ;; Confirm it's present and correct
     ;; Create a valid dependent relationship
+    (restagraph:log-message :info "; TEST Add a valid dependent relationship")
+    ;; Confirm it's present and correct
     ;; Fail to create an invalid non-dependent relationship
+    (restagraph:log-message :info "; TEST Fail to add an invalid non-dependent relationship")
+    ;; Confirm it's absent
     ;; Fail to create an invalid dependent relationship
-    (fiveam:is t)))
+    (restagraph:log-message :info "; TEST Fail to add an invalid dependent relationship")
+    ;; Confirm it's absent
+    ))
 
 (fiveam:test
   validate-attributes
