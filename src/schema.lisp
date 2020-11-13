@@ -88,12 +88,12 @@
 
 ;; Methods on these structs
 
-(defgeneric get-relationship-attrs (db source-type relationship dest-type)
+(defgeneric get-relationship-attrs (schema source-type relationship dest-type)
   (:documentation "Extract the attributes of interest for a given relationship.
                   Return a 'relationship-attrs struct.
                   cardinality defaults to many:many."))
 
-(defmethod get-relationship-attrs ((db neo4cl:neo4j-rest-server)
+(defmethod get-relationship-attrs ((schema neo4cl:neo4j-rest-server)
                                    (source-type string)
                                    (relationship string)
                                    (dest-type string))
@@ -105,7 +105,7 @@
           (car
             (neo4cl:extract-rows-from-get-request
               (neo4cl:neo4j-transaction
-                db
+                schema
                 `((:STATEMENTS
                     ((:STATEMENT
                        .  ,(format nil "MATCH (:rgResource {name: '~A'})-[r:~A]->(:rgResource {name: '~A'}) RETURN r.dependent, r.cardinality, r.notes"
