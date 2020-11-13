@@ -181,26 +181,44 @@
                   :dependent nil
                   :notes nil
                   :attributes nil
-                  :relationships (list (restagraph::make-incoming-rels
-                                         :relationship "Owns"
-                                         :target-type "bar"
-                                         :dependent nil
-                                         :cardinality "1:many")
-                                       (restagraph::make-incoming-rels
-                                         :relationship "Has"
-                                         :target-type "baz"
-                                         :dependent t
-                                         :cardinality "1:1"))))
+                  :relationships
+                  ;; Test for both valid and invalid relationships, both dependent and non-dependent.
+                  ;; The invalid ones go first to prevent them getting pre-empted by duplicate detection.
+                  (list
+                    ;; Invalid non-dependent relationship
+                    (restagraph::make-incoming-rels
+                      :relationship "Owns"
+                      :target-type "bar"
+                      :dependent t
+                      :cardinality "1:many")
+                    ;; Invalid dependent relationship
+                    (restagraph::make-incoming-rels
+                      :relationship "Has"
+                      :target-type "baz"
+                      :dependent nil
+                      :cardinality "1:1")
+                    ;; Valid non-dependent relationship
+                    (restagraph::make-incoming-rels
+                      :relationship "Owns"
+                      :target-type "bar"
+                      :dependent nil
+                      :cardinality "1:many")
+                    ;; Valid dependent relationship
+                    (restagraph::make-incoming-rels
+                      :relationship "Has"
+                      :target-type "baz"
+                      :dependent t
+                      :cardinality "1:1"))))
         (rtype2 (restagraph::make-incoming-rtypes :name "bar"
-                                                :dependent nil
-                                                :notes nil
-                                                :attributes nil
-                                                :relationships nil))
+                                                  :dependent nil
+                                                  :notes nil
+                                                  :attributes nil
+                                                  :relationships nil))
         (rtype3 (restagraph::make-incoming-rtypes :name "baz"
-                                                :dependent t
-                                                :notes nil
-                                                :attributes nil
-                                                :relationships nil)))
+                                                  :dependent t
+                                                  :notes nil
+                                                  :attributes nil
+                                                  :relationships nil)))
     ;; Create the types.
     ;; Note the repeat of rtype1 - the first attempt should fail,
     ;; due to its relationships' dependencies on types that aren't yet present.
@@ -215,6 +233,7 @@
     (fiveam:is (restagraph::add-resource-to-schema schema rtype2))
     (restagraph:log-message :info "; TEST Add resourcetype rtype3.")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype3))
+    ;; This test-case covers the creation of valid dependent and non-dependent relationships.
     (restagraph:log-message :info "; TEST Add resourcetype rtype1 - this should now succeed.")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype1))
     (fiveam:is (equalp (list (restagraph::make-schema-rels
@@ -240,20 +259,7 @@
                        (restagraph::schema-rtypes-relationships
                          (restagraph::resourcetype-exists-p
                            schema
-                           (restagraph::incoming-rtypes-name rtype1)))))
-    ;; Create a valid non-dependent relationship
-    (restagraph:log-message :info "; TEST Add a valid non-dependent relationship")
-    ;; Confirm it's present and correct
-    ;; Create a valid dependent relationship
-    (restagraph:log-message :info "; TEST Add a valid dependent relationship")
-    ;; Confirm it's present and correct
-    ;; Fail to create an invalid non-dependent relationship
-    (restagraph:log-message :info "; TEST Fail to add an invalid non-dependent relationship")
-    ;; Confirm it's absent
-    ;; Fail to create an invalid dependent relationship
-    (restagraph:log-message :info "; TEST Fail to add an invalid dependent relationship")
-    ;; Confirm it's absent
-    ))
+                           (restagraph::incoming-rtypes-name rtype1)))))))
 
 (fiveam:test
   validate-attributes
