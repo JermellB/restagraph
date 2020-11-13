@@ -31,40 +31,40 @@
   schema-hash-basic
   "Basic tests of functions and methods on a schema implemented as a hash-table."
   (let ((schema (restagraph::make-schema-hash-table))
-        (rtype1 (restagraph::make-schema-rtypes :name "foo"
-                                                :dependent nil
-                                                :notes nil
-                                                :attributes nil
-                                                :relationships nil))
-        (rtype2 (restagraph::make-schema-rtypes
+        (rtype1 (restagraph::make-incoming-rtypes :name "foo"
+                                                  :dependent nil
+                                                  :notes nil
+                                                  :attributes nil
+                                                  :relationships nil))
+        (rtype2 (restagraph::make-incoming-rtypes
                   :name "foo"
                   :dependent nil
                   :notes "Should be ignored"
-                  :attributes (list (restagraph::make-schema-rtype-attrs
+                  :attributes (list (restagraph::make-incoming-rtype-attrs
                                       :name "bar"
                                       :description "Hell if I know."))
                   :relationships nil))
-        (rtype3 (restagraph::make-schema-rtypes
+        (rtype3 (restagraph::make-incoming-rtypes
                   :name "foo"
                   :dependent nil
                   :notes "Should be ignored"
-                  :attributes (list (restagraph::make-schema-rtype-attrs
+                  :attributes (list (restagraph::make-incoming-rtype-attrs
                                       :name "bar"
                                       :description "Should be ignored."
                                       :values '("baz" "quux"))
-                                    (restagraph::make-schema-rtype-attrs
+                                    (restagraph::make-incoming-rtype-attrs
                                       :name "seasons"
                                       :description "This one has values."
                                       :values '("Spring" "Summer" "Autumn" "Winter")))
                   :relationships nil))
-        (rtype4 (restagraph::make-schema-rtypes
+        (rtype4 (restagraph::make-incoming-rtypes
                   :name "bar"
                   :dependent nil
                   :notes "For testing attribute validation"
-                  :attributes (list (restagraph::make-schema-rtype-attrs
+                  :attributes (list (restagraph::make-incoming-rtype-attrs
                                       :name "baz"
                                       :description "Valid attribute.")
-                                    (restagraph::make-schema-rtype-attrs
+                                    (restagraph::make-incoming-rtype-attrs
                                       :name "baz"
                                       :description "Duplicate. Shouldn't see this one.")))))
     ;; Confirm we can't retrieve this definition
@@ -74,27 +74,32 @@
     (fiveam:is (equal ()
                       (restagraph::resourcetype-exists-p
                         schema
-                        (restagraph::schema-rtypes-name rtype1))))
+                        (restagraph::incoming-rtypes-name rtype1))))
     ;; Add a resourcetype to the schema
     (restagraph:log-message :info "; TEST Add one resourcetype")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype1))
     ;; Confirm the resourcetype is there
-    (fiveam:is (equalp rtype1
-                      (restagraph::resourcetype-exists-p
-                        schema
-                        (restagraph::schema-rtypes-name rtype1))))
+    (fiveam:is (equalp (restagraph::make-schema-rtypes
+                         :name (restagraph::incoming-rtypes-name rtype1)
+                         :dependent (restagraph::incoming-rtypes-dependent rtype1)
+                         :notes (restagraph::incoming-rtypes-notes rtype1)
+                         :attributes (restagraph::incoming-rtypes-attributes rtype1)
+                         :relationships (restagraph::incoming-rtypes-relationships rtype1))
+                       (restagraph::resourcetype-exists-p
+                         schema
+                         (restagraph::incoming-rtypes-name rtype1))))
     ;; Confirm it's the only resourcetype in there
-    (fiveam:is (equal (list (restagraph::schema-rtypes-name rtype1))
+    (fiveam:is (equal (list (restagraph::incoming-rtypes-name rtype1))
                       (restagraph::get-resourcetype-names schema)))
     ;; Confirm it isn't dependent
     (fiveam:is (null (restagraph::dependent-resource-p
                        schema
-                       (restagraph::schema-rtypes-name rtype1))))
+                       (restagraph::incoming-rtypes-name rtype1))))
     ;; Check its attributes
-    (fiveam:is (equalp (restagraph::schema-rtypes-attributes rtype1)
-                      (restagraph::get-resource-attributes-from-db
-                        schema
-                        (restagraph::schema-rtypes-name rtype1))))
+    (fiveam:is (equalp (restagraph::incoming-rtypes-attributes rtype1)
+                       (restagraph::get-resource-attributes-from-db
+                         schema
+                         (restagraph::incoming-rtypes-name rtype1))))
     ;; Dump it to an alist for conversion to JSON
     (fiveam:is (equal '((:NAME . "foo")
                         (:ATTRIBUTES)
@@ -103,24 +108,24 @@
                         (:RELATIONSHIPS))
                       (restagraph::describe-resource-type
                         schema
-                        (restagraph::schema-rtypes-name rtype1))))
+                        (restagraph::incoming-rtypes-name rtype1))))
     ;; Merge in new attributes for the resourcetype.
     (restagraph:log-message :info "; TEST Merge new attributes to the resourcetype.")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype2))
     ;; Confirm they were merged correctly.
     (fiveam:is (equalp (restagraph::make-schema-rtypes
-                         :name "foo"
-                         :dependent nil
-                         :notes nil
+                         :name (restagraph::incoming-rtypes-name rtype1)
+                         :dependent (restagraph::incoming-rtypes-dependent rtype1)
+                         :notes (restagraph::incoming-rtypes-notes rtype1)
                          :attributes (list (restagraph::make-schema-rtype-attrs
                                              :name "bar"
                                              :description "Hell if I know."))
                          :relationships nil)
                        (restagraph::resourcetype-exists-p
                          schema
-                         (restagraph::schema-rtypes-name rtype1))))
+                         (restagraph::incoming-rtypes-name rtype1))))
     ;; Confirm it's still the only resourcetype in there
-    (fiveam:is (equal (list (restagraph::schema-rtypes-name rtype1))
+    (fiveam:is (equal (list (restagraph::incoming-rtypes-name rtype1))
                       (restagraph::get-resourcetype-names schema)))
     ;; Merge in more attributes, but now with a collision with the existing ones.
     (restagraph:log-message :info "; TEST Merge more attributes to the resourcetype. Expect a collision.")
@@ -143,16 +148,16 @@
                          :relationships nil)
                        (restagraph::resourcetype-exists-p
                          schema
-                         (restagraph::schema-rtypes-name rtype1))))
+                         (restagraph::incoming-rtypes-name rtype1))))
     ;; Confirm it's still the only resourcetype in there
-    (fiveam:is (equal (list (restagraph::schema-rtypes-name rtype1))
+    (fiveam:is (equal (list (restagraph::incoming-rtypes-name rtype1))
                       (restagraph::get-resourcetype-names schema)))
     ;; Add a type with a duplicate attribute already in it.
     (restagraph:log-message :info "; TEST Add a new type with a duplicate attribute.")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype4))
     ;; Confirm it's among those that are present.
-    (fiveam:is (equal (list (restagraph::schema-rtypes-name rtype1)
-                            (restagraph::schema-rtypes-name rtype4))
+    (fiveam:is (equal (list (restagraph::incoming-rtypes-name rtype1)
+                            (restagraph::incoming-rtypes-name rtype4))
                       (restagraph::get-resourcetype-names schema)))
     ;; Confirm that the duplicate attribute was _not_ applied.
     (fiveam:is (equalp (restagraph::make-schema-rtypes
@@ -164,7 +169,7 @@
                                              :description "Valid attribute.")))
                        (restagraph::resourcetype-exists-p
                          schema
-                         (restagraph::schema-rtypes-name rtype4))))))
+                         (restagraph::incoming-rtypes-name rtype4))))))
 
 (fiveam:test
   schema-hash-relationships
