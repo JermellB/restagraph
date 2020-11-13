@@ -358,6 +358,7 @@
                    :notes (incoming-rtypes-notes resourcetype))))
     ;; Add the attributes from the supplied definition,
     ;; filtering out any duplicates
+    (log-message :debug "Adding attributes.")
     (mapcar #'(lambda (attr)
                 (if (attribute-exists-p newtype
                                         (incoming-rtype-attrs-name attr))
@@ -376,6 +377,7 @@
                                   (schema-rtypes-attributes newtype)))))
             (incoming-rtypes-attributes resourcetype))
     ;; Add the relationships from the supplied definition
+    (log-message :debug "Adding relationships.")
     (mapcar #'(lambda (rel)
                 (add-rel-to-schema-rtype schema newtype rel))
             (incoming-rtypes-relationships resourcetype))
