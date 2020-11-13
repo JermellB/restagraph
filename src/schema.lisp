@@ -624,13 +624,14 @@
               (make-schema-rtype-attrs :name (cdr (assoc :NAME (car attr)))
                                        :description (cdr (assoc :DESCRIPTION (car attr)))
                                        :values (cl-ppcre:split "," (cdr (assoc :VALS (car attr))))))
-          (neo4cl::extract-rows-from-get-request
-            (neo4cl:neo4j-transaction
-              db
-              `((:STATEMENTS
-                  ((:STATEMENT .
-                    ,(format nil "MATCH (c:rgResource { name: '~A' })-[:rgHasAttribute]-(a:rgAttribute) RETURN a"
-                             (sanitise-uid resourcetype))))))))))
+          (mapcar #'car
+                  (neo4cl::extract-rows-from-get-request
+                    (neo4cl:neo4j-transaction
+                      db
+                      `((:STATEMENTS
+                          ((:STATEMENT .
+                            ,(format nil "MATCH (c:rgResource { name: '~A' })-[:rgHasAttribute]-(a:rgAttribute) RETURN a"
+                                     (sanitise-uid resourcetype)))))))))))
 
 
 (defgeneric get-resourcetype-names (db)
@@ -874,7 +875,7 @@
            (remove-if #'(lambda (param) (equal (car param) "uid"))
                       params))
          ;; Get the attributes defined for this resource-type
-         (defined-attributes (mapcar #'car (get-resource-attributes-from-db db resourcetype)))
+         (defined-attributes (get-resource-attributes-from-db db resourcetype))
          ;; Extract the original UID here, to reduce mess later
          (original-uid (or (cdr (assoc "uid" params :test #'string=)) "")))
         ;; Put this log message here to get it inside the let statement,
