@@ -345,7 +345,12 @@
                           ;; Not already there. Add it.
                           (setf (schema-rtypes-attributes existing)
                                 (append (list newattr) (schema-rtypes-attributes existing)))))
-                  (schema-rtypes-attributes newtype)))
+                  (schema-rtypes-attributes newtype))
+          (log-message :info "Attempting to merge new relationships for resourcetype '~A'."
+                       (schema-rtypes-name newtype))
+          (mapcar #'(lambda (rel)
+                      (add-rel-to-schema-rtype schema existing rel))
+                  (schema-rtypes-relationships newtype)))
         ;; Not a dupe; add it to the schema as-is, by prepending it to the existing list of attributes.
         (progn
           (log-message :debug "Adding resourcetype '~A' to the schema."
