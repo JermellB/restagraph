@@ -148,6 +148,15 @@
                        (equal target-rtype (schema-rels-target-type rel))))
                  (schema-rtypes-relationships rtype)))
 
+(defmethod relationship-in-struct-p ((rtype schema-rtypes)
+                                     (rel-type string)
+                                     (target-rtype schema-rtypes))
+  (remove-if-not #'(lambda (rel)
+                     (and
+                       (equal rel-type (schema-rels-relationship rel))
+                       (equal target-rtype (schema-rels-target-type rel))))
+                 (schema-rtypes-relationships rtype)))
+
 
 (defgeneric add-rel-to-schema-rtype (schema source-type relationship)
   (:documentation "Add a relationship to a schema-rtypes struct. If it already has a relationship of the same type to the same target-type, the one being added replaces the old one."))
