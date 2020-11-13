@@ -2,6 +2,12 @@ name: people_and_places
 version: 1
 
 resourcetypes:
+  people:
+    dependent: 'false'
+    notes: A sentient individual.
+    attributes:
+      fullname:
+      preferredname:
   places:
     dependent: 'false'
     notes: The generic idea of a specific place, independent of its geographical location. E.g, an office or somebody's home.
