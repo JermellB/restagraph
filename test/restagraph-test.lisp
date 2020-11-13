@@ -176,27 +176,27 @@
   :depends-on 'schema-hash-basic
   "Test basic relationships operations in a hash-table schema"
   (let ((schema (restagraph::make-schema-hash-table))
-        (rtype1 (restagraph::make-schema-rtypes
+        (rtype1 (restagraph::make-incoming-rtypes
                   :name "foo"
                   :dependent nil
                   :notes nil
                   :attributes nil
-                  :relationships (list (restagraph::make-schema-rels
+                  :relationships (list (restagraph::make-incoming-rels
                                          :relationship "Owns"
                                          :target-type "bar"
                                          :dependent nil
                                          :cardinality "1:many")
-                                       (restagraph::make-schema-rels
+                                       (restagraph::make-incoming-rels
                                          :relationship "Has"
                                          :target-type "baz"
                                          :dependent t
                                          :cardinality "1:1"))))
-        (rtype2 (restagraph::make-schema-rtypes :name "bar"
+        (rtype2 (restagraph::make-incoming-rtypes :name "bar"
                                                 :dependent nil
                                                 :notes nil
                                                 :attributes nil
                                                 :relationships nil))
-        (rtype3 (restagraph::make-schema-rtypes :name "baz"
+        (rtype3 (restagraph::make-incoming-rtypes :name "baz"
                                                 :dependent t
                                                 :notes nil
                                                 :attributes nil
@@ -204,30 +204,43 @@
     ;; Create the types.
     ;; Note the repeat of rtype1 - the first attempt should fail,
     ;; due to its relationships' dependencies on types that aren't yet present.
-    (restagraph:log-message :info "; TEST Add resourcetypes")
+    (restagraph:log-message :info "; TEST Add resourcetype rtype1 - this should fail")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype1))
     (fiveam:is (equal ()
                       (restagraph::schema-rtypes-relationships
                         (restagraph::resourcetype-exists-p
                           schema
-                          (restagraph::schema-rtypes-name rtype1)))))
+                          (restagraph::incoming-rtypes-name rtype1)))))
+    (restagraph:log-message :info "; TEST Add resourcetype rtype2.")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype2))
+    (restagraph:log-message :info "; TEST Add resourcetype rtype3.")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype3))
+    (restagraph:log-message :info "; TEST Add resourcetype rtype1 - this should now succeed.")
     (fiveam:is (restagraph::add-resource-to-schema schema rtype1))
     (fiveam:is (equalp (list (restagraph::make-schema-rels
                                :relationship "Owns"
-                               :target-type "bar"
+                               :target-type (restagraph::make-schema-rtypes
+                                              :name (restagraph::incoming-rtypes-name rtype2)
+                                              :dependent (restagraph::incoming-rtypes-dependent rtype2)
+                                              :notes (restagraph::incoming-rtypes-notes rtype2)
+                                              :attributes nil
+                                              :relationships nil)
                                :dependent nil
                                :cardinality "1:many")
                              (restagraph::make-schema-rels
                                :relationship "Has"
-                               :target-type "baz"
+                               :target-type (restagraph::make-schema-rtypes
+                                              :name (restagraph::incoming-rtypes-name rtype3)
+                                              :dependent (restagraph::incoming-rtypes-dependent rtype3)
+                                              :notes (restagraph::incoming-rtypes-notes rtype3)
+                                              :attributes nil
+                                              :relationships nil)
                                :dependent t
                                :cardinality "1:1"))
                        (restagraph::schema-rtypes-relationships
                          (restagraph::resourcetype-exists-p
                            schema
-                           (restagraph::schema-rtypes-name rtype1)))))
+                           (restagraph::incoming-rtypes-name rtype1)))))
     ;; Create a valid non-dependent relationship
     (restagraph:log-message :info "; TEST Add a valid non-dependent relationship")
     ;; Confirm it's present and correct
