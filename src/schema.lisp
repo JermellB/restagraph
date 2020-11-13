@@ -162,53 +162,95 @@
   (:documentation "Add a relationship to a schema-rtypes struct. If it already has a relationship of the same type to the same target-type, the one being added replaces the old one."))
 
 (defmethod add-rel-to-schema-rtype ((schema hash-table)
-                                  (source-type schema-rtypes)
-                                  (relationship schema-rels))
+                                    (source-type schema-rtypes)
+                                    (relationship incoming-rels))
   (log-message :info "Attempting to create relationship '~A' from type '~A' to type '~A'"
-               (schema-rels-relationship relationship)
+               (incoming-rels-relationship relationship)
                (schema-rtypes-name source-type)
-               (schema-rels-target-type relationship))
-  (let ((target-type (resourcetype-exists-p schema (schema-rels-target-type relationship))))
+               (incoming-rels-target-type relationship))
+  (let ((target-type (resourcetype-exists-p schema (incoming-rels-target-type relationship))))
     (cond
       ;; Target-type doesn't exist
       ((not target-type)
        ;; FIXME: should I be signalling an error here?
        (log-message :error "Target resourcetype '~A' does not exist!"
-                    (schema-rels-target-type relationship)))
+                    (incoming-rels-target-type relationship)))
       ;; Attempting to create dependent relationship to non-dependent resourcetype
-      ((and (schema-rels-dependent relationship)
+      ((and (incoming-rels-dependent relationship)
             (not (schema-rtypes-dependent target-type)))
        (log-message :error "Refusing to create a dependent relationship to a non-dependent type."))
       ;; Attempting to create non-dependent relationship to dependent resourcetype
-      ((and (not (schema-rels-dependent relationship))
+      ((and (not (incoming-rels-dependent relationship))
             (schema-rtypes-dependent target-type))
        (log-message :error "Refusing to create a non-dependent relationship to a dependent type."))
       ;; We're clear to proceed
       (t
-       (log-message :debug "Sanity-tests passed; creating relationship.")
-       (setf (schema-rtypes-relationships source-type)
-             (append
-               ;; Is there already a relationship of this type?
-               (if (relationship-in-struct-p source-type
-                                             (schema-rels-relationship relationship)
-                                             (schema-rels-target-type relationship))
-                   ;; If there is, replace it.
-                   (progn
-                     (log-message :warning "Duplicate found. Replacing the existing relationship.")
-                     ;; We could have done this more elegantly by matching the relationship we already found,
-                     ;; but it's possible that more than one is already there.
-                     ;; This way, we remove any duplicates.
-                     (remove-if #'(lambda (rel)
-                                    (and
-                                      (equal (schema-rels-relationship relationship)
-                                             (schema-rels-relationship rel))
-                                      (equal (schema-rels-target-type relationship)
-                                             (schema-rels-target-type rel))))
-                                (schema-rtypes-relationships source-type)))
-                   ;; If not, use the list as-is.
-                   (schema-rtypes-relationships source-type))
-               ;; Either way, we're adding the new relationship.
-               (list relationship)))))))
+        (log-message :debug "Sanity-tests passed; creating relationship.")
+        (setf (schema-rtypes-relationships source-type)
+              (append
+                ;; Is there already a relationship of this type?
+                (if (relationship-in-struct-p source-type
+                                              (incoming-rels-relationship relationship)
+                                              (incoming-rels-target-type relationship))
+                  ;; If there is, replace it.
+                  (progn
+                    (log-message :warning "Duplicate found. Replacing the existing relationship.")
+                    ;; We could have done this more elegantly by matching the relationship we already found,
+                    ;; but it's possible that more than one is already there.
+                    ;; This way, we remove any duplicates.
+                    (remove-if #'(lambda (rel)
+                                   (and
+                                     (equal (incoming-rels-relationship relationship)
+                                            (schema-rels-relationship rel))
+                                     (equal (incoming-rels-target-type relationship)
+                                            (schema-rels-target-type rel))))
+                               (schema-rtypes-relationships source-type)))
+                  ;; If not, use the list as-is.
+                  (progn
+                    (log-message :debug "No duplicates found. Adding this relationship as-is.")
+                    (schema-rtypes-relationships source-type)))
+                ;; Either way, we're adding the new relationship.
+                (list (make-schema-rels :relationship (incoming-rels-relationship relationship)
+                                        :target-type target-type
+                                        :cardinality (incoming-rels-cardinality relationship)
+                                        :dependent (incoming-rels-dependent relationship)
+                                        :notes (incoming-rels-notes relationship)))))))))
+
+;; Because this version should only be applied to `schema-rtypes` structs that were already created
+;; via the specialisation of this method on `incoming-rtypes`, we can reasonably skip most of the
+;; sanity-checks.
+(defmethod add-rel-to-schema-rtype ((schema hash-table)
+                                    (source-type schema-rtypes)
+                                    (relationship schema-rels))
+  (log-message :info "Attempting to create relationship '~A' from type '~A' to type '~A'"
+               (schema-rels-relationship relationship)
+               (schema-rtypes-name source-type)
+               (schema-rels-target-type relationship))
+  (setf (schema-rtypes-relationships source-type)
+        (append
+          ;; Is there already a relationship of this type?
+          (if (relationship-in-struct-p source-type
+                                        (schema-rels-relationship relationship)
+                                        (schema-rels-target-type relationship))
+              ;; If there is, replace it.
+              (progn
+                (log-message :warning "Duplicate found. Replacing the existing relationship.")
+                ;; We could have done this more elegantly by matching the relationship we already found,
+                ;; but it's possible that more than one is already there.
+                ;; This way, we remove any duplicates.
+                (remove-if #'(lambda (rel)
+                               (and
+                                 (equal (schema-rels-relationship relationship)
+                                        (schema-rels-relationship rel))
+                                 (equal (schema-rels-target-type relationship)
+                                        (schema-rels-target-type rel))))
+                           (schema-rtypes-relationships source-type)))
+              ;; If not, use the list as-is.
+              (progn
+                (log-message :debug "No duplicates found. Adding this relationship as-is.")
+                (schema-rtypes-relationships source-type)))
+          ;; Either way, we're adding the new relationship.
+          (list relationship))))
 
 
 ;;; Functions - schema creation
