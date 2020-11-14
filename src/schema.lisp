@@ -575,11 +575,16 @@
   (let ((stype (gethash source-type db)))
     (log-message :debug "Fetched value ~A" stype)
     (when source-type
+      ;; Fetch _all_ the relationships by this name, to that target-type
       (let ((candidates (remove-if-not
                           #'(lambda (rel)
                               (and (equal relationship (schema-rels-relationship rel))
-                                   (equal dest-type (schema-rels-target-type rel))))
+                                   (equal dest-type
+                                          (schema-rtypes-name (schema-rels-target-type rel)))))
                           (schema-rtypes-relationships stype))))
+        ;; If a non-null list resulted,
+        ;; return the boolean indicating whether the first (and theoretically only) item
+        ;; in that list is a dependent relationship.
         (when candidates
           (schema-rels-dependent (car candidates)))))))
 
