@@ -573,13 +573,15 @@
                (format nil "Checking whether ~A is a valid dependent relationship from ~A to ~A"
                        relationship source-type dest-type))
   (let ((stype (gethash source-type db)))
+    (log-message :debug "Fetched value ~A" stype)
     (when source-type
-      (schema-rels-dependent
-        (car
-          (remove-if-not #'(lambda (rel)
-                             (and (equal relationship (schema-rels-relationship rel))
-                                  (equal dest-type (schema-rels-target-type rel))))
-                         (schema-rtypes-relationships stype)))))))
+      (let ((candidates (remove-if-not
+                          #'(lambda (rel)
+                              (and (equal relationship (schema-rels-relationship rel))
+                                   (equal dest-type (schema-rels-target-type rel))))
+                          (schema-rtypes-relationships stype))))
+        (when candidates
+          (schema-rels-dependent (car candidates)))))))
 
 (defmethod dependent-relationship-p ((db neo4cl:neo4j-rest-server)
                                      (source-type string)
