@@ -158,7 +158,8 @@
   (remove-if-not #'(lambda (rel)
                      (and
                        (equal rel-type (schema-rels-relationship rel))
-                       (equal target-rtype (schema-rels-target-type rel))))
+                       (equal target-rtype (schema-rtypes-name
+                                             (schema-rels-target-type rel)))))
                  (schema-rtypes-relationships rtype)))
 
 (defmethod relationship-in-struct-p ((rtype schema-rtypes)
