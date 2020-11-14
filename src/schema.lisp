@@ -599,13 +599,14 @@
 
 
 (defgeneric resourcetype-exists-p (db resourcetype)
-  (:documentation "Verify whether we have a definition for a resourcetype by this name."))
+  (:documentation "Verify whether we have a definition for a resourcetype by this name. Return a schema-rtypes struct."))
 
 (defmethod resourcetype-exists-p ((db hash-table)
                                   (resourcetype string))
   (log-message :debug (format nil "Checking for existence of resourcetype '~A'" resourcetype))
   (gethash resourcetype db))
 
+;; FIXME Return value needs updating
 (defmethod resourcetype-exists-p ((db neo4cl:neo4j-rest-server)
                                   (resourcetype string))
   (log-message :debug
