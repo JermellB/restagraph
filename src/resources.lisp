@@ -93,7 +93,12 @@ Return an error if
          (parent-type (nth (- (length parent-parts) 2) parent-parts))
          (dest-type (car (last uri-parts)))
          (dest-uid (sanitise-uid (cdr (assoc "uid" attributes :test 'equal))))
-         (relationship-attrs (get-relationship-attrs db parent-type relationship dest-type)))
+         (relationship-attrs (car (get-relationship-attrs schema
+                                                          parent-type
+                                                          relationship
+                                                          dest-type))))
+    (log-message :debug "Relationship attributes found: ~A" relationship-attrs)
+    (log-message :debug "Beginning sanity checks")
     (cond
       ;; Sanity check: required parameters
       ((not dest-uid)
@@ -107,12 +112,12 @@ Return an error if
          (error 'client-error :message message)))
       ;; Sanity-check: is there a relationship between the parent and child resource types?
       ((null relationship-attrs)
-       (error 'client-error
-              :message
-              (format nil "There is no relationship ~A from ~A to ~A"
-                      relationship parent-type dest-type)))
+       (let ((message (format nil "There is no relationship ~A from ~A to ~A"
+                              relationship parent-type dest-type)))
+         (log-message :error message)
+         (error 'client-error :message message)))
       ;; Sanity check: dependency between parent and child resource types
-      ((null (relationship-attrs-dependent relationship-attrs))
+      ((null (schema-rels-dependent relationship-attrs))
        (let ((message
                (format nil "Target resource-type ~A doesn't depend on the parent type ~A"
                        dest-type parent-type)))
@@ -125,6 +130,7 @@ Return an error if
          (error 'client-error :message message)))
       ;; Passed the initial sanity-checks; try to create it.
       (t
+        (log-message :debug "Sanity checks passed. Attempting to create the resource.")
        ;; Validate the supplied attributes
        (let* ((validated-attributes (validate-resource-before-creating
                                       schema
@@ -144,8 +150,8 @@ Return an error if
              (if
                 (and
                   (or
-                    (equal (relationship-attrs-cardinality relationship-attrs) "1:1")
-                    (equal (relationship-attrs-cardinality relationship-attrs) "many:1"))
+                    (equal (schema-rels-cardinality relationship-attrs) "1:1")
+                    (equal (schema-rels-cardinality relationship-attrs) "many:1"))
                   ;; Look for this parent having this relationship with any other dependent resource
                   (>
                     (neo4cl:extract-data-from-get-request
@@ -162,7 +168,7 @@ Return an error if
                 (error 'integrity-error :message
                        (format nil"~{~A~^/~} already has a ~A ~A relationship with a resource of type ~A"
                                parent-parts
-                               (relationship-attrs-cardinality relationship-attrs)
+                               (schema-rels-cardinality relationship-attrs)
                                relationship
                                dest-type))
                 ;; Constraints are fine; create it
