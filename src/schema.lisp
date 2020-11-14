@@ -130,6 +130,19 @@
                    (third result)
                    ""))))))
 
+(defmethod get-relationship-attrs ((schema hash-table)
+                                   (source-type string)
+                                   (relationship string)
+                                   (dest-type string))
+  (log-message
+    :debug
+    (format nil "Retrieving the relationship ~A from ~A to ~A"
+            relationship source-type dest-type))
+  (relationship-in-struct-p
+    (resourcetype-exists-p schema source-type)
+    relationship
+    dest-type))
+
 
 
 
