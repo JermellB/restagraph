@@ -463,31 +463,36 @@ The returned list contains 3-element lists of relationship, type and UID."))
 (defmethod get-dependent-resources ((db neo4cl:neo4j-rest-server)
                                     (sourcepath list)
                                     schema)
-  ;; Filter out any candidate nodes that do not have a _dependent_ relationship on the parent
-  (remove-if
-            #'null
-            (mapcar #'(lambda (c)
-                        (when (dependent-relationship-p
-                                schema
-                                (car (butlast sourcepath))    ; Type of target-resource
-                                (first c)                     ; Relationship to candidate
-                                (second c))                   ; Type of candidate
-                          c))
-                    ;; Get all nodes to which this node has outbound relationships
-                    (mapcar #'(lambda (row)
-                                ;; labels(n) returns a list, hence the (car)
-                                ;; List elements: relationship, target type, target UID
-                                (list (first row) (car (second row)) (third row)))
-                            (neo4cl:extract-rows-from-get-request
-                              (neo4cl:neo4j-transaction
-                                db
-                                `((:STATEMENTS
-                                    ((:STATEMENT .
-                                      ,(format nil "MATCH ~A-[r]->(b) RETURN type(r), labels(b), b.uid"
-                                               (uri-node-helper sourcepath
-                                                                :path ""
-                                                                :marker "n"
-                                                                :directional t))))))))))))
+  (log-message :debug "Searching for resources dependent on parent ~{/~A~}" sourcepath)
+  ;; Get all nodes to which this node has outbound relationships
+  (let ((candidates
+          (mapcar
+            #'(lambda (row)
+                ;; List elements: relationship, target type, target UID
+                ;; The Neo4j operator `labels(n)` returns a list, hence the (car (second row)).
+                (list (first row) (car (second row)) (third row)))
+            (neo4cl:extract-rows-from-get-request
+              (neo4cl:neo4j-transaction
+                db
+                `((:STATEMENTS
+                    ((:STATEMENT
+                       .  ,(format nil "MATCH ~A-[r]->(b) RETURN type(r), labels(b), b.uid"
+                                   (uri-node-helper sourcepath
+                                                    :path ""
+                                                    :marker "n"
+                                                    :directional t)))))))))))
+    (log-message :debug "Retrieved candidate links ~A" candidates)
+    ;; Filter out any candidate nodes that do not have a _dependent_ relationship on the parent
+    (remove-if
+      #'null
+      (mapcar #'(lambda (c)
+                  (when (dependent-relationship-p
+                          schema
+                          (car (butlast sourcepath))    ; Type of target-resource
+                          (first c)                     ; Relationship to candidate
+                          (second c))                   ; Type of candidate
+                    c))
+              candidates))))
 
 
 
