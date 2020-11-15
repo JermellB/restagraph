@@ -924,7 +924,7 @@ class TestDbSchema(unittest.TestCase):
         # Confirm that it's now there
         self.result = requests.get('%s/%s/%s/' % (API_BASE_URL,
                                                   self.resourcetype,
-                                                  self.resourcename)).json(),
+                                                  self.resourcename)).json()
         self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resourcename))
         self.assertEqual(self.result[0]['uid'], self.resourcename)
         # Attempt to create a duplicate.
@@ -967,7 +967,8 @@ class TestBasicResourceErrors(unittest.TestCase):
         print('Test: remove the fixtures')
         requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.valid_resourcetype))
         print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.valid_resourcetype)).json(), {})
+        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL,
+                                                 self.valid_resourcetype)).json(), {})
 
 class TestAnyType(unittest.TestCase):
     '''
