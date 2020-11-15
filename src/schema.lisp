@@ -818,6 +818,8 @@
            (type (or cons null) defined)    ; Should have the outer layer of conses stripped
            (type (or cons null) invalid)
            (type (or cons null) badvalue))
+  (log-message :debug "validate-attributes requested attrs: ~A" requested)
+  (log-message :debug "validate-attributes defined attrs: ~A" defined)
   ;; Are we at the end of the list of requested attributes?
   (if (null requested)
       ;; If we are, return what's been accumulated
@@ -835,8 +837,12 @@
                                   (mapcar #'(lambda (attr) (schema-rtype-attrs-name attr))
                                           defined)
                                   :test #'equal))
-                     (append invalid (list (car requested)))
-                     invalid)
+                   ;; Invalid attribute. Log it and add it to the `invalid` accumulator.
+                   (progn
+                     (log-message :debug "Detected invalid attribute name '~A'" (caar requested))
+                     (append invalid (list (car requested))))
+                   ;; It's valid; leave the `invalid` list as-is
+                   invalid)
         :badvalue (if
                      ;; Is it a valid attribute? (yes, we have to test this again)
                      (if (member (caar requested)
