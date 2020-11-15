@@ -44,118 +44,14 @@ def sanitise_uid(uid):
 
 # Tests
 
-class TestSchemaApi(unittest.TestCase):
-    '''
-    Confirm that the schema API works as expected.
-    '''
-    def test_01_primary_resourcetype(self):
-        print('Test: test_primary_resourcetype')
-        # Schema shouldn't have any 'foo' resources
-        self.assertEqual(requests.get('%s/foo' % (SCHEMA_BASE_URL)).json(), {})
-        # Create a resource
-        self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 201)
-        # Confirm it's present
-        self.assertEqual(requests.get('%s/foo' % SCHEMA_BASE_URL).json(),
-                         {'name': 'foo',
-                          'attributes': None,
-                          'dependent': 'false',
-                          'notes': '',
-                          'relationships': None})
-        # Try to create a duplicate
-        self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code, 200)
-        # Delete it
-        self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code,
-                         204)
-        # Confirm it's gone
-        self.assertEqual(requests.get('%s/foo' % (SCHEMA_BASE_URL)).json(), {})
-    def test_02_dependent_resourcetype(self):
-        print('Test: test_dependent_resourcetype')
-        # Schema should be empty
-        self.assertEqual(requests.get('%s/foo' % (SCHEMA_BASE_URL)).json(), {})
-        # Create a resource
-        self.assertEqual(requests.post('%s/resourcetype/foo' % (SCHEMA_BASE_URL),
-                                       data={'dependent': 'true'}).status_code,
-                         201)
-        # Confirm it's the only one present
-        self.assertEqual(requests.get('%s/foo' % SCHEMA_BASE_URL).json(),
-                         {'name': 'foo',
-                          'attributes': None,
-                          'dependent': 'false',
-                          'notes': '',
-                          'relationships': None})
-        # Delete it
-        self.assertEqual(requests.delete('%s/resourcetype/foo' % (SCHEMA_BASE_URL)).status_code,
-                         204)
-        # Confirm it's gone
-        self.assertEqual(requests.get('%s/foo' % (SCHEMA_BASE_URL)).json(), {})
-    def test_03_resource_relationships(self):
-        print('Test: test_resource_relationships')
-        # Create the resources to connect
-        requests.post('%s/resourcetype/lolcat' % (SCHEMA_BASE_URL))
-        requests.post('%s/resourcetype/cheeseburger' % (SCHEMA_BASE_URL))
-        # Connect them
-        print('Add a relationship between two resourcetypes.')
-        self.assertEqual(requests.post('%s/relationships/lolcat/canHaz/cheeseburger'
-                                       % (SCHEMA_BASE_URL)).status_code,
-                         201)
-        # Disconnect them
-        print('Delete the relationship between two resourcetypes.')
-        self.assertEqual(requests.delete('%s/relationships/lolcat/canHaz/cheeseburger'
-                                         % (SCHEMA_BASE_URL)).status_code,
-                         204)
-        # Remove the fixtures
-        requests.delete('%s/resourcetype/lolcat' % (SCHEMA_BASE_URL))
-        requests.delete('%s/resourcetype/cheeseburger' % (SCHEMA_BASE_URL))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/lolcat' % (SCHEMA_BASE_URL)).json(), {})
-        self.assertEqual(requests.get('%s/cheeseburger' % (SCHEMA_BASE_URL)).json(), {})
-    def test_04_invalid_relationships(self):
-        print('Test: test_invalid_relationships')
-        # Create the resources to connect
-        requests.post('%s/resourcetype/dangler' % (SCHEMA_BASE_URL))
-        # Fail to connect it to nonexistent things
-        self.assertEqual(requests.post('%s/relationships/dangler/holds/subdangler'
-                                       % SCHEMA_BASE_URL).status_code,
-                         409)
-        self.assertEqual(requests.post('%s/relationships/superdangler/holds/dangler'
-                                       % SCHEMA_BASE_URL).status_code,
-                         409)
-        # Remove the fixtures
-        requests.delete('%s/resourcetype/dangler' % (SCHEMA_BASE_URL))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/dangler' % (SCHEMA_BASE_URL)).json(), {})
-    def test_05_dependent_resource_relationships(self):
-        print('Test: test_dependent_resource_relationships')
-        # Create the resources to connect
-        requests.post('%s/resourcetype/lolcat' % (SCHEMA_BASE_URL))
-        requests.post('%s/resourcetype/hunger' % (SCHEMA_BASE_URL))
-        # Connect them
-        print('Add a relationship between two resourcetypes.')
-        self.assertEqual(requests.post('%s/relationships/lolcat/canHaz/hunger' % (SCHEMA_BASE_URL),
-                                       data={'dependent': 'true'}).status_code,
-                         201)
-        # Disconnect them
-        print('Delete the relationship between two resourcetypes.')
-        self.assertEqual(requests.delete('%s/relationships/lolcat/canHaz/hunger'
-                                         % (SCHEMA_BASE_URL)).status_code,
-                         204)
-        # Remove the fixtures
-        requests.delete('%s/resourcetype/lolcat' % (SCHEMA_BASE_URL))
-        requests.delete('%s/resourcetype/hunger' % (SCHEMA_BASE_URL))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/lolcat' % (SCHEMA_BASE_URL)).json(), {})
-        self.assertEqual(requests.get('%s/hunger' % (SCHEMA_BASE_URL)).json(), {})
-
 class TestResources(unittest.TestCase):
     '''
     Basic CRD functions for resources
     '''
-    restype = 'routers'
-    resuid = 'amchitka'
+    restype = 'people'
+    resuid = 'Sam Spade'
     result = None
     def test_create_and_delete_single_resource(self):
-        print('Test: create fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.restype))
         print('Test: test_create_and_delete_single_resource')
         # Ensure it's not already present
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
@@ -186,48 +82,37 @@ class TestResources(unittest.TestCase):
         # Confirm that it's now there
         self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
                                                  self.restype,
-                                                 self.resuid)).json()
+                                                 sanitise_uid(self.resuid))).json()
+        print('Found resource: {}'.format(self.result))
         self.assertEqual(self.result['original_uid'], self.resuid)
         self.assertEqual(self.result['uid'], sanitise_uid(self.resuid))
         # Delete it
         self.assertEqual(
-            requests.delete('%s/%s/%s' % (API_BASE_URL, self.restype, self.resuid)).status_code,
+            requests.delete('%s/%s/%s' % (API_BASE_URL,
+                                          self.restype,
+                                          sanitise_uid(self.resuid))).status_code,
             204)
         # Confirm it's gone
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
-                                                    self.resuid)).status_code,
+                                                    sanitise_uid(self.resuid))).status_code,
                          200)
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
-                                                    self.resuid)).json(),
+                                                    sanitise_uid(self.resuid))).json(),
                          [])
-        # Remove the fixtures
-        print('Test: Clean up the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.restype))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.restype)).json(), {})
 
 class TestResourceAttributesEnums(unittest.TestCase):
     '''
     Test enumerated resource-attributes.
     '''
-    resourcetype = 'yodel'
-    resourceuid = 'little'
-    attr1name = 'syllables'
-    attr1val = 'old'
-    attr1valbad = 'young'
-    attr1vals = 'old,lady,who'
+    resourcetype = 'places'
+    resourceuid = 'Midian'
+    attr1name = 'kind'
+    attr1val = 'Fictional'
+    attr1valbad = 'Real'
     result = None
     def test_create_and_use_enums(self):
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
-        print('Test: add the first attribute to the resourcetype')
-        self.assertEqual(requests.post('%s/attribute/%s/%s' % (SCHEMA_BASE_URL,
-                                                               self.resourcetype,
-                                                               self.attr1name),
-                                       data={'vals': self.attr1vals}).status_code,
-                         201)
         print('Test: create a resource with a valid enum attribute')
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resourceuid,
@@ -257,21 +142,17 @@ class TestResourceAttributesEnums(unittest.TestCase):
                                             self.attr1name: self.attr1val}).status_code,
                          204)
         requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
-        print('Test: delete the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
 
 class TestMultipleResources(unittest.TestCase):
     '''
     Retrieve details of all resources of a given type.
     '''
-    resourcetype = 'routers'
-    resource1uid = 'amchitka'
-    resource2uid = 'bikini'
-    resource3uid = 'mururoa'
+    resourcetype = 'people'
+    resource1uid = 'Dude'
+    resource2uid = 'Fifi'
+    resource3uid = 'Trixibelle'
     result = None
     def test_create_and_retrieve_multiple_resources(self):
-        print('Test: Create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
         print('Test: test_create_and_retrieve_multiple_resources')
         # Confirm we're starting with an empty set
         self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).status_code,
@@ -324,31 +205,16 @@ class TestMultipleResources(unittest.TestCase):
                                                        self.resourcetype,
                                                        self.resource3uid)).status_code,
                          204)
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.resourcetype)).json(), {})
 
 class TestDependentResources(unittest.TestCase):
-    res1type = 'routers'
-    res1uid = 'whitesands'
-    relationship1 = 'Interfaces'
-    depres1type = 'interfaces'
-    depres1uid = 'ethernet0'
+    res1type = 'brands'
+    res1uid = 'Acme'
+    relationship1 = 'Produces'
+    depres1type = 'models'
+    depres1uid = 'Exploding rocket-arrow'
     result = None
     def test_create_and_delete_a_single_dependent_resource(self):
         print('Test: test_create_and_delete_a_single_dependent_resource')
-        print('Test: create the fixtures...')
-        print('Test: create the primary resourcetype')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        print('Test: create the dependent resourcetype')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
-                      data={'dependent': 'true'})
-        print('Test: create the relationship between the resourcetypes')
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.res1type,
-                                                     self.relationship1,
-                                                     self.depres1type),
-                      data={'dependent': 'true'})
         # Create the parent resource
         print('Test: create the parent resource')
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
@@ -366,73 +232,59 @@ class TestDependentResources(unittest.TestCase):
         # Now get it right
         self.result = requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                         self.res1type,
-                                                        self.res1uid,
+                                                        sanitise_uid(self.res1uid),
                                                         self.relationship1,
                                                         self.depres1type),
                                     data={'uid': self.depres1uid})
         self.assertEqual(self.result.status_code, 201)
         self.assertEqual(self.result.text, '/{r1t}/{r1u}/{rel}/{drt}/{dru}'.format(
             r1t=self.res1type,
-            r1u=self.res1uid,
+            r1u=sanitise_uid(self.res1uid),
             rel=self.relationship1,
             drt=self.depres1type,
-            dru=self.depres1uid))
+            dru=sanitise_uid(self.depres1uid)))
         # Confirm it's there
-        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                             self.res1type,
-                                                             self.res1uid,
-                                                             self.relationship1,
-                                                             self.depres1type,
-                                                             self.depres1uid)).status_code,
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' %
+                                      (API_BASE_URL,
+                                       self.res1type,
+                                       sanitise_uid(self.res1uid),
+                                       self.relationship1,
+                                       self.depres1type,
+                                       sanitise_uid(self.depres1uid))).status_code,
                          200)
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.depres1type,
-                                                    self.depres1uid)).status_code,
+                                                    sanitise_uid(self.depres1uid))).status_code,
                          200)
         # Try to create a duplicate. We should get 200/<URI>
         self.result = requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                         self.res1type,
-                                                        self.res1uid,
+                                                        sanitise_uid(self.res1uid),
                                                         self.relationship1,
                                                         self.depres1type),
                                     data={'uid': self.depres1uid})
         self.assertEqual(self.result.status_code, 200)
         self.assertEqual(self.result.text, '/{r1t}/{r1u}/{rel}/{drt}/{dru}'.format(
             r1t=self.res1type,
-            r1u=self.res1uid,
+            r1u=sanitise_uid(self.res1uid),
             rel=self.relationship1,
             drt=self.depres1type,
-            dru=self.depres1uid))
+            dru=sanitise_uid(self.depres1uid)))
         # Delete the dependent resource
         self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                                 self.res1type,
-                                                                self.res1uid,
+                                                                sanitise_uid(self.res1uid),
                                                                 self.relationship1,
                                                                 self.depres1type,
-                                                                self.depres1uid),
+                                                                sanitise_uid(self.depres1uid)),
                                          data={'delete-dependent': 'true'}).status_code,
                          204)
         # Delete the parent resource
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
                                                        self.res1type,
-                                                       self.res1uid)).status_code,
+                                                       sanitise_uid(self.res1uid))).status_code,
                          204)
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res1type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.depres1type)).json(), {})
     def test_recursively_delete_the_parent(self):
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
-                      data={'dependent': 'true'})
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.res1type,
-                                                     self.relationship1,
-                                                     self.depres1type),
-                      data={'dependent': 'true'})
         # Create the parent resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
                                        data={'uid': self.res1uid}).status_code,
@@ -440,76 +292,49 @@ class TestDependentResources(unittest.TestCase):
         # Create a dependent resource
         self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                            self.res1type,
-                                                           self.res1uid,
+                                                           sanitise_uid(self.res1uid),
                                                            self.relationship1,
                                                            self.depres1type),
                                        data={'uid': self.depres1uid}).status_code,
                          201)
         # Confirm it's there
-        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                             self.res1type,
-                                                             self.res1uid,
-                                                             self.relationship1,
-                                                             self.depres1type,
-                                                             self.depres1uid)).status_code,
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' %
+                                      (API_BASE_URL,
+                                       self.res1type,
+                                       sanitise_uid(self.res1uid),
+                                       self.relationship1,
+                                       self.depres1type,
+                                       sanitise_uid(self.depres1uid))).status_code,
                          200)
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.depres1type,
-                                                    self.depres1uid)).status_code,
+                                                    sanitise_uid(self.depres1uid))).status_code,
                          200)
         # Delete the parent resource
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
                                                        self.res1type,
-                                                       self.res1uid),
+                                                       sanitise_uid(self.res1uid)),
                                          data={'recursive' : 'true'}).status_code,
                          204)
         # Ensure the dependent resource is gone
         self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.depres1type,
-                                                    self.depres1uid)).json(),
+                                                    sanitise_uid(self.depres1uid))).json(),
                          [])
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res1type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.depres1type)).json(), {})
 
 class TestMoveDependentResources(unittest.TestCase):
-    p1type = 'routers'
-    p1uid = 'woomera'
-    p1targetrel = 'Addresses'
-    p2type = 'interfaces'
-    p2uid = 'eth1'
-    p1p2rel = 'Interfaces'
-    p2targetrel = 'Addresses'
-    targettype = 'ipv4Addresses'
-    targetuid = '172.20.0.1'
+    p1type = 'countries'
+    p1uid = 'Netherlands'
+    p1targetrel = 'Cities'
+    p2type = 'states'
+    p2uid = 'Noord Holland'
+    p1p2rel = 'States'
+    p2targetrel = 'Cities'
+    targettype = 'cities'
+    targetuid = 'Amsterdam'
     result = None
     def test_move_dependent_resource(self):
         print('Test: test_move_dependent_resource')
-        # Create the fixtures
-        print('Create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p2type),
-                      data={'dependent': 'true'})
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.p1type,
-                                                     self.p1p2rel,
-                                                     self.p2type),
-                      data={'dependent': 'true'})
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.targettype),
-                      data={'dependent': 'true'})
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.p1type,
-                                                     self.p1targetrel,
-                                                     self.targettype),
-                      data={'dependent': 'true'})
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.p2type,
-                                                     self.p2targetrel,
-                                                     self.targettype),
-                      data={'dependent': 'true'})
         # Create the initial parent resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.p1type),
                                        data={'uid': self.p1uid}).status_code,
@@ -517,7 +342,7 @@ class TestMoveDependentResources(unittest.TestCase):
         # Create the second parent resource, as a dependent to the first
         self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                            self.p1type,
-                                                           self.p1uid,
+                                                           sanitise_uid(self.p1uid),
                                                            self.p1p2rel,
                                                            self.p2type),
                                        data={'uid': self.p2uid}).status_code,
@@ -525,7 +350,7 @@ class TestMoveDependentResources(unittest.TestCase):
         # Create the dependent resource
         self.assertEqual(requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                            self.p1type,
-                                                           self.p1uid,
+                                                           sanitise_uid(self.p1uid),
                                                            self.p1targetrel,
                                                            self.targettype),
                                        data={'uid': self.targetuid}).status_code,
@@ -533,57 +358,53 @@ class TestMoveDependentResources(unittest.TestCase):
         # Move the dependent resource to its new parent
         self.result = requests.post('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                            self.p1type,
-                                                           self.p1uid,
+                                                           sanitise_uid(self.p1uid),
                                                            self.p1targetrel,
                                                            self.targettype,
-                                                           self.targetuid),
-                                    data={'target': '/%s/%s/%s/%s/%s/%s' % (self.p1type,
-                                                                            self.p1uid,
-                                                                            self.p1p2rel,
-                                                                            self.p2type,
-                                                                            self.p2uid,
-                                                                            self.p2targetrel)})
+                                                           sanitise_uid(self.targetuid)),
+                                    data={'target': '/%s/%s/%s/%s/%s/%s' %
+                                          (self.p1type,
+                                           sanitise_uid(self.p1uid),
+                                           self.p1p2rel,
+                                           self.p2type,
+                                           sanitise_uid(self.p2uid),
+                                           self.p2targetrel)})
         self.assertEqual(self.result.status_code, 201)
         self.assertEqual(self.result.text,
                          '/%s/%s/%s/%s/%s/%s/%s/%s' % (self.p1type,
-                                                       self.p1uid,
+                                                       sanitise_uid(self.p1uid),
                                                        self.p1p2rel,
                                                        self.p2type,
-                                                       self.p2uid,
+                                                       sanitise_uid(self.p2uid),
                                                        self.p2targetrel,
                                                        self.targettype,
-                                                       self.targetuid))
+                                                       sanitise_uid(self.targetuid)))
         # Confirm it's where it should be
-        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                                      self.p1type,
-                                                                      self.p1uid,
-                                                                      self.p1p2rel,
-                                                                      self.p2type,
-                                                                      self.p2uid,
-                                                                      self.p2targetrel,
-                                                                      self.targettype,
-                                                                      self.targetuid)).status_code,
+        self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' %
+                                      (API_BASE_URL,
+                                       self.p1type,
+                                       sanitise_uid(self.p1uid),
+                                       self.p1p2rel,
+                                       self.p2type,
+                                       sanitise_uid(self.p2uid),
+                                       self.p2targetrel,
+                                       self.targettype,
+                                       sanitise_uid(self.targetuid))).status_code,
                          200)
         # Confirm it's no longer attached to the initial parent
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                              self.p1type,
-                                                             self.p1uid,
+                                                             sanitise_uid(self.p1uid),
                                                              self.p1targetrel,
                                                              self.targettype,
-                                                             self.targetuid)).json(),
+                                                             sanitise_uid(self.targetuid))).json(),
                          [])
         # Delete the parent resource, which should take the rest with it
-        self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL, self.p1type, self.p1uid),
+        self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
+                                                       self.p1type,
+                                                       sanitise_uid(self.p1uid)),
                                          data={'recursive': 'true'}).status_code,
                          204)
-        # Remove the fixtures
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p2type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.targettype))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.p1type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.p2type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.targettype)).json(), {})
 
 
 class TestValidRelationships(unittest.TestCase):
@@ -595,7 +416,7 @@ class TestValidRelationships(unittest.TestCase):
     relationship = 'Asn'
     res2type = 'asn'
     res2name = '64512'
-    res3type = 'makes'
+    res3type = 'brands'
     res3uid = 'NetBoxes'
     depres1type = 'models'
     depres1uid = 'Packetshuffler3000'
@@ -604,13 +425,6 @@ class TestValidRelationships(unittest.TestCase):
     result = None
     def test_basic_relationship(self):
         print('Test: test_basic_relationship')
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.res1type,
-                                                     self.relationship,
-                                                     self.res2type))
         # Create two new resources
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
                                        data={'uid': self.res1uid}).status_code,
@@ -668,29 +482,8 @@ class TestValidRelationships(unittest.TestCase):
                                                        self.res1type,
                                                        self.res1uid)).status_code,
                          204)
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res1type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res2type)).json(), {})
     def test_rels_between_primary_and_secondary_resources(self):
         print('Test: test_rels_between_primary_and_secondary_resources')
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res3type))
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type),
-                      data={'dependent': 'true'})
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.res1type,
-                                                     self.res1todepres1rel,
-                                                     self.depres1type),
-                      data={'dependent': 'true'})
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.res3type,
-                                                     self.depres1deprel,
-                                                     self.depres1type),
-                      data={'dependent': 'true'})
         # Create two first-class resources, with a third dependent on the first
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.res1type),
                                        data={'uid': self.res1uid}).status_code,
@@ -744,15 +537,6 @@ class TestValidRelationships(unittest.TestCase):
                                                        self.res3uid),
                                          data={'recursive': 'true'}).status_code,
                          204)
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res3type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.depres1type))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res1type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res2type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res3type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.depres1type)).json(), {})
 
 class TestInvalidRelationships(unittest.TestCase):
     '''
@@ -766,13 +550,6 @@ class TestInvalidRelationships(unittest.TestCase):
     relationship_invalid = 'dysfunctionalRelationship'
     def test_basic_relationship(self):
         print('Test: test_basic_relationship')
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
-        requests.post('%s/relationships/%s/%s/%s' % (SCHEMA_BASE_URL,
-                                                     self.res1type,
-                                                     self.relationship_valid,
-                                                     self.res2type))
         # Create two new resources
         print('Test: create the resources to link')
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.res1type),
@@ -810,12 +587,6 @@ class TestInvalidRelationships(unittest.TestCase):
                                                        self.res2type,
                                                        self.res2uid)).status_code,
                          204)
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res1type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.res2type))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res1type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.res2type)).json(), {})
 
 class TestDbSchema(unittest.TestCase):
     '''
@@ -827,8 +598,6 @@ class TestDbSchema(unittest.TestCase):
     result = None
     def test_unique_resources(self):
         print('Test: test_unique_resources')
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
         # Create a new resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resourcename}).status_code,
@@ -837,8 +606,9 @@ class TestDbSchema(unittest.TestCase):
         self.result = requests.get('%s/%s/%s/' % (API_BASE_URL,
                                                   self.resourcetype,
                                                   self.resourcename)).json()
-        self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resourcename))
-        self.assertEqual(self.result[0]['uid'], self.resourcename)
+        print('Received result {}'.format(self.result))
+        self.assertEqual(self.result['original_uid'], sanitise_uid(self.resourcename))
+        self.assertEqual(self.result['uid'], self.resourcename)
         # Attempt to create a duplicate.
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resourcename}).status_code,
@@ -848,10 +618,6 @@ class TestDbSchema(unittest.TestCase):
                                                        self.resourcetype,
                                                        self.resourcename)).status_code,
                          204)
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.resourcetype))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.resourcetype)).json(), {})
 
 class TestBasicResourceErrors(unittest.TestCase):
     '''
@@ -862,8 +628,6 @@ class TestBasicResourceErrors(unittest.TestCase):
     valid_uid = 'amchitka'
     def test_basic_resource_errors(self):
         print('Test: test_basic_resource_errors')
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.valid_resourcetype))
         # Invalid resource-type
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.invalid_resourcetype),
                                        data={'foo': 'bar'}).status_code,
@@ -876,11 +640,6 @@ class TestBasicResourceErrors(unittest.TestCase):
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
                                        data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
                          400)
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.valid_resourcetype))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL,
-                                                 self.valid_resourcetype)).json(), {})
 
 class TestAnyType(unittest.TestCase):
     '''
@@ -900,11 +659,6 @@ class TestAnyType(unittest.TestCase):
                          [])
     def test_02_create_valid_any_rel(self):
         print('Test: test_create_valid_any_rel')
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.t1type))
-        requests.post('%s/resourcetype/any' % (SCHEMA_BASE_URL))
-        requests.post('%s/relationships/any/%s/%s' % (SCHEMA_BASE_URL, self.p1rel, self.t1type))
         # Create the resources
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.p1type),
                                        data={'uid': self.p1uid}).status_code,
@@ -937,20 +691,8 @@ class TestAnyType(unittest.TestCase):
                                                        self.t1type,
                                                        self.t1uid)).status_code,
                          204)
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.t1type))
-        requests.delete('%s/resourcetype/any' % (SCHEMA_BASE_URL))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.p1type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.t1type)).json(), {})
     def test_03_create_invalid_any_rel(self):
         print('Test: test_create_valid_any_rel')
-        print('Test: create the fixtures')
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
-        requests.post('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.t1type))
-        requests.post('%s/resourcetype/any' % (SCHEMA_BASE_URL))
-        requests.post('%s/relationships/any/%s/%s' % (SCHEMA_BASE_URL, self.p1rel, self.t1type))
         # Create the resources
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.p1type),
                                        data={'uid': self.p1uid}).status_code,
@@ -977,13 +719,6 @@ class TestAnyType(unittest.TestCase):
                                                        self.t1type,
                                                        self.t1uid)).status_code,
                          204)
-        print('Test: remove the fixtures')
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.p1type))
-        requests.delete('%s/resourcetype/%s' % (SCHEMA_BASE_URL, self.t1type))
-        requests.delete('%s/resourcetype/any' % (SCHEMA_BASE_URL))
-        print('Test: schema should be empty')
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.p1type)).json(), {})
-        self.assertEqual(requests.get('%s/%s' % (SCHEMA_BASE_URL, self.t1type)).json(), {})
 
 class TestFilesApi(unittest.TestCase):
     '''
