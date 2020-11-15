@@ -275,7 +275,10 @@
            (log-message :debug (format nil "Creating a relationship from ~A to ~A" sub-uri dest-path))
            (handler-case
              (progn
-               (create-relationship-by-path (datastore tbnl:*acceptor*) sub-uri dest-path)
+               (create-relationship-by-path (datastore tbnl:*acceptor*)
+                                            sub-uri
+                                            dest-path
+                                            (schema tbnl:*acceptor*))
                ;; Report success to the client
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
@@ -425,7 +428,8 @@
              (delete-relationship-by-path (datastore tbnl:*acceptor*)
                                           sub-uri
                                           (or (tbnl:post-parameter "resource")
-                                              (tbnl:get-parameter "resource")))
+                                              (tbnl:get-parameter "resource"))
+                                          (schema tbnl:*acceptor*))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
