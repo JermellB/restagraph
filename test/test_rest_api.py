@@ -29,11 +29,9 @@ PROTOCOL = 'http'
 SERVER_URL = 'localhost:4950'
 API_PREFIX = '/raw/v1'
 FILES_PREFIX = '/files/v1'
-SCHEMA_PREFIX = '/schema/v1'
 
 API_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, API_PREFIX)
 FILES_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, FILES_PREFIX)
-SCHEMA_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, SCHEMA_PREFIX)
 
 
 # Utilities
