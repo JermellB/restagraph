@@ -8,12 +8,13 @@
 (in-package #:restagraph)
 
 
-(defgeneric create-relationship-by-path (db sourcepath destpath)
+(defgeneric create-relationship-by-path (db sourcepath destpath schema)
   (:documentation "Create a relationship between two arbitrary, pre-existing resources. The last element of the sourcepath must be the relationship type."))
 
 (defmethod create-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (sourcepath string)
-                                        (destpath string))
+                                        (destpath string)
+                                        schema)
   (log-message :debug (format nil "Attempting to create a relationship from ~A to ~A"
                               sourcepath destpath))
   ;; Initial sanity-checks
@@ -35,9 +36,9 @@
               (source-type (nth (- (length source-parts) 2) source-parts))
               (dest-type (nth (- (length dest-parts) 2) dest-parts))
               (relationship-attrs
-                (or
-                  (get-relationship-attrs db source-type relationship dest-type)
-                  (get-relationship-attrs db "any" relationship dest-type))))
+                (car (or
+                       (get-relationship-attrs schema source-type relationship dest-type)
+                       (get-relationship-attrs schema "any" relationship dest-type)))))
          (cond
            ;; No such relationship
            ((not relationship-attrs)
@@ -48,12 +49,12 @@
               (error 'integrity-error :message message)))
            ;; 1:1 dependent relationship
            ((and
-              (relationship-attrs-dependent relationship-attrs)
+              (schema-rels-dependent relationship-attrs)
               (or
-                (equal (relationship-attrs-cardinality relationship-attrs) "1:1")
-                (equal (relationship-attrs-cardinality relationship-attrs) "1:many")))
+                (equal (schema-rels-cardinality relationship-attrs) "1:1")
+                (equal (schema-rels-cardinality relationship-attrs) "1:many")))
             (let ((message (format nil "~A dependency. Either move the relationship or create a new dependent resource."
-                                   (relationship-attrs-cardinality relationship-attrs))))
+                                   (schema-rels-cardinality relationship-attrs))))
               (log-message :debug message)
               (error 'integrity-error :message message)))
            ;; Are we trying to create a duplicate?
@@ -73,7 +74,7 @@
               (error 'client-error :message message)))
            ;; Many-to-one, and the source already has this relationship with another such target?
            ((and
-              (equal (relationship-attrs-cardinality relationship-attrs) "many:1")
+              (equal (schema-rels-cardinality relationship-attrs) "many:1")
               (>
                 (neo4cl:extract-data-from-get-request
                   (neo4cl:neo4j-transaction
