@@ -137,7 +137,7 @@
                                       :directional nil)))))))))
 
 
-(defgeneric delete-relationship-by-path (db relationship-uri target-resource)
+(defgeneric delete-relationship-by-path (db relationship-uri target-resource schema)
   (:documentation "Delete a relationship based on its path, and that of its target.
                   Arguments:
                   - relationship-uri = URI of the relationship itself
@@ -146,7 +146,8 @@
 
 (defmethod delete-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (relationship-uri string)
-                                        (target-resource string))
+                                        (target-resource string)
+                                        (schema hash-table))
   (log-message :debug (format nil "Attempting to delete the relationship ~A to ~A"
                               relationship-uri target-resource))
   (let* ((rel-parts (get-uri-parts relationship-uri))
@@ -154,7 +155,10 @@
          (relationship (car (last rel-parts)))
          (dest-parts (get-uri-parts target-resource))
          (dest-type (first dest-parts))
-         (dest-uid (second dest-parts)))
+         (dest-uid (second dest-parts))
+         (relationship-attrs
+           (car (or (get-relationship-attrs schema source-type relationship dest-type)
+                    (get-relationship-attrs schema "any" relationship dest-type)))))
     (log-message :debug (format nil "Source type: ~A" source-type))
     (log-message :debug (format nil "Relationship: ~A" relationship))
     (log-message :debug (format nil "Dest type: ~A" dest-type))
@@ -168,24 +172,14 @@
       ((not (equal (mod (length dest-parts) 3) 2))
        (error 'client-error :message "Target path does not specify a resource."))
       ;; Is there a relationship defined between these types?
-      ((not (or (get-relationship-attrs db source-type relationship dest-type)
-                (get-relationship-attrs db "any" relationship dest-type)))
+      ((not relationship-attrs)
        (error
          'client-error
          :message "There is no relationship between these resource-types. Are you sure there's something here to delete?"))
       ;; Would this orphan a dependent resource at the end of the relationship,
       ;; by removing its last parent?
       ((and
-         ;; The first element in the list returned by get-relationship-attrs
-         ;; is a boolean indicating whether it's a dependent relationship
-         (relationship-attrs-dependent
-           (get-relationship-attrs
-             db
-             ;; Be smart about which relationship we're checking here
-             (if (get-relationship-attrs db source-type relationship dest-type)
-                 source-type
-                 "any")
-             relationship dest-type))
+         (schema-rels-dependent relationship-attrs)
          ;; Would this be the last parent?
          ;; Test by checking for other incoming dependent relationships.
          ;; If there's one or more, we're good to go.
