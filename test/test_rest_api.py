@@ -6,7 +6,7 @@ Test package for Restagraph's REST API.
 '''
 
 
-#   Copyright 2017 James Fleming <james@electronic-quill.net>
+#   Copyright 2017-2020 James Fleming <james@electronic-quill.net>
 #
 #   Licensed under the GNU General Public License
 #   - for details, see LICENSE.txt in the top-level directory
