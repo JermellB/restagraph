@@ -490,8 +490,8 @@
                 :debug
                 "Attempting to update resourcetype '~A' with relationship '~A' to resourcetype '~A'"
                 (car rel)
-                (schema-rels-relationship (cdr rel))
-                (schema-rels-target-type (cdr rel)))
+                (incoming-rels-relationship (cdr rel))
+                (incoming-rels-target-type (cdr rel)))
               ;; Is the source-type in there?
               (let ((sourcetype (gethash (car rel) hash)))
                 (if sourcetype
@@ -500,8 +500,8 @@
                     ;; If it's not there, complain and move on.
                     (log-message :error "Doomed attempt to update nonexistent resourcetype '~A' with relationship '~A' to resourcetype '~A'"
                                  (car rel)
-                                 (schema-rels-relationship (cdr rel))
-                                 (schema-rels-target-type (cdr rel))))))
+                                 (incoming-rels-relationship (cdr rel))
+                                 (incoming-rels-target-type (cdr rel))))))
           (getf digest :relationships)))
 
 (defun enumerate-schemas-in-dir (schemadir)
