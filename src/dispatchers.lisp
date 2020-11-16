@@ -198,25 +198,24 @@
                                                       (equal (car par) "directional"))
                                                   (tbnl:get-parameters*)))))
            ;; Return what we found
-           (progn
-             (setf (tbnl:content-type*) "application/json")
-             (setf (tbnl:return-code*) tbnl:+http-ok+)
-             (cond
-               ;; Single resource was requested, and nothing was found.
-               ((and (= (mod (length uri-parts) 3) 2)
-                     (or (null result)
-                         (equal result "")))
-                "[]")
-               ;; Single resource was requested, and something was found.
-               ((= (mod (length uri-parts) 3) 2)
-                (cl-json:encode-json-alist-to-string result))
-               ;; Class of resources was requested, and nothing was found.
-               ((or (null result)
-                    (equal result ""))
-                "[]")
-               ;; Class of resources was requested, and something was found.
-               (t
-                 (cl-json:encode-json-to-string result))))))
+           (setf (tbnl:content-type*) "application/json")
+           (setf (tbnl:return-code*) tbnl:+http-ok+)
+           (cond
+             ;; Single resource was requested, and nothing was found.
+             ((and (= (mod (length uri-parts) 3) 2)
+                   (or (null result)
+                       (equal result "")))
+              "[]")
+             ;; Single resource was requested, and something was found.
+             ((= (mod (length uri-parts) 3) 2)
+              (cl-json:encode-json-alist-to-string result))
+             ;; Class of resources was requested, and nothing was found.
+             ((or (null result)
+                  (equal result ""))
+              "[]")
+             ;; Class of resources was requested, and something was found.
+             (t
+               (cl-json:encode-json-to-string result)))))
         ;; POST -> Store something
         ;;
         ;; Resource
