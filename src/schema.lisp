@@ -750,7 +750,8 @@
                                          (:DEPENDENT . ,(if (schema-rels-dependent rel) "true" "false"))
                                          (:CARDINALITY . ,(schema-rels-cardinality rel))
                                          (:NOTES . ,(or (schema-rels-notes rel) ""))
-                                         (:RESOURCETYPE ,(schema-rels-target-type rel))))
+                                         (:RESOURCETYPE ,(schema-rtypes-name
+                                                           (schema-rels-target-type rel)))))
                                    (schema-rtypes-relationships node)))))))
 
 
