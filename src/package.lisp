@@ -43,4 +43,5 @@
     make-relationship-attrs
     relationship-attrs-dependent
     relationship-attrs-cardinality
+    schema
     ))
