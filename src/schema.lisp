@@ -193,10 +193,6 @@
       ((and (incoming-rels-dependent relationship)
             (not (schema-rtypes-dependent target-type)))
        (log-message :error "Refusing to create a dependent relationship to a non-dependent type."))
-      ;; Attempting to create non-dependent relationship to dependent resourcetype
-      ((and (not (incoming-rels-dependent relationship))
-            (schema-rtypes-dependent target-type))
-       (log-message :error "Refusing to create a non-dependent relationship to a dependent type."))
       ;; We're clear to proceed
       (t
         (log-message :debug "Sanity-tests passed; creating relationship.")
