@@ -77,7 +77,7 @@
                                           :name "displayname"
                                           :description "The human-friendly version of the role's name, to be displayed in the UI.")
                                         (make-incoming-rtype-attrs
-                                          :name "comments"
+                                          :name "notes"
                                           :description "Clarification of what this role is for.")))))
         (list :name "files"
               :version 1
