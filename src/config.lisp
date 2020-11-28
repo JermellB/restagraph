@@ -101,4 +101,6 @@
                                           :name "sha3256sum"
                                           :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."))))
               :relationships `(("files" . ,(make-incoming-rels :relationship "Thumbnail"
-                                                               :target-type "files"))))))
+                                                               :target-type "files"))
+                               ("people" . ,(make-incoming-rels :relationship "Roles"
+                                                                :target-type "roles"))))))
