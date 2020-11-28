@@ -66,7 +66,10 @@
                       :notes "UID should be their login name or some other compact reference."
                       :attributes (list (make-incoming-rtype-attrs
                                           :name "displayname"
-                                          :description "The human-friendly version of their name, to be displayed in the UI.")))
+                                          :description "The human-friendly version of their name, to be displayed in the UI.")
+                                        (make-incoming-rtype-attrs
+                                          :name "notes"
+                                          :description "Notes about this person.")))
                     (make-incoming-rtypes
                       :name "roles"
                       :notes "Principally for role-based access control, but can also tie into organisational roles."
