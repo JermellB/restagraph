@@ -115,7 +115,7 @@
     (let ((uri-parts (get-uri-parts
                        (get-sub-uri (tbnl:request-uri*)
                                     (uri-base-schema tbnl:*acceptor*)))))
-      (log-message :debug "Handling schema ~A request /~{/~A~}" (tbnl:request-method*) uri-parts)
+      (log-message :debug "Handling schema ~A request ~{/~A~}" (tbnl:request-method*) uri-parts)
       (cond
         ;; Get the description of a single resource-type
         ((and
