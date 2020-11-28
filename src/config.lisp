@@ -51,13 +51,13 @@
                                           :name "fulltext"
                                           :description "The full text of the comment"))))
               :relationships `(("any" . ,(make-incoming-rels :relationship "Tags"
-                                                           :target-type "tags"))
+                                                             :target-type "tags"))
                                ("any" . ,(make-incoming-rels :relationship "Groups"
-                                                          :target-type "groups"))
+                                                             :target-type "groups"))
                                ("any" . ,(make-incoming-rels :relationship "Comments"
-                                                          :target-type "comments"
-                                                          :cardinality "1:many"
-                                                          :dependent t))))
+                                                             :target-type "comments"
+                                                             :cardinality "1:many"
+                                                             :dependent t))))
         (list :name "people"
               :version 1
               :resourcetypes
@@ -99,17 +99,6 @@
                                           :description "The detected mime-type of this file.")
                                         (make-incoming-rtype-attrs
                                           :name "sha3256sum"
-                                          :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions.")))
-                    (make-incoming-rtypes
-                      :name "thumbnails"
-                      :notes "Thumbnail images of uploaded files."
-                      :attributes (list (make-incoming-rtype-attrs
-                                          :name "width"
-                                          :description "Width of the thumbnail, in pixels.")
-                                        (make-incoming-rtype-attrs
-                                          :name "height"
-                                          :description "Height of the thumbnail, in pixels.")
-                                        (make-incoming-rtype-attrs
-                                          :name "sha3256sum"
                                           :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."))))
-              :relationships ())))
+              :relationships `(("files" . ,(make-incoming-rels :relationship "Thumbnail"
+                                                               :target-type "files"))))))
