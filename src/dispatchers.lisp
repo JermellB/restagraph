@@ -197,6 +197,7 @@
                                                   #'(lambda (par)
                                                       (equal (car par) "directional"))
                                                   (tbnl:get-parameters*)))))
+           (log-message :debug "Fetched content ~A" result)
            ;; Return what we found
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
