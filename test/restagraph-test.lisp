@@ -284,8 +284,8 @@
   "Digest a YAML file into incoming-rtypes structs."
   (let* ((filepath "test_schemas/01_people_and_places.yaml")
          (digest (restagraph::digest-schema-yaml (make-pathname :defaults filepath))))
-    (restagraph:log-message :debug "Loaded schema file from '~A'" filepath)
-    (restagraph:log-message :debug "Result was: ~A" digest)
+    (restagraph:log-message :debug (format nil "Loaded schema file from '~A'" filepath))
+    (restagraph:log-message :debug (format nil "Result was: ~A" digest))
     (fiveam:is (equal "people_and_places"
                       (getf digest :NAME)))
     (fiveam:is (equal 'restagraph::incoming-rtypes
@@ -645,11 +645,11 @@
                                `(("uid" . ,parent-uid))
                                schema)
     ;; Create the dependent resource
-    (restagraph:log-message :debug ";TEST Create the dependent resource /~A/~A/~A/~A"
-                            (restagraph::incoming-rtypes-name parent-type)
-                            parent-uid
-                            relationship
-                            (restagraph::incoming-rtypes-name child-type))
+    (restagraph:log-message :debug (format nil ";TEST Create the dependent resource /~A/~A/~A/~A"
+                                           (restagraph::incoming-rtypes-name parent-type)
+                                           parent-uid
+                                           relationship
+                                           (restagraph::incoming-rtypes-name child-type)))
     (multiple-value-bind (result code message)
       (restagraph:store-dependent-resource
         *server*
@@ -1303,13 +1303,12 @@
       `(("uid" . ,to-uid))
       schema)
     ;; Create a relationship between them
-    (restagraph:log-message
-      :info ";TEST Create the relationship /~A/~A/~A/~A/~A"
-      (restagraph::incoming-rtypes-name from-type)
-      from-uid
-      relationship
-      (restagraph::incoming-rtypes-name to-type)
-      to-uid)
+    (restagraph:log-message :info (format nil ";TEST Create the relationship /~A/~A/~A/~A/~A"
+                                          (restagraph::incoming-rtypes-name from-type)
+                                          from-uid
+                                          relationship
+                                          (restagraph::incoming-rtypes-name to-type)
+                                          to-uid))
     (multiple-value-bind (result code message)
       (restagraph:create-relationship-by-path
         *server*
@@ -1341,12 +1340,12 @@
       (fiveam:is (equal to-uid
                         (cdr (assoc :UID result)))))
     ;; Delete the relationship
-    (restagraph:log-message :info ";TEST Delete the relationship from /~A/~A/~A to /~A/~A"
-                            (restagraph::incoming-rtypes-name from-type)
-                            from-uid
-                            relationship
-                            (restagraph::incoming-rtypes-name to-type)
-                            to-uid)
+    (restagraph:log-message :info (format nil ";TEST Delete the relationship from /~A/~A/~A to /~A/~A"
+                                          (restagraph::incoming-rtypes-name from-type)
+                                          from-uid
+                                          relationship
+                                          (restagraph::incoming-rtypes-name to-type)
+                                          to-uid))
     (multiple-value-bind (result code message)
       (restagraph:delete-relationship-by-path
         *server*
@@ -1359,7 +1358,7 @@
                 to-uid)
         schema)
       (declare (ignore result))
-      (restagraph:log-message :debug "Result of deletion request: ~A - ~A" code message)
+      (restagraph:log-message :debug (format nil "Result of deletion request: ~A - ~A" code message))
       (fiveam:is (equal 200 code)))
     ;; Delete the router
     (restagraph:log-message :info ";TEST Cleanup: removing the resources")
@@ -1428,7 +1427,7 @@
                             (restagraph::incoming-rtypes-name from-type)
                             from-uid
                             relationship))))
-      (restagraph:log-message :debug "Received result ~A" result)
+      (restagraph:log-message :debug (format nil "Received result ~A" result))
       (fiveam:is (equal 4 (length (car result))))
       (fiveam:is (assoc :TYPE (car result) :test #'equal))
       (fiveam:is (equal (restagraph::incoming-rtypes-name to-type)

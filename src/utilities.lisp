@@ -142,7 +142,7 @@
   as a cons of two strings: the directory path and the filename"
   (declare (type pathname basedir)
            (type string digest))
-  (log-message :debug "Generating a filepath from base-dir '~A' and digest '~A'" basedir digest)
+  (log-message :debug (format nil "Generating a filepath from base-dir '~A' and digest '~A'" basedir digest))
   (merge-pathnames (make-pathname :directory `(:relative
                                                 ,(format nil "~A/~A/~A" (subseq digest 0 2)
                                                         (subseq digest 2 4)
@@ -154,8 +154,8 @@
   "Return the MIME-type of a file, as a string.
   The path argument must be a string, as it's passed verbatim to the Unix shell."
   (declare (type string filepath))
-  (log-message :debug "Identifying MIME-type for file '~A'" filepath)
-  (log-message :debug "PATH value: ~A" (sb-ext:posix-getenv "PATH"))
+  (log-message :debug (format nil "Identifying MIME-type for file '~A'" filepath))
+  (log-message :debug (format nil "PATH value: ~A" (sb-ext:posix-getenv "PATH")))
   (string-right-trim
     '(#\NewLine)
     (with-output-to-string (str)
@@ -167,17 +167,17 @@
 
 (defun move-file (old-path new-path)
   "Move a file by calling out to the Unix 'mv' utility.
-   Do this because rename-file doesn't work across filesystem boundaries."
+  Do this because rename-file doesn't work across filesystem boundaries."
   (let ((oldpath (format nil "~A" old-path))
         (newpath (format nil "~A" new-path)))
-    (log-message :debug "Moving file '~A' to new location '~A'" oldpath newpath)
-    (log-message :debug "Result of file move: ~A"
-                 (with-output-to-string (outstr)
-                   (sb-ext:run-program "mv"
-                                       (list oldpath newpath)
-                                       :search t
-                                       :output outstr)
-                   outstr))))
+    (log-message :debug (format nil "Moving file '~A' to new location '~A'" oldpath newpath))
+    (log-message :debug (format nil "Result of file move: ~A"
+                                (with-output-to-string (outstr)
+                                  (sb-ext:run-program "mv"
+                                                      (list oldpath newpath)
+                                                      :search t
+                                                      :output outstr)
+                                  outstr)))))
 
 (defun ensure-db-passwd (server)
   "Check the credentials for the database, and return a boolean."
@@ -201,8 +201,8 @@
 (defun confirm-db-is-running (server &key (counter 1) (max-count 5) (sleep-time 5))
   "Check whether the database server is running by polling the discovery endpoint."
   (declare (type (integer) counter max-count sleep-time))
-  (log-message :debug "Checking whether the database is running on ~A:~A"
-               (neo4cl:hostname server) (neo4cl:port server))
+  (log-message :debug (format nil "Checking whether the database is running on ~A:~A"
+                              (neo4cl:hostname server) (neo4cl:port server)))
   (handler-case
     (when (drakma:http-request
             (format nil "http://~A:~A" (neo4cl:hostname server) (neo4cl:port server)))
@@ -219,7 +219,7 @@
         ;; Still isn't responding, but we haven't yet hit timeout.
         ;; Leave a message, pause, then try again.
         (progn
-          (log-message :warn "Connection refused. Pausing for ~A seconds before retrying" sleep-time)
+          (log-message :warn (format nil "Connection refused. Pausing for ~A seconds before retrying" sleep-time))
           (sleep sleep-time)
           (confirm-db-is-running server
                                  :counter (+ counter 1)

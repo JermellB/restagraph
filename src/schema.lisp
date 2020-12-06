@@ -116,7 +116,7 @@
       ;; Sanity-check: is this relationship properly defined?
       (progn
         (log-message :debug "Got a result. Making a relationship object now.")
-        (log-message :debug "Result structure: ~A" result)
+        (log-message :debug (format nil "Result structure: ~A" result))
         (make-relationship-attrs
           ;; The relationship name we return will be used in a URL.
           ;; Sanitise it for safety, just in case an unsafe version slipped through.
@@ -178,17 +178,20 @@
 (defmethod add-rel-to-schema-rtype ((schema hash-table)
                                     (source-type schema-rtypes)
                                     (relationship incoming-rels))
-  (log-message :info "Attempting to create relationship '~A' from type '~A' to type '~A'"
-               (incoming-rels-relationship relationship)
-               (schema-rtypes-name source-type)
-               (incoming-rels-target-type relationship))
+  (log-message
+    :info
+    (format nil "Attempting to create relationship '~A' from type '~A' to type '~A'"
+            (incoming-rels-relationship relationship)
+            (schema-rtypes-name source-type)
+            (incoming-rels-target-type relationship)))
   (let ((target-type (resourcetype-exists-p schema (incoming-rels-target-type relationship))))
     (cond
       ;; Target-type doesn't exist
       ((not target-type)
        ;; FIXME: should I be signalling an error here?
-       (log-message :error "Target resourcetype '~A' does not exist!"
-                    (incoming-rels-target-type relationship)))
+       (log-message
+         :error
+         (format nil"Target resourcetype '~A' does not exist!" (incoming-rels-target-type relationship))))
       ;; Attempting to create dependent relationship to non-dependent resourcetype
       ((and (incoming-rels-dependent relationship)
             (not (schema-rtypes-dependent target-type)))
@@ -232,10 +235,10 @@
 (defmethod add-rel-to-schema-rtype ((schema hash-table)
                                     (source-type schema-rtypes)
                                     (relationship schema-rels))
-  (log-message :info "Attempting to create relationship '~A' from type '~A' to type '~A'"
-               (schema-rels-relationship relationship)
-               (schema-rtypes-name source-type)
-               (schema-rels-target-type relationship))
+  (log-message :info (format nil "Attempting to create relationship '~A' from type '~A' to type '~A'"
+                             (schema-rels-relationship relationship)
+                             (schema-rtypes-name source-type)
+                             (schema-rels-target-type relationship)))
   (setf (schema-rtypes-relationships source-type)
         (append
           ;; Is there already a relationship of this type?
@@ -276,7 +279,7 @@
    :resourcetypes = list of schema-rtypes structs.
    :relationships = list of dotted-lists: (<source-type name> . <schema-rels struct>)"
   (declare (type pathname filepath))
-  (log-message :info "Attempting to digest schema file ~A" filepath)
+  (log-message :info (format nil "Attempting to digest schema file ~A" filepath))
   (let ((schema (cl-yaml:parse filepath)))
     (list
       :name (gethash "name" schema)
@@ -285,34 +288,34 @@
       ;; Also, `maphash` breaks when you feed it '().
       :resourcetypes
       (if (gethash "resourcetypes" schema)
-          (loop for resourcename being the hash-keys
-                in (gethash "resourcetypes" schema)
-                using (hash-value value)
-                collect (make-incoming-rtypes
-                          :name resourcename
-                          :dependent (gethash "dependent" value)
-                          :notes (or (gethash "notes" value) "")
-                          :attributes
-                          ;; Don't assume this resourcetype has attributes defined.
-                          ;; Again, `maphash` doesn't cope with NIL.
-                          (when (gethash "attributes" value)
-                            (loop for attrname being the hash-keys
-                                  in (gethash "attributes" value)
-                                  using (hash-value attrdetails)
-                                  collect (make-incoming-rtype-attrs
-                                            :name attrname
-                                            :description (if (and attrdetails
-                                                                  (hash-table-p attrdetails)
-                                                                  (gethash "description" attrdetails))
-                                                             (gethash "description" attrdetails)
-                                                             "")
-                                            :values (when (and attrdetails
-                                                               (hash-table-p attrdetails)
-                                                               (gethash "vals" attrdetails))
-                                                      (cl-ppcre:split ","
-                                                                      (gethash "vals" attrdetails))))))))
-          (log-message :info "No resourcetypes found in schema '~A'"
-                       (gethash "name" schema)))
+        (loop for resourcename being the hash-keys
+              in (gethash "resourcetypes" schema)
+              using (hash-value value)
+              collect (make-incoming-rtypes
+                        :name resourcename
+                        :dependent (gethash "dependent" value)
+                        :notes (or (gethash "notes" value) "")
+                        :attributes
+                        ;; Don't assume this resourcetype has attributes defined.
+                        ;; Again, `maphash` doesn't cope with NIL.
+                        (when (gethash "attributes" value)
+                          (loop for attrname being the hash-keys
+                                in (gethash "attributes" value)
+                                using (hash-value attrdetails)
+                                collect (make-incoming-rtype-attrs
+                                          :name attrname
+                                          :description (if (and attrdetails
+                                                                (hash-table-p attrdetails)
+                                                                (gethash "description" attrdetails))
+                                                         (gethash "description" attrdetails)
+                                                         "")
+                                          :values (when (and attrdetails
+                                                             (hash-table-p attrdetails)
+                                                             (gethash "vals" attrdetails))
+                                                    (cl-ppcre:split ","
+                                                                    (gethash "vals" attrdetails))))))))
+        (log-message :info (format nil "No resourcetypes found in schema '~A'"
+                                   (gethash "name" schema))))
       ;; Don't assume there _are_ relationships defined in this schema.
       :relationships
       (if (gethash "relationships" schema)
@@ -320,8 +323,10 @@
                     #'null
                     (mapcar
                       #'(lambda (rel)
-                          (log-message :info "Attempting to create an incoming-rel struct with URI '~A"
-                                       (gethash "uri" rel))
+                          (log-message
+                            :info
+                            (format nil "Attempting to create an incoming-rel struct with URI '~A"
+                                    (gethash "uri" rel)))
                           (let* ((rel-parts
                                    (remove-if #'(lambda (part) (equal "" part)) 
                                               ;; If there's a URI attribute, split it on forward-slash and remove
@@ -338,11 +343,13 @@
                                                   "many:many")))
                             ;; Warn the admin if the original cardinality was not valid.
                             (when (not (equal raw-cardinality cardinality))
-                              (log-message :error "Relationship /~A/~A/~A had invalid cardinality '~A'. Forcing to default many:many."
-                                           (first rel-parts)
-                                           (second rel-parts)
-                                           (third rel-parts)
-                                           raw-cardinality))
+                              (log-message
+                                :error
+                                (format nil "Relationship /~A/~A/~A had invalid cardinality '~A'. Forcing to default many:many."
+                                        (first rel-parts)
+                                        (second rel-parts)
+                                        (third rel-parts)
+                                        raw-cardinality)))
                             ;; If there was a valid path, generate the expected plist.
                             (if (equal (length rel-parts) 3)
                                 ;; Create a duple: name of the source-type, and a schema-rels struct
@@ -359,7 +366,7 @@
                                   (log-message :warn "No URI in this entry. Skipping.")
                                   '()))))
                       (gethash "relationships" schema)))
-          (log-message "No relationships found in schema '~A'"
+          (log-message :info "No relationships found in schema '~A'"
                        (gethash "name" schema))))))
 
 
@@ -368,9 +375,9 @@
 
 (defmethod attribute-exists-p ((resourcetype schema-rtypes)
                                (attribute-name string))
-  (log-message :debug "Checking for attribute '~A' in resourcetype '~A'"
-               attribute-name
-               (schema-rtypes-name resourcetype))
+  (log-message :debug (format nil "Checking for attribute '~A' in resourcetype '~A'"
+                              attribute-name
+                              (schema-rtypes-name resourcetype)))
   ;; Strategy: remove all attributes whose names don't match the given string.
   ;; If anything's left after that, we have a match
   (let ((result (remove-if-not
@@ -381,7 +388,7 @@
     (if result
         ;; Found a match; log it and return NIL for false.
         (progn
-          (log-message :debug "Found attribute by name '~A'" attribute-name)
+          (log-message :debug (format nil "Found attribute by name '~A'" attribute-name))
           t)
         ;; Nothing found; we're clear
         nil)))
@@ -398,8 +405,8 @@
 ;; resourcetype by that name.
 (defmethod add-resource-to-schema ((schema hash-table)
                                    (resourcetype incoming-rtypes))
-  (log-message :info "Attempting to add definition for resourcetype '~A'"
-               (incoming-rtypes-name resourcetype))
+  (log-message :info (format nil "Attempting to add definition for resourcetype '~A'"
+                             (incoming-rtypes-name resourcetype)))
   (let ((existing (resourcetype-exists-p schema (incoming-rtypes-name resourcetype)))
         ;; We'll create a new definition based on the one we were given,
         ;; after validating a few things first.
@@ -417,9 +424,9 @@
                     ;; Duplicate found; log it and move on.
                     (log-message
                       :warning
-                      "Duplicate attribute '~A' detected while sanity-checking resourcetype '~A'"
-                      (incoming-rtype-attrs-name attr)
-                      (incoming-rtypes-name resourcetype))
+                      (format nil "Duplicate attribute '~A' detected while sanity-checking resourcetype '~A'"
+                              (incoming-rtype-attrs-name attr)
+                              (incoming-rtypes-name resourcetype)))
                     ;; No duplicate found; add it.
                     (setf (schema-rtypes-attributes newtype)
                           (append (list (make-schema-rtype-attrs
@@ -437,8 +444,10 @@
     (if existing
         ;; If it already exists, try to merge them
         (progn
-          (log-message :info "Definition already exists for resourcetype '~A'. Attempting to merge them."
-                       (schema-rtypes-name newtype))
+          (log-message
+            :info
+            (format nil "Definition already exists for resourcetype '~A'. Attempting to merge them."
+                    (schema-rtypes-name newtype)))
           (mapcar #'(lambda (newattr)
                       ;; Is there already an attribute by this name?
                       (if (remove-if-not
@@ -447,22 +456,27 @@
                                        (schema-rtype-attrs-name existingattr)))
                             (schema-rtypes-attributes existing))
                           ;; There is. Log it and move on.
-                          (log-message :error "Resourcetype '~A' already has an attribute named '~A'. Skipping this one."
-                                       (schema-rtypes-name newtype)
-                                       (schema-rtype-attrs-name newattr))
+                          (log-message
+                            :error
+                            (format nil "Resourcetype '~A' already has an attribute named '~A'. Skipping this one."
+                                    (schema-rtypes-name newtype)
+                                    (schema-rtype-attrs-name newattr)))
                           ;; Not already there. Add it.
                           (setf (schema-rtypes-attributes existing)
                                 (append (list newattr) (schema-rtypes-attributes existing)))))
                   (schema-rtypes-attributes newtype))
-          (log-message :info "Attempting to merge new relationships for resourcetype '~A'."
-                       (schema-rtypes-name newtype))
+          (log-message
+            :info
+            (format nil "Attempting to merge new relationships for resourcetype '~A'."
+                    (schema-rtypes-name newtype)))
           (mapcar #'(lambda (rel)
                       (add-rel-to-schema-rtype schema existing rel))
                   (schema-rtypes-relationships newtype)))
         ;; Not a dupe; add it to the schema as-is, by prepending it to the existing list of attributes.
         (progn
-          (log-message :debug "Adding resourcetype '~A' to the schema."
-                       (schema-rtypes-name newtype))
+          (log-message
+            :debug
+            (format nil "Adding resourcetype '~A' to the schema." (schema-rtypes-name newtype)))
           (setf (gethash (schema-rtypes-name newtype) schema) newtype))))
   ;; Return a success value for anything testing output for success.
   ;; Like a fiveAM test suite, as an imaginary hypothetical example.
@@ -474,8 +488,8 @@
    from the output of digest-schema-yaml."
   (declare (type hash-table hash)
            (list digest))
-  (log-message :debug "Attempting to update a hash-table with the contents of digest ~A"
-               (getf digest :name))
+  (log-message :debug (format nil "Attempting to update a hash-table with the contents of digest ~A"
+                              (getf digest :name)))
   ;; Add the resourcetypes to the hash
   (mapcar #'(lambda (rtype) (add-resource-to-schema hash rtype))
           (getf digest :resourcetypes))
@@ -484,20 +498,22 @@
   (mapcar #'(lambda (rel)
               (log-message
                 :debug
-                "Attempting to update resourcetype '~A' with relationship '~A' to resourcetype '~A'"
-                (car rel)
-                (incoming-rels-relationship (cdr rel))
-                (incoming-rels-target-type (cdr rel)))
+                (format nil "Attempting to update resourcetype '~A' with relationship '~A' to resourcetype '~A'"
+                        (car rel)
+                        (incoming-rels-relationship (cdr rel))
+                        (incoming-rels-target-type (cdr rel))))
               ;; Is the source-type in there?
               (let ((sourcetype (gethash (car rel) hash)))
                 (if sourcetype
-                    ;; If so, go ahead.
-                    (add-rel-to-schema-rtype hash sourcetype (cdr rel))
-                    ;; If it's not there, complain and move on.
-                    (log-message :error "Doomed attempt to update nonexistent resourcetype '~A' with relationship '~A' to resourcetype '~A'"
-                                 (car rel)
-                                 (incoming-rels-relationship (cdr rel))
-                                 (incoming-rels-target-type (cdr rel))))))
+                  ;; If so, go ahead.
+                  (add-rel-to-schema-rtype hash sourcetype (cdr rel))
+                  ;; If it's not there, complain and move on.
+                  (log-message
+                    :error
+                    (format nil "Doomed attempt to update nonexistent resourcetype '~A' with relationship '~A' to resourcetype '~A'"
+                            (car rel)
+                            (incoming-rels-relationship (cdr rel))
+                            (incoming-rels-target-type (cdr rel)))))))
           (getf digest :relationships)))
 
 (defun enumerate-schemas-in-dir (schemadir)
@@ -569,7 +585,7 @@
                (format nil "Checking whether ~A is a valid dependent relationship from ~A to ~A"
                        relationship source-type dest-type))
   (let ((stype (gethash source-type db)))
-    (log-message :debug "Fetched value ~A" stype)
+    (log-message :debug (format nil "Fetched value ~A" stype))
     (when source-type
       ;; Fetch _all_ the relationships by this name, to that target-type
       (let ((candidates (remove-if-not
@@ -630,14 +646,14 @@
 
 (defmethod get-resource-attributes-from-db ((db hash-table)
                                             (resourcetype string))
-  (log-message :debug "Getting attributes for resourcetype '~A'" resourcetype)
+  (log-message :debug (format nil "Getting attributes for resourcetype '~A'" resourcetype))
   (let ((struct (gethash resourcetype db)))
     (when struct
       (schema-rtypes-attributes struct))))
 
 (defmethod get-resource-attributes-from-db ((db neo4cl:neo4j-rest-server)
                                             (resourcetype string))
-  (log-message :debug "Getting attributes for resourcetype '~A'" resourcetype)
+  (log-message :debug (format nil "Getting attributes for resourcetype '~A'" resourcetype))
   (mapcar #'(lambda (attr)
               (make-schema-rtype-attrs :name (cdr (assoc :NAME (car attr)))
                                        :description (cdr (assoc :DESCRIPTION (car attr)))
@@ -711,7 +727,9 @@
                      (cdr (assoc :NOTES node))
                      ""))
         (:RELATIONSHIPS . ,(mapcar #'(lambda (rel)
-                                       (log-message :debug "Retrieving description for linked resourcetype '~A'" (cdr rel))
+                                       (log-message
+                                         :debug
+                                         (format nil "Retrieving description for linked resourcetype '~A'" (cdr rel)))
                                        ;; Return an alist of the values, ready for rendering into Javascript
                                        `((:RELATIONSHIP . ,(relationship-attrs-name (car rel)))
                                          (:DEPENDENT . ,(if (relationship-attrs-dependent (car rel)) "true" "false"))
@@ -815,8 +833,8 @@
            (type (or cons null) defined)    ; Should have the outer layer of conses stripped
            (type (or cons null) invalid)
            (type (or cons null) badvalue))
-  (log-message :debug "validate-attributes requested attrs: ~A" requested)
-  (log-message :debug "validate-attributes defined attrs: ~A" defined)
+  (log-message :debug (format nil "validate-attributes requested attrs: ~A" requested))
+  (log-message :debug (format nil "validate-attributes defined attrs: ~A" defined))
   ;; Are we at the end of the list of requested attributes?
   (if (null requested)
       ;; If we are, return what's been accumulated
@@ -835,7 +853,7 @@
                                   :test #'equal))
                    ;; Invalid attribute. Log it and add it to the `invalid` accumulator.
                    (progn
-                     (log-message :debug "Detected invalid attribute name '~A'" (caar requested))
+                     (log-message :debug (format nil "Detected invalid attribute name '~A'" (caar requested)))
                      (append invalid (list (car requested))))
                    ;; It's valid; leave the `invalid` list as-is
                    invalid)
@@ -904,7 +922,7 @@
        (original-uid (or (cdr (assoc "uid" params :test #'string=)) "")))
       ;; Put this log message here to get it inside the let statement,
       ;; and thus avoid a progn.
-      (log-message :debug "Confirmed: resourcetype '~A' exists" resourcetype)
+      (log-message :debug (format nil "Confirmed: resourcetype '~A' exists" resourcetype))
       ;; Now validate the attributes and return the results.
       (log-message :debug "Checking the supplied attributes.")
       (let ((results (validate-attributes requested-attributes defined-attributes)))
@@ -919,7 +937,7 @@
                            (acons "original_uid" original-uid
                                   (remove-if #'(lambda (param) (equal (car param) "uid"))
                                              params))))))
-            (log-message :debug "Returning formatted parameters ~A" formatted-params)
+            (log-message :debug (format nil "Returning formatted parameters ~A" formatted-params))
             formatted-params)
           ;; If not, report the problem.
           (progn
@@ -1020,7 +1038,7 @@ The :resources-seen key is used internally to break loops when recursing."))
                      processed-rels-from-any
                      rels-to-any
                      specific-rels))))
-    (log-message :debug "Assembled relationships ~A" relationships)
+    (log-message :debug (format nil "Assembled relationships ~A" relationships))
     (with-output-to-string (outstr)
       (format outstr "type ~A { ~{
               ~A: String~}~{

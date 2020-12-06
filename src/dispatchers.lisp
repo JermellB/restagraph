@@ -115,7 +115,7 @@
     (let ((uri-parts (get-uri-parts
                        (get-sub-uri (tbnl:request-uri*)
                                     (uri-base-schema tbnl:*acceptor*)))))
-      (log-message :debug "Handling schema ~A request ~{/~A~}" (tbnl:request-method*) uri-parts)
+      (log-message :debug (format nil "Handling schema ~A request ~{/~A~}" (tbnl:request-method*) uri-parts))
       (cond
         ;; Get the description of a single resource-type
         ((and
@@ -173,7 +173,7 @@
   (handler-case
     (let* ((sub-uri (get-sub-uri (tbnl:request-uri*) (uri-base-api tbnl:*acceptor*)))
            (uri-parts (get-uri-parts sub-uri)))
-      (log-message :debug "Handling API ~A request ~{/~A~} " (tbnl:request-method*) uri-parts)
+      (log-message :debug (format nil "Handling API ~A request ~{/~A~} " (tbnl:request-method*) uri-parts))
       (cond
         ;;
         ;; Intercept and reject attempts to interact with the "any" resource-type
@@ -185,9 +185,7 @@
         ;;
         ;; GET -> Retrieve something
         ((equal (tbnl:request-method*) :GET)
-         (log-message :debug
-                      (format nil "Dispatching GET request for URI ~A"
-                              (tbnl:request-uri*)))
+         (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
          (let* (;; Do it separately because we use it again later in this function.
                 ;; Get the search result
                 (result (get-resources (datastore tbnl:*acceptor*)
@@ -197,7 +195,7 @@
                                                   #'(lambda (par)
                                                       (equal (car par) "directional"))
                                                   (tbnl:get-parameters*)))))
-           (log-message :debug "Fetched content ~A" result)
+           (log-message :debug (format nil "Fetched content ~A" result))
            ;; Return what we found
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
@@ -225,22 +223,17 @@
            (equal (length uri-parts) 1)
            (tbnl:post-parameter "uid"))
          (let ((resourcetype (first uri-parts)))
-           (log-message :debug
-                        (format nil
-                                "Attempting to dispatch a POST request for resource type ~A"
-                                resourcetype))
+           (log-message
+             :debug
+             (format nil "Attempting to dispatch a POST request for resource type ~A" resourcetype))
            ;; Do we already have one of these?
            (if (get-resources
                  (datastore tbnl:*acceptor*)
                  (format nil "/~A/~A" (car uri-parts) (tbnl:post-parameter "uid")))
              ;; It's already there; return 200/OK
              (progn
-               (log-message
-                 :debug
-                 (format nil
-                         "Doomed attempt to re-create resource /~A/~A. Reassuring the client that it's already there."
-                         (car uri-parts)
-                         (tbnl:post-parameter "uid")))
+               (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
+                                           (car uri-parts) (tbnl:post-parameter "uid")))
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-ok+)
                (format nil "/~A/~A" resourcetype
@@ -253,7 +246,9 @@
                                  (tbnl:post-parameters*)
                                  (schema tbnl:*acceptor*))
                  ;; Return it from the database, for confirmation
-                 (log-message :debug "Stored the new resource. Now retrieving it from the database, to return to the client.")
+                 (log-message
+                   :debug
+                   "Stored the new resource. Now retrieving it from the database, to return to the client.")
                  (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-created+)
                  ;; Return the URI to the newly-created resource
@@ -304,12 +299,8 @@
                (format nil "~{/~A~}/~A" uri-parts (tbnl:post-parameter "uid")))
            ;; It's already there; return 200/OK
            (progn
-             (log-message
-               :debug
-               (format nil
-                       "Doomed attempt to re-create resource /~A/~A. Reassuring the client that it's already there."
-                       (car uri-parts)
-                       (tbnl:post-parameter "uid")))
+             (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
+                       (car uri-parts) (tbnl:post-parameter "uid")))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-ok+)
              (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
@@ -424,7 +415,7 @@
               (equal (mod (length uri-parts) 3) 0))
          (handler-case
            (progn
-             (log-message :debug "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri)
+             (log-message :debug (format nil "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri))
              (delete-relationship-by-path (datastore tbnl:*acceptor*)
                                           sub-uri
                                           (or (tbnl:post-parameter "resource")
@@ -444,8 +435,9 @@
          (method-not-allowed))
         ;; Handle all other cases
         (t
-          (log-message :warn "Bad request received with URI: ~A, reassembled as ~{/~A~}"
-                       (tbnl:request-uri*) uri-parts)
+          (log-message
+            :warn
+            (format nil "Bad request received with URI: ~A, reassembled as ~{/~A~}" (tbnl:request-uri*) uri-parts))
           (return-client-error "This wasn't a valid request"))))
     ;; Handle general errors
     ;;
@@ -507,22 +499,25 @@
                           (format nil "/files/~A" (sanitise-uid requested-filename)))
          ;; If it already exists, bail out now.
          (progn
-           (log-message :error "File ~A already exists; bailing out."
-                        (sanitise-uid requested-filename))
+           (log-message :error (format nil "File ~A already exists; bailing out."
+                                       (sanitise-uid requested-filename)))
            ;; Return client-error message indicating name collision
            (setf (tbnl:content-type*) "text/plain")
            (setf (tbnl:return-code*) tbnl:+http-conflict+)
            "Filename already exists")
          ;; Name isn't already taken; rock on.
          (progn
-           (log-message :debug "File ~A does not already exist; proceeding."
-                        (sanitise-uid requested-filename))
+           (log-message
+             :debug
+             (format nil "File ~A does not already exist; proceeding." (sanitise-uid requested-filename)))
            ;; Now we need to store the file's metadata,
-           (log-message :debug "Storing file metadata: name = '~A', checksum = '~A', original name '~A', mimetype '~A'"
-                        requested-filename
-                        checksum
-                        (second (tbnl:post-parameter "file"))
-                        mimetype)
+           (log-message
+             :debug
+             (format nil "Storing file metadata: name = '~A', checksum = '~A', original name '~A', mimetype '~A'"
+                     requested-filename
+                     checksum
+                     (second (tbnl:post-parameter "file"))
+                     mimetype))
            (handler-case
              (progn
                (store-resource (datastore tbnl:*acceptor*)
@@ -681,5 +676,5 @@
      (method-not-allowed))
     ;; Handle all other cases
     (t
-      (log-message :warn "Bad request received with URI: ~A" (tbnl:request-uri*))
+      (log-message :warn (format nil "Bad request received with URI: ~A" (tbnl:request-uri*)))
       (return-client-error "This wasn't a valid request"))))

@@ -98,7 +98,7 @@ Return an error if
                                                           parent-type
                                                           relationship
                                                           dest-type))))
-    (log-message :debug "Relationship attributes found: ~A" relationship-attrs)
+    (log-message :debug (format nil "Relationship attributes found: ~A" relationship-attrs))
     (log-message :debug "Beginning sanity checks")
     (cond
       ;; Sanity check: required parameters
@@ -306,7 +306,7 @@ The optional 'filters parameter is for refining the search results."))
   "Process a single filter from a GET parameter.
    Assumes uri-node-helper was called with its default marker, which is 'n'.
    Returns NIL when the cdr of the filter is NIL."
-  (log-message :debug "Attempting to process filter ~A" filter)
+  (log-message :debug (format nil "Attempting to process filter ~A" filter))
   ;; Sanity-check: is this an empty filter expression?
   ;; These can legitimately be sent via badly-written search pages, for example.
   (cond
@@ -326,7 +326,7 @@ The optional 'filters parameter is for refining the search results."))
            (negationp (string= "!" (cdr filter) :end2 1)))
        ;; Log whether negation was detected
        (if negationp
-           (log-message :debug "Negation detected. negationp = ~A" negationp)
+           (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
            (log-message :debug "Negation not detected. Double-negative in progress."))
        ;; Prepend negation if applicable
        (let ((value (escape-neo4j (if negationp
@@ -349,15 +349,15 @@ The optional 'filters parameter is for refining the search results."))
                      (relationship (sanitise-uid (first parts)))
                      (target-type (sanitise-uid (second parts)))
                      (target-uid (sanitise-uid (third parts))))
-                (log-message :debug "Outbound link detected: ~A" value)
+                (log-message :debug (format nil "Outbound link detected: ~A" value))
                 (format nil "(n)-[:~A]-(:~A {uid: '~A'})" relationship target-type target-uid)))
              ;; Regex match
              ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
              ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
               (let ((offset (if negationp 1 0)))
-                (log-message :debug
-                             "Regex detected. Extracting the value from a starting offset of ~d."
-                             offset)
+                (log-message
+                  :debug
+                  (format nil "Regex detected. Extracting the value from a starting offset of ~d." offset))
                 (format
                   nil "n.~A =~~ '~A'"
                   (escape-neo4j name)
@@ -381,10 +381,10 @@ The optional 'filters parameter is for refining the search results."))
   "Take GET parameters, and turn them into a string of Neo4j WHERE clauses."
   (log-message :debug (format nil "Attempting to process filters ~A" filters))
   (let ((result (remove-if #'null (mapcar #'process-filter filters))))
-    (log-message :debug "Result of filter processing: ~A" result)
+    (log-message :debug (format nil "Result of filter processing: ~A" result))
     (if result
         (let ((response (format nil " WHERE ~{ ~A~^ AND~}" result)))
-          (log-message :debug "Output from process-filters: ~A." response)
+          (log-message :debug (format nil "Output from process-filters: ~A." response))
           response)
         "")))
 
@@ -464,7 +464,7 @@ The returned list contains 3-element lists of relationship, type and UID."))
 (defmethod get-dependent-resources ((db neo4cl:neo4j-rest-server)
                                     (sourcepath list)
                                     schema)
-  (log-message :debug "Searching for resources dependent on parent ~{/~A~}" sourcepath)
+  (log-message :debug (format nil "Searching for resources dependent on parent ~{/~A~}" sourcepath))
   ;; Get all nodes to which this node has outbound relationships
   (let ((candidates
           (mapcar
@@ -482,7 +482,7 @@ The returned list contains 3-element lists of relationship, type and UID."))
                                                     :path ""
                                                     :marker "n"
                                                     :directional t)))))))))))
-    (log-message :debug "Retrieved candidate links ~A" candidates)
+    (log-message :debug (format nil "Retrieved candidate links ~A" candidates))
     ;; Filter out any candidate nodes that do not have a _dependent_ relationship on the parent
     (remove-if
       #'null
@@ -635,7 +635,7 @@ Return a boolean."))
                       (delete-resource-by-path db newpath schema :recursive t)))
                 dependents)
               ;; Having deleted the dependents, delete the resource itself
-              (log-message :debug "Deleting target resource ~A" targetpath)
+              (log-message :debug (format nil "Deleting target resource ~A" targetpath))
               (neo4cl:neo4j-transaction
                 db
                 `((:STATEMENTS
@@ -647,8 +647,9 @@ Return a boolean."))
                    "Other resources depend critically on this one, and recursive was not specified."))
           ;; First-class resource with no dependents: remove it.
           (let ((query (format nil "MATCH ~A DETACH DELETE n" (uri-node-helper parts))))
-            (log-message :debug "No dependents. Deleting resource ~A with query '~A'"
-                         targetpath query)
+            (log-message
+              :debug
+              (format nil "No dependents. Deleting resource ~A with query '~A'" targetpath query))
             (neo4cl:neo4j-transaction
               db
               `((:STATEMENTS
@@ -665,8 +666,8 @@ Return a boolean."))
                                        (attributes list))
   (log-message
     :debug
-    "Attempting to delete attributes '~{~A~^, ~}' from the resource at path '~{~A~^/~}'"
-    attributes path)
+    (format nil "Attempting to delete attributes '~{~A~^, ~}' from the resource at path '~{~A~^/~}'"
+            attributes path))
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
