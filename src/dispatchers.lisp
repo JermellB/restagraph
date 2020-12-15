@@ -235,25 +235,24 @@
                (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
                                            (car uri-parts) (tbnl:post-parameter "uid")))
                (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               (setf (tbnl:return-code*) tbnl:+http-not-modified+)
                (format nil "/~A/~A" resourcetype
                        (sanitise-uid (tbnl:post-parameter "uid"))))
              ;; We don't already have one of these; store it
              (handler-case
-               (progn
-                 (store-resource (datastore tbnl:*acceptor*)
-                                 resourcetype
-                                 (tbnl:post-parameters*)
-                                 (schema tbnl:*acceptor*))
-                 ;; Return it from the database, for confirmation
-                 (log-message
-                   :debug
-                   "Stored the new resource. Now retrieving it from the database, to return to the client.")
+               (let ((uri (format nil "/~A/~A"
+                                  resourcetype
+                                  (store-resource (datastore tbnl:*acceptor*)
+                                                  resourcetype
+                                                  (tbnl:post-parameters*)
+                                                  (schema tbnl:*acceptor*)))))
+                 ;; Return 201 and the URI
+                 (log-message :debug (format nil "Stored the new resource with URI '~A'" uri))
                  (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-created+)
+                 (setf (tbnl:header-out "Location") uri)
                  ;; Return the URI to the newly-created resource
-                 (format nil "/~A/~A" resourcetype
-                         (sanitise-uid (tbnl:post-parameter "uid"))))
+                 uri)
                ;; Handle integrity errors
                (restagraph:integrity-error (e) (return-integrity-error (message e)))
                ;; Handle general client errors
@@ -519,15 +518,17 @@
                      (second (tbnl:post-parameter "file"))
                      mimetype))
            (handler-case
-             (progn
-               (store-resource (datastore tbnl:*acceptor*)
-                               "files"
-                               `(("uid" . ,(sanitise-uid requested-filename))
-                                 ("title" . ,requested-filename)
-                                 ("sha3256sum" . ,checksum)
-                                 ("originalname" . ,(second (tbnl:post-parameter "file")))
-                                 ("mimetype" . ,mimetype))
-                               (schema tbnl:*acceptor*))
+             (let ((uri (concatenate
+                          'string
+                          "/files/"
+                          (store-resource (datastore tbnl:*acceptor*)
+                                          "files"
+                                          `(("uid" . ,(sanitise-uid requested-filename))
+                                            ("title" . ,requested-filename)
+                                            ("sha3256sum" . ,checksum)
+                                            ("originalname" . ,(second (tbnl:post-parameter "file")))
+                                            ("mimetype" . ,mimetype))
+                                          (schema tbnl:*acceptor*)))))
                ;; then if that succeeds move it to its new location.
                ;; Check whether this file already exists by another name
                (log-message :debug "Moving the file to its new home.")
@@ -556,7 +557,8 @@
                ;; Now return success to the client
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
-               (concatenate 'string "/files/" (sanitise-uid requested-filename)))
+               (setf (tbnl:header-out "Location") uri)
+               uri)
              ;; Catch errors
              (integrity-error
                (e)

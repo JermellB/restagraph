@@ -52,7 +52,8 @@ Return an error if
                      (:PARAMETERS . ((:PROPERTIES
                                        . ,(append attributes
                                                   `(("createddate" . ,(get-universal-time)))))))))))
-              (cdr (assoc :UID attributes)))
+              ;; Return the UID
+              (cdr (assoc :|uid| attributes :test 'equal)))
             ;; Catch selected errors as they come up
             (neo4cl::client-error
               (e)
