@@ -149,8 +149,10 @@
 ;;; Structure methods
 
 (defgeneric relationship-in-struct-p (rtype rel-type target-rtype)
-  (:documentation "Check for a named type of relationship from a resourcetype to a target resourcetype. Return a schema-rels struct if present, otherwise nil.
-  Note that it returns a list, which will have more than one element if we screwed up and allowed two relationships of the same type to the same target."))
+  (:documentation "Check for a named type of relationship from a resourcetype to a target resourcetype.
+  Return a schema-rels struct if present, otherwise nil.
+  Note that it returns a list, which will have more than one element if we screwed up and allowed two
+  relationships of the same type to the same target."))
 
 (defmethod relationship-in-struct-p ((rtype schema-rtypes)
                                      (rel-type string)
@@ -178,7 +180,8 @@
 
 
 (defgeneric add-rel-to-schema-rtype (schema source-type relationship)
-  (:documentation "Add a relationship to a schema-rtypes struct. If it already has a relationship of the same type to the same target-type, the one being added replaces the old one."))
+  (:documentation "Add a relationship to a schema-rtypes struct. If it already has a relationship of
+  the same type to the same target-type, the one being added replaces the old one."))
 
 (defmethod add-rel-to-schema-rtype ((schema hash-table)
                                     (source-type schema-rtypes)
@@ -400,7 +403,8 @@
 
 
 (defgeneric add-resource-to-schema (schema resourcetype)
-  (:documentation "Add a new resourcetype to the schema. In the event of a collision, merge the new definition into the existing one."))
+  (:documentation "Add a new resourcetype to the schema.
+  In the event of a collision, merge the new definition into the existing one."))
 
 ;; WARNING: Mutates existing state
 ;;
@@ -624,7 +628,8 @@
 
 
 (defgeneric resourcetype-exists-p (db resourcetype)
-  (:documentation "Verify whether we have a definition for a resourcetype by this name. Return a schema-rtypes struct."))
+  (:documentation "Verify whether we have a definition for a resourcetype by this name.
+  Return a schema-rtypes struct."))
 
 (defmethod resourcetype-exists-p ((db hash-table)
                                   (resourcetype string))
@@ -647,7 +652,8 @@
 
 
 (defgeneric get-resource-attributes-from-db (db resourcetype)
-  (:documentation "Extract the attributes from resource definitions from the database, and return them as a list of schema-rtype-attrs structs."))
+  (:documentation "Extract the attributes from resource definitions from the database,
+  and return them as a list of schema-rtype-attrs structs."))
 
 (defmethod get-resource-attributes-from-db ((db hash-table)
                                             (resourcetype string))
@@ -695,8 +701,8 @@
 (defgeneric describe-resource-type (db resourcetype &key resources-seen)
   (:documentation "Return the description of a resource-type, as an alist.
                    Entries include :name, :attributes and :dependent.
-                   The :recursive key is a boolean indicating whether to recursively traverse all the relationships
-                   from this resource-type.
+                   The :recursive key is a boolean indicating whether to recursively traverse all the
+                   relationships from this resource-type.
                    The :resources-seen key is used internally to break loops when recursing."))
 
 (defmethod describe-resource-type ((db neo4cl:neo4j-rest-server)
@@ -818,7 +824,8 @@
 
 ;; Helper function
 (defun format-post-params-as-properties (params)
-  "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map that Neo4J expects in the :PROPERTIES section of a query."
+  "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map
+  that Neo4J expects in the :PROPERTIES section of a query."
   (declare (type (or null cons) params))
   (log-message :debug "Formatting a set of POST parameters for use as Neo4j properties.")
   (mapcar #'(lambda (param)
