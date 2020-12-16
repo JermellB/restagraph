@@ -447,14 +447,12 @@
                                         uid))))
     ;; Store the resource
     (restagraph:log-message :info ";TEST Store the resource")
-    (multiple-value-bind (result code message)
-      (restagraph:store-resource
-        *server*
-        (restagraph::incoming-rtypes-name restype)
-        `(("uid" . ,uid))
-        schema)
-      (declare (ignore result) (ignore message))
-      (fiveam:is (equal 200 code)))
+    (fiveam:is (equal (restagraph::sanitise-uid uid)
+                      (restagraph:store-resource
+                        *server*
+                        (restagraph::incoming-rtypes-name restype)
+                        `(("uid" . ,uid))
+                        schema)))
     ;; Confirm it's there
     (restagraph:log-message :info ";TEST Confirm the resource is present")
     (let ((result (restagraph:get-resources
