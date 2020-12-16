@@ -230,7 +230,7 @@
            (if (get-resources
                  (datastore tbnl:*acceptor*)
                  (format nil "/~A/~A" (car uri-parts) (tbnl:post-parameter "uid")))
-             ;; It's already there; return 200/OK
+             ;; It's already there; return 304 "Not modified"
              (progn
                (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
                                            (car uri-parts) (tbnl:post-parameter "uid")))
@@ -307,7 +307,7 @@
            (handler-case
              (let ((newtype (car (last uri-parts)))
                    (uid (tbnl:post-parameter "uid")))
-               (log-message :debug (format nil "Attempting to create dependent resource ~A:~A on ~A"
+               (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
                                            newtype uid sub-uri))
                (store-dependent-resource (datastore tbnl:*acceptor*)
                                          sub-uri

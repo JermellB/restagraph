@@ -99,7 +99,7 @@
                                    (dest-type string))
   (log-message
     :debug
-    (format nil "Retrieving the dependency and cardinality attributes of relationship ~A from ~A to ~A"
+    (format nil "Retrieving the relationship ~A from ~A to ~A, from a Neo4j-hosted schema."
             relationship source-type dest-type))
   (let ((result
           (car
@@ -136,7 +136,7 @@
                                    (dest-type string))
   (log-message
     :debug
-    (format nil "Retrieving the relationship ~A from ~A to ~A"
+    (format nil "Retrieving the relationship ~A from ~A to ~A, from a hash-table schema."
             relationship source-type dest-type))
   (relationship-in-struct-p
     (resourcetype-exists-p schema source-type)
@@ -155,6 +155,8 @@
 (defmethod relationship-in-struct-p ((rtype schema-rtypes)
                                      (rel-type string)
                                      (target-rtype string))
+  (log-message :debug (format nil "Checking resourcetype ~A for relationship ~A to type ~A (string)"
+                              (schema-rtypes-name rtype) rel-type target-rtype))
   (remove-if-not #'(lambda (rel)
                      (and
                        (equal rel-type (schema-rels-relationship rel))
@@ -165,10 +167,13 @@
 (defmethod relationship-in-struct-p ((rtype schema-rtypes)
                                      (rel-type string)
                                      (target-rtype schema-rtypes))
+  (log-message :debug (format nil "Checking resourcetype ~A for relationship ~A to type ~A (rtype)"
+                              (schema-rtypes-name rtype) rel-type (schema-rtypes-name target-rtype)))
   (remove-if-not #'(lambda (rel)
                      (and
                        (equal rel-type (schema-rels-relationship rel))
-                       (equal target-rtype (schema-rels-target-type rel))))
+                       (equal (schema-rtypes-name target-rtype)
+                              (schema-rtypes-name (schema-rels-target-type rel)))))
                  (schema-rtypes-relationships rtype)))
 
 
