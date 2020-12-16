@@ -42,7 +42,7 @@
 (defstruct schema-rels
   "Relationships between resourcetypes, for use in schema definitions."
   (relationship nil :type string :read-only t)
-  (target-type nil :type schema-rtypes :read-only t)
+  (target-type nil :type string :read-only t)
   (cardinality nil :type string :read-only t)
   (dependent nil :type boolean :read-only t)
   (notes "" :type (or null string) :read-only t))
