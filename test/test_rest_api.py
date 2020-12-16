@@ -222,6 +222,7 @@ class TestDependentResources(unittest.TestCase):
                          201)
         # Screw up creation of the dependent resource, to check error-handling
         # Invert the parent/child relationship, and break the API to boot
+        print('Test: fail to create the dependent resource')
         self.assertEqual(requests.post('%s/%s/%s/%s' % (API_BASE_URL,
                                                         self.depres1type,
                                                         self.depres1uid,
@@ -230,6 +231,7 @@ class TestDependentResources(unittest.TestCase):
                                              'uid': self.depres1uid}).status_code,
                          400)
         # Now get it right
+        print('Test: successfully create the dependent resource')
         self.result = requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                         self.res1type,
                                                         sanitise_uid(self.res1uid),
@@ -612,7 +614,7 @@ class TestDbSchema(unittest.TestCase):
         # Attempt to create a duplicate.
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resourcename}).status_code,
-                         200)
+                         304)
         # Delete the resource
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
                                                        self.resourcetype,
