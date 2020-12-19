@@ -42,7 +42,7 @@
 (defstruct schema-rels
   "Relationships between resourcetypes, for use in schema definitions."
   (relationship nil :type string :read-only t)
-  (target-type nil :type string :read-only t)
+  (target-type nil :type schema-rtypes :read-only t)
   (cardinality nil :type string :read-only t)
   (dependent nil :type boolean :read-only t)
   (notes "" :type (or null string) :read-only t))
@@ -162,7 +162,8 @@
   (remove-if-not #'(lambda (rel)
                      (and
                        (equal rel-type (schema-rels-relationship rel))
-                       (equal target-rtype (schema-rels-target-type rel))))
+                       (equal target-rtype (schema-rtypes-name
+                                             (schema-rels-target-type rel)))))
                  (schema-rtypes-relationships rtype)))
 
 (defmethod relationship-in-struct-p ((rtype schema-rtypes)
@@ -174,7 +175,7 @@
                      (and
                        (equal rel-type (schema-rels-relationship rel))
                        (equal (schema-rtypes-name target-rtype)
-                              (schema-rels-target-type rel))))
+                              (schema-rtypes-name (schema-rels-target-type rel)))))
                  (schema-rtypes-relationships rtype)))
 
 
@@ -231,7 +232,7 @@
                     (schema-rtypes-relationships source-type)))
                 ;; Either way, we're adding the new relationship.
                 (list (make-schema-rels :relationship (incoming-rels-relationship relationship)
-                                        :target-type (schema-rtypes-name target-type)
+                                        :target-type target-type
                                         :cardinality (incoming-rels-cardinality relationship)
                                         :dependent (incoming-rels-dependent relationship)
                                         :notes (incoming-rels-notes relationship)))))))))
@@ -599,7 +600,8 @@
       (let ((candidates (remove-if-not
                           #'(lambda (rel)
                               (and (equal relationship (schema-rels-relationship rel))
-                                   (equal dest-type (schema-rels-target-type rel))))
+                                   (equal dest-type
+                                          (schema-rtypes-name (schema-rels-target-type rel)))))
                           (schema-rtypes-relationships stype))))
         ;; If a non-null list resulted,
         ;; return the boolean indicating whether the first (and theoretically only) item
@@ -777,7 +779,8 @@
                                          (:DEPENDENT . ,(if (schema-rels-dependent rel) "true" "false"))
                                          (:CARDINALITY . ,(schema-rels-cardinality rel))
                                          (:NOTES . ,(or (schema-rels-notes rel) ""))
-                                         (:RESOURCETYPE ,(schema-rels-target-type rel))))
+                                         (:RESOURCETYPE ,(schema-rtypes-name
+                                                           (schema-rels-target-type rel)))))
                                    (schema-rtypes-relationships node)))))))
 
 

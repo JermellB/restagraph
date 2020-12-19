@@ -239,12 +239,22 @@
     (restagraph:log-message :info "; TEST Check the state of the whole list of relationships for rtype1")
     (fiveam:is (equalp (list (restagraph::make-schema-rels
                                :relationship "Owns"
-                               :target-type (restagraph::incoming-rtypes-name rtype2)
+                               :target-type (restagraph::make-schema-rtypes
+                                              :name (restagraph::incoming-rtypes-name rtype2)
+                                              :dependent (restagraph::incoming-rtypes-dependent rtype2)
+                                              :notes (restagraph::incoming-rtypes-notes rtype2)
+                                              :attributes nil
+                                              :relationships nil)
                                :dependent nil
                                :cardinality "1:many")
                              (restagraph::make-schema-rels
                                :relationship "Has"
-                               :target-type (restagraph::incoming-rtypes-name rtype3)
+                               :target-type (restagraph::make-schema-rtypes
+                                              :name (restagraph::incoming-rtypes-name rtype3)
+                                              :dependent (restagraph::incoming-rtypes-dependent rtype3)
+                                              :notes (restagraph::incoming-rtypes-notes rtype3)
+                                              :attributes nil
+                                              :relationships nil)
                                :dependent t
                                :cardinality "1:1"))
                        (restagraph::schema-rtypes-relationships
@@ -254,7 +264,12 @@
     (restagraph:log-message :info "; TEST Check the presence of one specific relationship from rtype1")
     (fiveam:is (equalp (list (restagraph::make-schema-rels
                                :relationship "Owns"
-                               :target-type (restagraph::incoming-rtypes-name rtype2)
+                               :target-type (restagraph::make-schema-rtypes
+                                              :name (restagraph::incoming-rtypes-name rtype2)
+                                              :dependent (restagraph::incoming-rtypes-dependent rtype2)
+                                              :notes (restagraph::incoming-rtypes-notes rtype2)
+                                              :attributes nil
+                                              :relationships nil)
                                :dependent nil
                                :cardinality "1:many"))
                        (restagraph::get-relationship-attrs
@@ -298,13 +313,47 @@
                             (restagraph::make-schema-rtype-attrs :name "fullname"))
           :relationships (list (restagraph::make-schema-rels
                                  :relationship "ContactMethod"
-                                 :target-type "emailAddresses"
+                                 :target-type
+                                 (restagraph::make-schema-rtypes
+                                   :name "emailAddresses"
+                                   :dependent t
+                                   :notes ""
+                                   :attributes
+                                   (list (restagraph::make-schema-rtype-attrs
+                                           :name "comments"
+                                           :description "Comments about this particular email address."
+                                           :values nil))
+                                   :relationships nil)
                                  :cardinality "1:many"
                                  :dependent t
                                  :notes nil)
                                (restagraph::make-schema-rels
                                  :relationship "Addresses"
-                                 :target-type "streetNumbers"
+                                 :target-type (restagraph::make-schema-rtypes
+                                                :name "streetNumbers"
+                                                :dependent t
+                                                :notes "The UID is the street number"
+                                                :attributes
+                                                (list (restagraph::make-schema-rtype-attrs
+                                                        :name "name"
+                                                        :description ""
+                                                        :values nil)
+                                                      (restagraph::make-schema-rtype-attrs
+                                                        :name "floor"
+                                                        :description ""
+                                                        :values nil))
+                                                :relationships
+                                                (list (restagraph::make-schema-rels
+                                                        :relationship "Postcodes"
+                                                        :target-type (restagraph::make-schema-rtypes
+                                                                       :name "postcodes"
+                                                                       :dependent nil
+                                                                       :notes "What else does this need?"
+                                                                       :attributes nil
+                                                                       :relationships nil)
+                                                        :cardinality "many:1"
+                                                        :dependent nil
+                                                        :notes nil)))
                                  :cardinality "1:many"
                                  :dependent nil
                                  :notes nil)))
