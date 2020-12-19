@@ -398,7 +398,8 @@
                (datastore tbnl:*acceptor*)
                sub-uri
                (schema tbnl:*acceptor*)
-               :recursive (tbnl:post-parameter "recursive"))
+               :recursive (and (tbnl:post-parameter "recursive")
+                               (not (equal "" (tbnl:post-parameter "recursive")))))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")

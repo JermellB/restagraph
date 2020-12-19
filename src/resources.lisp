@@ -101,7 +101,7 @@ Return an error if
                                                           parent-type
                                                           relationship
                                                           dest-type))))
-    (log-message :debug (format nil "Relationship attributes found: ~A" relationship-attrs))
+    ;(log-message :debug (format nil "Relationship attributes found: ~A" relationship-attrs))
     (log-message :debug "Beginning sanity checks")
     (cond
       ;; Sanity check: required parameters
@@ -490,6 +490,12 @@ The returned list contains 3-element lists of relationship, type and UID."))
     (remove-if
       #'null
       (mapcar #'(lambda (c)
+                  (log-message
+                    :debug
+                    (format nil "Checking candidate relationship '~A' to dependent resource '~A/~A'"
+                            (first c)                   ; Relationship to candidate
+                            (car (butlast sourcepath))  ; Type of target-resource
+                            (second c)))                ; Type of candidate
                   (when (dependent-relationship-p
                           schema
                           (car (butlast sourcepath))    ; Type of target-resource
@@ -628,6 +634,7 @@ Return a boolean."))
           (if recursive
             ;; Yes. Delete the dependents, passing the value of the recursive argument
             (progn
+              (log-message :debug "Dependent resources are present, and recursive deletion was requested.")
               (mapcar
                 #'(lambda (d)
                     (let ((newpath (format nil "~{/~A~}" (append parts d))))
