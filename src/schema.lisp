@@ -593,7 +593,7 @@
                (format nil "Checking whether ~A is a valid dependent relationship from ~A to ~A"
                        relationship source-type dest-type))
   (let ((stype (gethash source-type db)))
-    (log-message :debug (format nil "Fetched value ~A" stype))
+    (log-message :debug (format nil "Fetched value ~A" (schema-rtypes-name stype)))
     (when source-type
       ;; Fetch _all_ the relationships by this name, to that target-type
       (let ((candidates (remove-if-not
