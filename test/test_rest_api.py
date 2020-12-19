@@ -246,6 +246,7 @@ class TestDependentResources(unittest.TestCase):
             drt=self.depres1type,
             dru=sanitise_uid(self.depres1uid)))
         # Confirm it's there
+        print('Test: confirm the dependent resource is there')
         self.assertEqual(requests.get('%s/%s/%s/%s/%s/%s' %
                                       (API_BASE_URL,
                                        self.res1type,
@@ -259,6 +260,7 @@ class TestDependentResources(unittest.TestCase):
                                                     sanitise_uid(self.depres1uid))).status_code,
                          200)
         # Try to create a duplicate. We should get 200/<URI>
+        print('Test: fail to create a duplicate')
         self.result = requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                         self.res1type,
                                                         sanitise_uid(self.res1uid),
@@ -273,6 +275,7 @@ class TestDependentResources(unittest.TestCase):
             drt=self.depres1type,
             dru=sanitise_uid(self.depres1uid)))
         # Delete the dependent resource
+        print('Test: delete the dependent resource')
         self.assertEqual(requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
                                                                 self.res1type,
                                                                 sanitise_uid(self.res1uid),
@@ -282,6 +285,7 @@ class TestDependentResources(unittest.TestCase):
                                          data={'delete-dependent': 'true'}).status_code,
                          204)
         # Delete the parent resource
+        print('Test: delete the parent resource')
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
                                                        self.res1type,
                                                        sanitise_uid(self.res1uid))).status_code,
