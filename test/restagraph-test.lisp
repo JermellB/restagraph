@@ -282,7 +282,7 @@
   digest-schema-yaml
   :depends-on 'schema-hash-relationships
   "Digest a YAML file into incoming-rtypes structs."
-  (let* ((filepath "test_schemas/01_people_and_places.yaml")
+  (let* ((filepath "../test/test_schemas/01_people_and_places.yaml")
          (digest (restagraph::digest-schema-yaml (make-pathname :defaults filepath))))
     (restagraph:log-message :debug (format nil "Loaded schema file from '~A'" filepath))
     (restagraph:log-message :debug (format nil "Result was: ~A" digest))
@@ -297,7 +297,7 @@
   digest-yaml-to-schema
   :depends-on 'digest-schema-yaml
   "Digest a YAML file into a schema"
-  (let* ((filepath "test_schemas/01_people_and_places.yaml")
+  (let* ((filepath "../test/test_schemas/01_people_and_places.yaml")
          (schema (restagraph::make-schema-hash-table))
          (digest (restagraph::digest-schema-yaml (make-pathname :defaults filepath))))
     (fiveam:is (equal 'hash-table
