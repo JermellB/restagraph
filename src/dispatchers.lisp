@@ -376,7 +376,7 @@
                           (append (tbnl:post-parameters*)
                                   (tbnl:get-parameters*)))
                (schema tbnl:*acceptor*))
-             (setf (tbnl:content-type*) "application/json")
+             (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
            ;; Attempted violation of db integrity
