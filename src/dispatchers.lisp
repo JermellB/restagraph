@@ -268,19 +268,20 @@
            ;; Basic sanity check
            (log-message :debug (format nil "Creating a relationship from ~A to ~A" sub-uri dest-path))
            (handler-case
-             (progn
+             (let ((new-uri (format nil "~{/~A~}/~A/~A"
+                       uri-parts    ; Path down to the relationship
+                       (car (last (get-uri-parts dest-path) 2)) ; Target resourcetype
+                       (car (last (get-uri-parts dest-path))))))
                (create-relationship-by-path (datastore tbnl:*acceptor*)
                                             sub-uri
                                             dest-path
                                             (schema tbnl:*acceptor*))
-               ;; Report success to the client
+               ;; Report success to the client, plus the URI
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
+               (setf (tbnl:header-out "Location") new-uri)
                ;; Return the URI to the resource at the end of the newly-created relationship
-               (format nil "~{/~A~}/~A/~A"
-                       uri-parts    ; Path down to the relationship
-                       (car (last (get-uri-parts dest-path) 2)) ; Target resourcetype
-                       (car (last (get-uri-parts dest-path))))) ; Target UID
+               new-uri) ; Target UID
              ;; Attempted violation of db integrity
              (restagraph:integrity-error (e) (return-integrity-error (message e)))
              ;; Generic client errors
@@ -306,7 +307,10 @@
            ;; We don't already have one of these; store it
            (handler-case
              (let ((newtype (car (last uri-parts)))
-                   (uid (tbnl:post-parameter "uid")))
+                   (uid (tbnl:post-parameter "uid"))
+                   (new-uri (format nil "~{/~A~}/~A"
+                                    uri-parts
+                                    (sanitise-uid (tbnl:post-parameter "uid")))))
                (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
                                            newtype uid sub-uri))
                (store-dependent-resource (datastore tbnl:*acceptor*)
@@ -315,8 +319,9 @@
                                          (schema tbnl:*acceptor*))
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
+               (setf (tbnl:header-out "Location") new-uri)
                ;; Return the URI to the resource at the end of the newly-created resource
-               (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
+               new-uri)
              ;; Attempted violation of db integrity
              (restagraph:integrity-error (e) (return-integrity-error (message e)))
              ;; Generic client errors
@@ -332,7 +337,10 @@
          (log-message :debug (format nil "Attempting to move dependent resource ~A to ~A"
                                      sub-uri (tbnl:post-parameter "target")))
          (handler-case
-           (progn
+           (let ((new-uri (format nil "~{/~A~}/~A/~A"
+                                  (get-uri-parts (tbnl:post-parameter "target"))
+                                  (car (last uri-parts 2))
+                                  (car (last uri-parts)))))
              (move-dependent-resource
                (datastore tbnl:*acceptor*)
                sub-uri
@@ -340,10 +348,9 @@
                (schema tbnl:*acceptor*))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-created+)
+             (setf (tbnl:header-out "Location") new-uri)
              ;; Return the URI to the new path for this resource
-             (format nil "~{/~A~}/~A/~A" (get-uri-parts (tbnl:post-parameter "target"))
-                     (car (last uri-parts 2))
-                     (car (last uri-parts))))
+             new-uri)
            ;; Attempted violation of db integrity
            (restagraph:integrity-error (e) (return-integrity-error (message e)))
            ;; Generic client errors
