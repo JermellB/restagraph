@@ -301,7 +301,9 @@
               using (hash-value value)
               collect (make-incoming-rtypes
                         :name resourcename
-                        :dependent (gethash "dependent" value)
+                        :dependent (when (or (equal (gethash "dependent" value) t)
+                                             (equal (gethash "dependent" value) "true"))
+                                     t)
                         :notes (or (gethash "notes" value) "")
                         :attributes
                         ;; Don't assume this resourcetype has attributes defined.
