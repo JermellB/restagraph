@@ -54,7 +54,9 @@ The endpoint base URI is `/schema/v1`:
 
 # The Raw API (resources)
 
-This is where you perform most CRUD operations on resources in the database. It´s called "raw" because it doesn´t have any domain-specific logic, like you find in the `files` API (described in the next section).
+This is where you perform most CRUD operations on resources in the database. It´s called "raw" because it doesn´t have any domain-specific logic, like you find in the `files` API (described in the next section). It's expected to serve the majority of your interactions with a Restagraph system.
+
+This API operates on resources, and on the relationships between them. You can create and delete resources, fetch their current state, and update their attributes, and you can create and delete relationships between them. Which attributes are applicable to a given resource depends on its type, which is defined in the schema. Likewise, the schema determines what relationships can be created between any two resource-types.
 
 HTTP return codes are used according to RFC7231, and the Content-type header is set according to whether text or JSON is being returned. As a rule, JSON will be returned on success, and plain text for anything else. The one salient exception is when deleting a resource or relationship, where the MIME-type is "text/plain" and the return code is `NO CONTENT`.
 
@@ -71,9 +73,17 @@ POST /api/v1/<resource-type>/
 
 With payload of `uid=<uid>`, plus optionally `<attribute-name>=<value>` pairs for any subset of the attributes defined for this resource type.
 
-On success, returns a status code of 201 and the URI for the newly-created resource. That URI is returned both in the body of the HTTP response, and in the `Location` header.
+The UID must be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
-The UID must actually be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
+On success, returns
+- status code of 201
+- `Location` header containing the URI for the newly-created resource
+- body in the form of a JSON object, containing the following fields/attributes:
+    - `data` = a nested object containing data representing the resource that was just created
+        - `uri` = URI from which the resource's representation can be fetched via GET, and through which it can be deleted via the DELETE method. This is the same URI as is found in the `Location` header, so which of these the client uses is purely a matter of preference.
+    - `metadata`' = a nested object mostly containing URLs for actions that can be performed on this object.
+        - `attributes` = a list of URIs that can be used to set attributes of the resource, via the PUT method.
+        - `relationships` = a list of URIs that can be used to create new relationships to other resources, or query existing relationships.
 
 
 ## Retrieve a resource
