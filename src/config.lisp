@@ -93,7 +93,14 @@
                                           :description "The human-friendly version of the role's name, to be displayed in the UI.")
                                         (make-incoming-rtype-attrs
                                           :name "notes"
-                                          :description "Clarification of what this role is for.")))))
+                                          :description "Clarification of what this role is for.")))
+                    (make-incoming-rtypes
+                      :name "sessions"
+                      :notes "Login sessions. UID is a UUID."
+                      ;:attributes (list ())
+                      ))
+              :relationships `(("sessions" . ,(make-incoming-rels :relationship "SessionOwner"
+                                                                  :target-type "people"))))
         (list :name "files"
               :version 1
               :resourcetypes
