@@ -86,8 +86,8 @@
                                           :name "notes"
                                           :description "Notes about this person.")))
                     (make-incoming-rtypes
-                      :name "roles"
-                      :notes "Principally for role-based access control, but can also tie into organisational roles."
+                      :name "rbacroles"
+                      :notes "For role-based access control."
                       :attributes (list (make-incoming-rtype-attrs
                                           :name "displayname"
                                           :description "The human-friendly version of the role's name, to be displayed in the UI.")
@@ -117,5 +117,9 @@
                                           :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."))))
               :relationships `(("files" . ,(make-incoming-rels :relationship "Thumbnail"
                                                                :target-type "files"))
-                               ("people" . ,(make-incoming-rels :relationship "Roles"
-                                                                :target-type "roles"))))))
+                               ("people" . ,(make-incoming-rels :relationship "RbacRoles"
+                                                                :target-type "rbacroles"))
+                               ("any" . ,(make-incoming-rels :relationship "Creator"
+                                                             :target-type "people"))
+                               ("any" . ,(make-incoming-rels :relationship "Owner"
+                                                             :target-type "people"))))))
