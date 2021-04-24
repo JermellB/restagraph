@@ -6,11 +6,16 @@ resourcetypes:
     attributes:
       description:
     notes: 'Any kind of organisation: professional, social or other.'
+  roles:
+    notes: Organisation roles. These are dependent because they exist only in the context of an organisation.
+    attributes:
+      description:
+    dependent: True
   emailAddresses:
     attributes:
       description:
         description: Comments about this particular email address.
-    dependent: 'true'
+    dependent: True
   phoneNumbers:
     attributes:
       description:
@@ -18,23 +23,23 @@ resourcetypes:
 relationships:
 - uri: /people/ContactMethods/emailAddresses
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /people/ContactMethods/phoneNumbers
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /people/Members/organisations
   cardinality: many:1
 - uri: /organisations/Subsidiaries/organisations
   cardinality: 1:many
 - uri: /organisations/ContactMethods/emailAddresses
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /organisations/ContactMethods/phoneNumbers
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /organisations/Roles/roles
-  dependent: 'true'
+  dependent: True
   cardinality: 1:many
 - uri: /organisations/Websites/websites
   cardinality: 1:many
-  dependent: 'false'
+  dependent: False

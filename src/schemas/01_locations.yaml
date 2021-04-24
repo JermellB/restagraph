@@ -3,7 +3,7 @@ version: 1
 
 resourcetypes:
   cities:
-    dependent: 'true'
+    dependent: True
     notes: The geographic kind.
   countries:
     notes: The geographic kind.
@@ -12,27 +12,28 @@ resourcetypes:
   postcodes:
     notes: What else does this need?
   states:
-    dependent: 'true'
+    dependent: True
     notes: The geographic kind.
   streetNumbers:
     attributes:
       floor:
       name:
-    dependent: 'true'
+    dependent: True
     notes: The UID is the street number
   streets:
-    dependent: 'true'
+    dependent: True
   buildings:
     attributes:
       description:
     notes: Individual buildings.
-    dependent: 'false'
+    dependent: False
   floors:
+    dependent: True
     attributes:
       description:
     notes: Floors within a building.
   websites:
-    dependent: 'false'
+    dependent: False
     attributes:
       url:
       description:
@@ -46,28 +47,28 @@ resourcetypes:
 relationships:
 - uri: /countries/States/states
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /countries/Cities/cities
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /countries/Postcodes/postcodes
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /states/Cities/cities
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /states/Postcodes/postcodes
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /cities/Postcodes/postcodes
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /cities/Streets/streets
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /streets/StreetNumbers/streetNumbers
   cardinality: 1:many
-  dependent: 'true'
+  dependent: True
 - uri: /streetNumbers/Postcodes/postcodes
   cardinality: many:1
 - uri: /postboxAddresses/Postcodes/postcodes
@@ -82,8 +83,6 @@ relationships:
   cardinality: many:1
 - uri: /buildings/Floors/floors
   cardinality: 1:many
-  dependent: 'true'
-- uri: /people/Addresses/streetNumbers
-  cardinality: 1:many
+  dependent: True
 - uri: /people/Addresses/streetNumbers
   cardinality: 1:many
