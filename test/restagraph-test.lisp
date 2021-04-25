@@ -583,6 +583,18 @@
                                  (restagraph::incoming-rtypes-name restype)
                                  `(("uid" . ,uid) (,attr1name . ,attr1valgood))
                                  schema))
+    ;; Confirm that we now have this resource with the expected value
+    (let ((attr-test (restagraph:get-resources
+                       *server*
+                       (format nil "/~A/~A"
+                               (restagraph::incoming-rtypes-name restype)
+                               uid))))
+      (fiveam:is (equal uid
+                        (cdr (assoc :uid attr-test))))
+      (fiveam:is (equal attr1valgood
+                        (cdr (assoc
+                               (intern (string-upcase attr1name) 'keyword)
+                               attr-test)))))
     ;; Remove it again
     (restagraph:delete-resource-by-path *server*
                                         (format nil "/~A/~A"
@@ -600,6 +612,18 @@
                  (list (restagraph::incoming-rtypes-name restype) uid)
                  `((,attr1name . ,attr1valgood))
                  schema))
+    ;;Confirm that the attribute is present
+    (let ((attr-test (restagraph:get-resources
+                       *server*
+                       (format nil "/~A/~A"
+                               (restagraph::incoming-rtypes-name restype)
+                               uid))))
+      (fiveam:is (equal uid
+                        (cdr (assoc :uid attr-test))))
+      (fiveam:is (equal attr1valgood
+                        (cdr (assoc
+                               (intern (string-upcase attr1name) 'keyword)
+                               attr-test)))))
     ;; Remove the resource again
     (restagraph:delete-resource-by-path *server*
                                         (format nil "/~A/~A"
