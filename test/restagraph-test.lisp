@@ -600,6 +600,18 @@
                  (list (restagraph::incoming-rtypes-name restype) uid)
                  `((,attr1name . ,attr1valgood))
                  schema))
+    ;; Remove the resource again
+    (restagraph:delete-resource-by-path *server*
+                                        (format nil "/~A/~A"
+                                                (restagraph::incoming-rtypes-name restype)
+                                                uid)
+                                        schema)
+    ;; Confirm it's gone
+    (restagraph:delete-resource-by-path *server*
+                                        (format nil "/~A/~A"
+                                                (restagraph::incoming-rtypes-name restype)
+                                                uid)
+                                        schema)
     ;; Remove the fixtures
     (restagraph:log-message :info ";TEST Remove the fixtures")
     (restagraph:delete-resource-by-path *server*
