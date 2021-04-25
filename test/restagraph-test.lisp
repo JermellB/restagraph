@@ -947,7 +947,7 @@
                             :dependent t
                             :target-type (restagraph::incoming-rtypes-name p2-type)))))
          (p1-uid "woomera")
-         (p2-uid "eth1")
+         (p2-uid "eth2")
          (target-uid "172.20.0.1"))
     ;; Create the fixtures
     (restagraph:log-message :info ";TEST Create the fixtures")
