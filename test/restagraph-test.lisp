@@ -462,9 +462,9 @@
       (fiveam:is (assoc :UID result))
       (fiveam:is (equal (restagraph:sanitise-uid uid)
                         (cdr (assoc :UID result))))
-      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (assoc :ORIGINAL_UID result))
       (fiveam:is (equal uid
-                        (cdr (assoc :ORIGINAL--UID result)))))
+                        (cdr (assoc :ORIGINAL_UID result)))))
     ;; Delete it
     (restagraph:log-message :info ";TEST Delete the resource")
     (multiple-value-bind (result code message)
@@ -518,9 +518,9 @@
       (fiveam:is (assoc :UID result))
       (fiveam:is (equal (restagraph:sanitise-uid uid)
                         (cdr (assoc :UID result))))
-      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (assoc :ORIGINAL_UID result))
       (fiveam:is (equal uid
-                        (cdr (assoc :ORIGINAL--UID result))))
+                        (cdr (assoc :ORIGINAL_UID result))))
       (fiveam:is (assoc attr1kw result))
       (fiveam:is (equal attr1val (cdr (assoc attr1kw result)))))
     ;; Delete the resource
@@ -684,9 +684,9 @@
       (fiveam:is (assoc :UID result))
       (fiveam:is (equal (restagraph:sanitise-uid child-uid)
                         (cdr (assoc :UID result))))
-      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (assoc :ORIGINAL_UID result))
       (fiveam:is (equal child-uid
-                        (cdr (assoc :ORIGINAL--UID result)))))
+                        (cdr (assoc :ORIGINAL_UID result)))))
     ;; Delete the dependent resource
     (restagraph:log-message :debug ";TEST Delete the dependent resource")
     (let ((child-path (format nil "/~A/~A/~A/~A/~A"
@@ -1030,9 +1030,9 @@
       (fiveam:is (assoc :UID result))
       (fiveam:is (equal (restagraph:sanitise-uid target-uid)
                         (cdr (assoc :UID result))))
-      (fiveam:is (assoc :ORIGINAL--UID result))
+      (fiveam:is (assoc :ORIGINAL_UID result))
       (fiveam:is (equal target-uid
-                        (cdr (assoc :ORIGINAL--UID result)))))
+                        (cdr (assoc :ORIGINAL_UID result)))))
     (let ((result (restagraph:get-resources
                     *server*
                     (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
@@ -1047,7 +1047,7 @@
       (fiveam:is (equal target-uid
                         (cdr (assoc :UID result))))
       (fiveam:is (equal target-uid
-                        (cdr (assoc :ORIGINAL--UID result)))))
+                        (cdr (assoc :ORIGINAL_UID result)))))
     ;; Confirm the target resource is no longer present at the original path
     (fiveam:is
       (null
@@ -1102,7 +1102,7 @@
                     (format nil "/~A"
                             (restagraph::incoming-rtypes-name resourcetype)))))
       (fiveam:is (equal 3 (length (car result))))
-      (fiveam:is (assoc :ORIGINAL--UID (car result)))
+      (fiveam:is (assoc :ORIGINAL_UID (car result)))
       (fiveam:is (assoc :CREATEDDATE (car result)))
       (fiveam:is (assoc :UID (car result)))
       (fiveam:is (equal res1uid (cdr (assoc :UID (car result))))))
@@ -1193,7 +1193,7 @@
                     (format nil "/~A" (restagraph::incoming-rtypes-name r1type))
                     :filters `(("uid" . ,r1uid)))))
       (fiveam:is (equal 3 (length (car result))))
-      (fiveam:is (assoc :ORIGINAL--UID (car result)))
+      (fiveam:is (assoc :ORIGINAL_UID (car result)))
       (fiveam:is (assoc :CREATEDDATE (car result)))
       (fiveam:is (assoc :UID (car result)))
       (fiveam:is (equal r1uid (cdr (assoc :UID (car result))))))
@@ -1203,7 +1203,7 @@
                     (format nil "/~A" (restagraph::incoming-rtypes-name r1type))
                     :filters `(("uid" . ,r1partial)))))
       (fiveam:is (equal 3 (length (car result))))
-      (fiveam:is (assoc :ORIGINAL--UID (car result)))
+      (fiveam:is (assoc :ORIGINAL_UID (car result)))
       (fiveam:is (assoc :UID (car result)))
       (fiveam:is (assoc :CREATEDDATE (car result)))
       (fiveam:is (equal r1uid (cdr (assoc :UID (car result))))))
@@ -1237,8 +1237,8 @@
                             (restagraph::incoming-rtypes-name r2type))
                     :filters `(("uid" . ,(restagraph:sanitise-uid r2uid))))))
       (fiveam:is (equal 3 (length (car result))))
-      (fiveam:is (assoc :ORIGINAL--UID (car result)))
-      (fiveam:is (equal r2uid (cdr (assoc :ORIGINAL--UID (car result)))))
+      (fiveam:is (assoc :ORIGINAL_UID (car result)))
+      (fiveam:is (equal r2uid (cdr (assoc :ORIGINAL_UID (car result)))))
       (fiveam:is (assoc :UID (car result)))
       (fiveam:is (assoc :CREATEDDATE (car result)))
       (fiveam:is (equal (restagraph::sanitise-uid r2uid)
@@ -1253,8 +1253,8 @@
                             (restagraph::incoming-rtypes-name r2type))
                     :filters `(("uid" . ,r2partial)))))
       (fiveam:is (equal 3 (length (car result))))
-      (fiveam:is (assoc :ORIGINAL--UID (car result)))
-      (fiveam:is (equal r2uid (cdr (assoc :ORIGINAL--UID (car result)))))
+      (fiveam:is (assoc :ORIGINAL_UID (car result)))
+      (fiveam:is (equal r2uid (cdr (assoc :ORIGINAL_UID (car result)))))
       (fiveam:is (assoc :UID (car result)))
       (fiveam:is (assoc :CREATEDDATE (car result)))
       (fiveam:is (equal (restagraph::sanitise-uid r2uid)

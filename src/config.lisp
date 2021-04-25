@@ -7,6 +7,21 @@
 
 (in-package #:restagraph)
 
+;; Control the decoding of JSON identifiers received from Neo4j.
+;; Convert all symbols (including keywords, but excluding strings) to upper-case
+;; for least-effort comparison after decoding.
+;; Do it this way to avoid issues caused by CamelCase<-->snake-case conversion.
+(setf json:*json-identifier-name-to-lisp* 'common-lisp:string-upcase)
+
+;; Control the encoding of JSON identifiers sent to Neo4j.
+;; Downcase them on the way out, despite this appearing to conflict with the
+;; decision to upcase them on the way back in.
+;; Upcasing causes the _whole_ request to be upcased, including the bits that Neo4j
+;; requires in lowercase, causing a Neo.ClientError.Request.InvalidFormat error.
+;; Thus, this is the simplest robust approach.
+(setf json:*lisp-identifier-name-to-json* 'common-lisp:string-downcase)
+
+
 (defparameter *config-vars*
   `(:listen-address "localhost"
     :listen-port 4950
