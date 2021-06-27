@@ -23,6 +23,8 @@
 (pushnew :PUT tbnl:*methods-for-post-parameters*)
 (pushnew :DELETE tbnl:*methods-for-post-parameters*)
 
+(defvar *restagraph-acceptor* nil)
+
 
 ;; Helper function
 (defun make-default-acceptor ()
@@ -61,19 +63,15 @@
 
 ;;; Appserver startup/shutdown
 
-(defun startup (&key acceptor dispatchers docker schemapath)
+(defun startup (&key acceptor dispatchers docker)
   "Start up the appserver.
    Ensures the uniqueness constraint on resource-types is present in Neo4j.
    Keyword arguments:
    - acceptor = prebuilt acceptor, to use instead of the default.
    - dispatchers = extra dispatchers to add to tbnl:*dispatch-table* in addition to the defaults.
    - docker = whether to start up in a manner suitable to running under docker,
-   i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up.
-   - schemapath = path to directory containing schema files, in YAML format, with .yaml extension. If this is absent, a check will be made for the environment variable SCHEMAPATH.
-   If supplied, parse all .yaml files in alphabetical order, and apply each one that has a newer
-   version number than is recorded in the database."
-  (declare (type (boolean) docker)
-           (type (or null string) schemapath))
+   i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up."
+  (declare (type (boolean) docker))
   ;; Set debug logging, if requested
   (when (sb-ext:posix-getenv "DEBUG")
     (setf *loglevel* :debug))
@@ -92,56 +90,23 @@
   ;; Sanity-check: is an acceptor already running?
   ;;; We can't directly check whether this acceptor is running,
   ;;; so we're using the existence of its special variable as a proxy.
-  (if (boundp '*restagraph-acceptor*)
+  (if *restagraph-acceptor*
       ;; There's an acceptor already in play; bail out.
       (log-message :warn "Acceptor already exists; refusing to create a new one.")
       ;; No existing acceptor; we're good to go.
       ;;
       ;; Figure out whether we have a schema directory to work with
-      (let ((schemadir
-              (cond
-                ;; Is one set via an environment variable?
-                ((sb-ext:posix-getenv "SCHEMAPATH")
-                 (make-pathname :defaults (sb-ext:posix-getenv "SCHEMAPATH")))
-                ;; Were we passed one explicitly?
-                (schemapath
-                  (make-pathname :defaults schemapath))
-                ;; Default case
-                (t nil))))
+      (progn
         ;; Ensure we have an acceptor to work with
-        (unless acceptor (setf acceptor (make-default-acceptor)))
+        (when (null acceptor) (setf acceptor (make-default-acceptor)))
         ;; Make it available as a dynamic variable, for shutdown to work on
         (defparameter *restagraph-acceptor* acceptor)
         ;; Sanity-check whether the database is available
         (unless (confirm-db-is-running (datastore acceptor) :max-count 25)
           (error "Database is not available"))
-        ;; Ensure we have a uniqueness constraint on resource-types
-        (handler-case
-          (neo4cl:neo4j-transaction
-            (datastore acceptor)
-            `((:STATEMENTS
-                ((:STATEMENT . "CREATE CONSTRAINT ON (r:rgResource) ASSERT r.name IS UNIQUE")))))
-          ;; If this fails because we already did it, that's fine.
-          (neo4cl:client-error
-            (e)
-            ;; If we already have this constraint, catch the error and move on.
-            (if (and
-                  (equal "Schema" (neo4cl:category e))
-                  (equal "EquivalentSchemaRuleAlreadyExists" (neo4cl:title e)))
-                nil
-                ;; If anything else went wrong, log it and pass it on up the stack
-                (progn
-                  (log-message :debug (format nil "Received error '~A.~A ~A'"
-                                              (neo4cl:category e)
-                                              (neo4cl:title e)
-                                              (neo4cl:message e)))
-                  (return-database-error
-                    (format nil "~A.~A: ~A"
-                            (neo4cl:category e)
-                            (neo4cl:title e)
-                            (neo4cl:message e)))))))
         ;; Update the schema, if one has been specified
-        (inject-all-schemas (schema acceptor) schemadir *core-schemas*)
+        (ensure-current-schema (datastore acceptor) *core-schema*)
+        (setf (schema acceptor) (fetch-current-schema (datastore acceptor)))
         ;; Set the dispatch table
         (restagraph:log-message :info "Configuring the dispatch table")
         (setf tbnl:*dispatch-table*
@@ -161,8 +126,8 @@
         (log-message :info "Ensuring the file-upload temp directory is present")
         (ensure-directories-exist
           (if (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
-            (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
-            (getf *config-vars* :files-temp-location)))
+              (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
+              (getf *config-vars* :files-temp-location)))
         (setf tbnl:*tmp-directory* (getf *config-vars* :files-temp-location))
         ;; Start up the server
         (log-message :info "Starting up Hunchentoot to serve HTTP requests")
@@ -181,17 +146,12 @@
                                        (tbnl:acceptor-port acceptor))))
                     (sb-thread:list-all-threads)))))))
 
-(defun dockerstart (&key schemapath)
-  (declare (type (or null string) schemapath))
-  (if schemapath
-    (startup :docker t :schemapath schemapath)
-    (startup :docker t)))
+(defun dockerstart ()
+  (startup :docker t))
 
 (defun shutdown ()
   ;; Check whether there's something to shut down
-  (if (and
-        (boundp '*restagraph-acceptor*)
-        *restagraph-acceptor*)
+  (if *restagraph-acceptor*
       ;; There is; go ahead
       (progn
       ;; Check whether it's still present but shutdown
@@ -216,6 +176,6 @@
                   :info
                   "Attempted to shut down Hunchentoot, but received an error. Assuming it wasn't running.")))))
         ;; Nuke the acceptor
-        (makunbound '*restagraph-acceptor*))
+        (setf *restagraph-acceptor* nil))
       ;; No acceptor. Note the fact and do nothing.
       (restagraph:log-message :warn "No acceptor present; nothing to shut down.")))
