@@ -81,34 +81,6 @@
 
 ;;; API dispatchers
 
-(defun format-schema-for-graphql (db)
-  "Render the schema in a format suitable for GraphQL,
-  in the format of Apollo Server and neo4j-graphql-js"
-  (log-message :debug "Formatting schema for GraphQL")
-  (let ((all-resourcetype-names
-          (remove-if
-            #'(lambda (name)
-                (member name
-                        '("any" "rgSchemas" "rgSchemaVersions")
-                        :test #'equal))
-            (get-resourcetype-names db))))
-    (format nil "~{~A~^~%~%~}"
-            (mapcar
-              #'(lambda (r)
-                  (describe-resource-type-for-graphql
-                    db
-                    ; resourcetype
-                    r
-                    ; all-resourcetype-names
-                    all-resourcetype-names
-                    ; rels-from-any
-                    (describe-dependent-resources db "any" :resources-seen nil)))
-              (remove-if #'(lambda (rtype)
-                             (member rtype
-                                     '("any" "rgSchemas" "rgSchemaVersions")
-                                     :test #'equal))
-                         all-resourcetype-names)))))
-
 (defun schema-dispatcher-v1 ()
   "Hunchentoot dispatch function for managing Restagraph's schema."
   (handler-case
@@ -126,16 +98,6 @@
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-alist-to-string
              (describe-resource-type (schema tbnl:*acceptor*) (first uri-parts)))))
-        ;; Get a description of the whole schema for the GraphQL engine
-        ((and
-           (equal (tbnl:request-method*) :GET)
-           (tbnl:get-parameter "format")
-           (equal (tbnl:get-parameter "format") "graphql"))
-         (progn
-           (log-message :info "Dumping schema in GraphQL format")
-           (setf (tbnl:content-type*) "application/json")
-           (setf (tbnl:return-code*) tbnl:+http-ok+)
-           (format-schema-for-graphql (schema tbnl:*acceptor*))))
         ;; Get a description of the whole schema in JSON format
         ((equal (tbnl:request-method*) :GET)
          (progn
