@@ -273,7 +273,7 @@
   (loop for key being the hash-keys in db collecting key))
 
 
-(defgeneric describe-resource-type (db resourcetype &key resources-seen)
+(defgeneric describe-resource-type (db resourcetype)
   (:documentation "Return the description of a resource-type, as an alist.
                    Entries include :name, :attributes and :dependent.
                    The :recursive key is a boolean indicating whether to recursively traverse all the
@@ -281,9 +281,7 @@
                    The :resources-seen key is used internally to break loops when recursing."))
 
 (defmethod describe-resource-type ((db hash-table)
-                                   (resourcetype string)
-                                   &key resources-seen)
-  (declare (ignore resources-seen))
+                                   (resourcetype string))
   (log-message :debug (format nil "Describing resource-type '~A'" resourcetype))
   ;; Confirm whether this resourcetype exists at all.
   ;; If it doesn't, automatically return NIL.
