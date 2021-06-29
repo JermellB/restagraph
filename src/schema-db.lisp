@@ -8,6 +8,11 @@
 
 (in-package #:restagraph)
 
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)
+                   (debug 3)))
+
 
 ;;; Install a schema version in the database
 

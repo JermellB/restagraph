@@ -7,6 +7,11 @@
 
 (in-package #:restagraph)
 
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)
+                   (debug 3)))
+
 
 (defgeneric create-relationship-by-path (db sourcepath destpath schema)
   (:documentation "Create a relationship between two arbitrary, pre-existing resources. The last element of the sourcepath must be the relationship type."))

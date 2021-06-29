@@ -7,9 +7,12 @@
 ;;;; The REST API server application
 
 (in-package #:restagraph)
+
 (declaim (optimize (compilation-speed 0)
                    (speed 2)
-                   (safety 3)))
+                   (safety 3)
+                   (debug 3)))
+
 
 ;;; Define a logging method
 (defmethod tbnl:acceptor-log-message ((acceptor restagraph-acceptor)

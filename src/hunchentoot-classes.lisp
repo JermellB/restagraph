@@ -8,6 +8,12 @@
 
 (in-package #:restagraph)
 
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)
+                   (debug 3)))
+
+
 (defclass restagraph-acceptor (tbnl:easy-acceptor)
   ;; Class attributes
   ((datastore :initarg :datastore

@@ -7,6 +7,12 @@
 
 (in-package #:restagraph)
 
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)
+                   (debug 3)))
+
+
 ;; Define the core schemas, without which RG won't work properly
 (defparameter *core-schema*
   (make-incoming-subschema-version

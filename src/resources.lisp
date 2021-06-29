@@ -7,6 +7,11 @@
 
 (in-package #:restagraph)
 
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)
+                   (debug 3)))
+
 
 (defgeneric store-resource (db resourcetype attributes schema)
   (:documentation "Store a resource in the database. Attributes argument is expected in the form of an alist.

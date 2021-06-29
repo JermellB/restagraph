@@ -7,6 +7,12 @@
 
 (in-package #:restagraph)
 
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)
+                   (debug 3)))
+
+
 ;; Control the decoding of JSON identifiers received from Neo4j.
 ;; Convert all symbols (including keywords, but excluding strings) to upper-case
 ;; for least-effort comparison after decoding.
