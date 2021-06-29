@@ -37,3 +37,9 @@
     :files-location "/tmp/restagraph-files/"))
 
 (setf *loglevel* :info)
+
+;; Global var holding the acceptor.
+;; Define it here so that it's already present when the compiler processes
+;; hunchentoot.lisp. That way it doesn't complain about references to an
+;; undefined variable.
+(defvar *restagraph-acceptor* nil)

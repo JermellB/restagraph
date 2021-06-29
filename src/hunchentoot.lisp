@@ -23,8 +23,6 @@
 (pushnew :PUT tbnl:*methods-for-post-parameters*)
 (pushnew :DELETE tbnl:*methods-for-post-parameters*)
 
-(defvar *restagraph-acceptor* nil)
-
 
 ;; Helper function
 (defun make-default-acceptor ()
