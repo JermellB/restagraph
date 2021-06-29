@@ -34,7 +34,7 @@
     :schema-uri-base "/schema/v1"
     :files-uri-base "/files/v1"
     :files-temp-location "/tmp/restagraph-files-tmp/"
-    :files-location "/tmp/restagraph-files"))
+    :files-location "/tmp/restagraph-files/"))
 
 (setf *loglevel* :info)
 
