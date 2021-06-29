@@ -11,7 +11,8 @@
   :depends-on (#:neo4cl
                #:hunchentoot
                #:drakma
-               #:ironclad)
+               #:ironclad
+               #:cl-json)
   :components ((:file "package")
                (:file "conditions")
                (:file "logging")
