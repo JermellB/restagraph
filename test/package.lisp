@@ -5,4 +5,6 @@
 
 (defpackage :restagraph-test
   (:use #:cl)
-  (:export main))
+  (:export main
+           pure
+           side-effecting))

@@ -11,4 +11,6 @@
                 :depends-on (#:restagraph
                              #:fiveam)
                 :components ((:file "package")
-                             (:file "restagraph-test")))
+                             (:file "restagraph-test")
+                             (:file "pure-tests")
+                             (:file "side-effecting-tests")))
