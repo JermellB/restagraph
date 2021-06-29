@@ -92,12 +92,12 @@
         ;; Get the description of a single resource-type
         ((and
            (equal (tbnl:request-method*) :GET)
-           (first uri-parts))
+           (equal 1 (length uri-parts)))
          (progn
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-alist-to-string
-             (describe-resource-type (schema tbnl:*acceptor*) (first uri-parts)))))
+             (describe-resource-type (schema tbnl:*acceptor*) (car uri-parts)))))
         ;; Get a description of the whole schema in JSON format
         ((equal (tbnl:request-method*) :GET)
          (progn
