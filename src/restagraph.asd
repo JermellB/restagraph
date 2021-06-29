@@ -11,7 +11,6 @@
   :depends-on (#:neo4cl
                #:hunchentoot
                #:drakma
-               #:cl-yaml
                #:ironclad)
   :components ((:file "package")
                (:file "conditions")
