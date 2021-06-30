@@ -17,8 +17,6 @@
 (defparameter *core-schema*
   (make-incoming-subschema-version
     :name "core"
-    :version 1
-    :apply-order 0
     :resourcetypes
     (list (make-incoming-rtypes
             :name "any"
@@ -67,11 +65,15 @@
                               (make-incoming-rtype-attrs
                                 :name "sha3256sum"
                                 :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."))))
-    :relationships `(("any" . ,(make-incoming-rels :relationship "TAGS"
-                                                   :target-type "Tags"))
-                     ("any" . ,(make-incoming-rels :relationship "GROUPS"
-                                                   :target-type "Groups"))
-                     ("any" . ,(make-incoming-rels :relationship "CREATOR"
-                                                   :target-type "People"))
-                     ("People" . ,(make-incoming-rels :relationship "PRONOUNS"
-                                                      :target-type "Pronouns")))))
+    :relationships (list (make-incoming-rels :name "TAGS"
+                                             :source-type "any"
+                                             :target-type "Tags")
+                         (make-incoming-rels :name "GROUPS"
+                                             :source-type "any"
+                                             :target-type "Groups")
+                         (make-incoming-rels :name "CREATOR"
+                                             :source-type "any"
+                                             :target-type "People")
+                         (make-incoming-rels :name "PRONOUNS"
+                                             :source-type "People"
+                                             :target-type "Pronouns"))))

@@ -54,12 +54,12 @@
               (error 'integrity-error :message message)))
            ;; 1:1 dependent relationship
            ((and
-              (schema-rels-dependent relationship-attrs)
+              (dependent relationship-attrs)
               (or
-                (equal (schema-rels-cardinality relationship-attrs) "1:1")
-                (equal (schema-rels-cardinality relationship-attrs) "1:many")))
+                (equal (cardinality relationship-attrs) "1:1")
+                (equal (cardinality relationship-attrs) "1:many")))
             (let ((message (format nil "~A dependency. Either move the relationship or create a new dependent resource."
-                                   (schema-rels-cardinality relationship-attrs))))
+                                   (cardinality relationship-attrs))))
               (log-message :debug message)
               (error 'integrity-error :message message)))
            ;; Are we trying to create a duplicate?
@@ -79,7 +79,7 @@
               (error 'client-error :message message)))
            ;; Many-to-one, and the source already has this relationship with another such target?
            ((and
-              (equal (schema-rels-cardinality relationship-attrs) "many:1")
+              (equal (cardinality relationship-attrs) "many:1")
               (>
                 (neo4cl:extract-data-from-get-request
                   (neo4cl:neo4j-transaction
@@ -184,7 +184,7 @@
       ;; Would this orphan a dependent resource at the end of the relationship,
       ;; by removing its last parent?
       ((and
-         (schema-rels-dependent relationship-attrs)
+         (dependent relationship-attrs)
          ;; Would this be the last parent?
          ;; Test by checking for other incoming dependent relationships.
          ;; If there's one or more, we're good to go.

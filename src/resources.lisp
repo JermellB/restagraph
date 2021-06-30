@@ -126,7 +126,7 @@ Return an error if
          (log-message :error message)
          (error 'client-error :message message)))
       ;; Sanity check: dependency between parent and child resource types
-      ((null (schema-rels-dependent relationship-attrs))
+      ((null (dependent relationship-attrs))
        (let ((message
                (format nil "Target resource-type ~A doesn't depend on the parent type ~A"
                        dest-type parent-type)))
@@ -159,8 +159,8 @@ Return an error if
              (if
                 (and
                   (or
-                    (equal (schema-rels-cardinality relationship-attrs) "1:1")
-                    (equal (schema-rels-cardinality relationship-attrs) "many:1"))
+                    (equal (cardinality relationship-attrs) "1:1")
+                    (equal (cardinality relationship-attrs) "many:1"))
                   ;; Look for this parent having this relationship with any other dependent resource
                   (>
                     (neo4cl:extract-data-from-get-request
@@ -177,7 +177,7 @@ Return an error if
                 (error 'integrity-error :message
                        (format nil"~{~A~^/~} already has a ~A ~A relationship with a resource of type ~A"
                                parent-parts
-                               (schema-rels-cardinality relationship-attrs)
+                               (cardinality relationship-attrs)
                                relationship
                                dest-type))
                 ;; Constraints are fine; create it

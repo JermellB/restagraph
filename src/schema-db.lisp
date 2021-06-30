@@ -71,9 +71,8 @@
            (type incoming-subschema-version subschema)
            (type integer schema-version))
   ;; Install the core-schema to the schema root.
-  (log-message :info (format nil "Installing subschema '~A' version ~D to schema version ~D."
-                             (incoming-subschema-version-name subschema)
-                             (incoming-subschema-version-version subschema)
+  (log-message :info (format nil "Installing subschema '~A' to schema version ~D."
+                             (name subschema)
                              schema-version))
   ;; Install the resourcetypes
   (mapcar
@@ -86,24 +85,27 @@
                   "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })
                    CREATE (v)-[:HAS]->(t:RgResourceType {name: \"~A\", dependent: \"~A\", notes: \"~A\"})~A"
                   schema-version
-                  (incoming-rtypes-name rtype)
-                  (if (incoming-rtypes-dependent rtype) "true" "false")
-                  (incoming-rtypes-notes rtype)
+                  (name rtype)
+                  (if (dependent rtype) "true" "false")
+                  (notes rtype)
                   ;; Enumerate its attributes
                   (format nil "~{,~%~A~}"
                           (mapcar
                             #'(lambda
                                 (attr)
                                 (format nil "(t)-[:HAS]->(:RgResourceTypeAttribute {name: \"~A\", description: \"~A\", values: \"~A\"})"
-                                        (incoming-rtype-attrs-name attr)
-                                        (incoming-rtype-attrs-description attr)
-                                        (format nil "~{~A~^,~}" (incoming-rtype-attrs-values attr))))
-                            (incoming-rtypes-attributes rtype))))))
+                                        (name attr)
+                                        (description attr)
+                                        (format nil "~{~A~^,~}" (attr-values attr))))
+                            (attributes rtype))))))
           (log-message :debug (format nil "Installing resourcetype definition with this query:~%~A"
                                       query))
           (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))))
-    (incoming-subschema-version-resourcetypes subschema))
+    (resourcetypes subschema))
   ;; Now install the relationships
+  (log-message :info (format nil "Installing relationships for subschema '~A'"
+                             (name subschema)))
+  (log-message :debug (format nil "Using relationship definitions ~A" (relationships subschema)))
   (mapcar
     #'(lambda (rel)
         (let ((query
@@ -112,19 +114,19 @@
                          (v)-[:HAS]->(t:RgResourceType {name: \"~A\"})
                          CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: \"~A\", cardinality: \"~A\"})-[:TARGET]->(t)"
                         schema-version
-                        (car rel)
-                        (incoming-rels-target-type (cdr rel))
-                        (incoming-rels-relationship (cdr rel))
-                        (if (incoming-rels-dependent (cdr rel)) "true" "false")
-                        (incoming-rels-notes (cdr rel))
-                        (incoming-rels-cardinality (cdr rel)))))
+                        (source-type rel)
+                        (target-type rel)
+                        (name rel)
+                        (if (dependent rel) "true" "false")
+                        (notes rel)
+                        (cardinality rel))))
           (log-message :debug (format nil "Installing resourcetype definition with this query:~%~A"
                                       query))
           (handler-case
             (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
             (error (e)
                    (log-message :error (message e))))))
-        (incoming-subschema-version-relationships subschema)))
+        (relationships subschema)))
 
 
 ;;; Extract a schema from the database
@@ -160,7 +162,7 @@
                                 (make-schema-rtype-attrs
                                   :name (first attr)
                                   :description (second attr)
-                                  :values (when (and (third attr)
+                                  :attr-values (when (and (third attr)
                                                      (stringp (third attr)))
                                             (cl-ppcre:split "," (third attr)))))
                             attrs)
@@ -177,17 +179,17 @@
                        "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: \"~A\"})<-[:SOURCE]->(r:RgRelationship)-[:TARGET]->(t:RgResourceType)
                         RETURN r.name, r.dependent, r.cardinality, r.notes, t.name;"
                        resourcetype)))
-    (setf (schema-rtypes-relationships (gethash resourcetype schema))
-          (mapcar #'(lambda (rel)
-                      (make-schema-rels
-                        :relationship (first rel)
-                        :dependent (second rel)
-                        :cardinality (third rel)
-                        :notes (fourth rel)
-                        :target-type (gethash (fifth rel) schema)))
-                  (neo4cl:extract-rows-from-get-request
-                    (neo4cl:neo4j-transaction
-                      db `((:STATEMENTS ((:STATEMENT . ,query-rels))))))))))
+    (set-relationships (gethash resourcetype schema)
+                       (mapcar #'(lambda (rel)
+                                   (make-schema-rels
+                                     :name (first rel)
+                                     :dependent (second rel)
+                                     :cardinality (third rel)
+                                     :notes (fourth rel)
+                                     :target-type (gethash (fifth rel) schema)))
+                               (neo4cl:extract-rows-from-get-request
+                                 (neo4cl:neo4j-transaction
+                                   db `((:STATEMENTS ((:STATEMENT . ,query-rels))))))))))
 
 (defun fetch-current-schema (db)
   "Return a hash-table representing the current schema version,
