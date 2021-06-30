@@ -11,7 +11,6 @@
     ;; Operational functions
     startup
     shutdown
-    populate-schema
     log-message
     ;; Conditions
     integrity-error
@@ -24,7 +23,6 @@
     get-resource-attributes-from-db
     add-resource-relationship
     describe-resource-type
-    enforce-db-schema
     dependent-resource-p
     store-resource
     update-resource-attributes
@@ -38,9 +36,4 @@
     check-relationship-by-path
     delete-relationship-by-path
     delete-resource-by-path
-    ;; Structures and their constructors and accessors
-    make-relationship-attrs
-    relationship-attrs-dependent
-    relationship-attrs-cardinality
-    schema
     ))
