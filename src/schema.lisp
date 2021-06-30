@@ -313,7 +313,7 @@
   (declare (type string name source-type target-type cardinality)
            (type (or null string) notes)
            (type boolean dependent))
-  (unless (member cardinality '("many:many" "many:1" "1:many" "1:1"))
+  (unless (member cardinality '("many:many" "many:1" "1:many" "1:1") :test #'equal)
     (error "Cardinality argument is not valid."))
   (make-instance 'incoming-rels :name name
                  :source-type source-type
