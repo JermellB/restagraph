@@ -193,6 +193,7 @@
   "Return a hash-table representing the current schema version,
    populated by definitions retrieved from the database."
   (declare (type neo4cl:neo4j-rest-server db))
+  (log-message :info "Fetching the current schema from the database.")
   ;; Create a schema structure
   (let ((schema (make-schema-hash-table))
         ;; Fetch this once, to use a couple of times
