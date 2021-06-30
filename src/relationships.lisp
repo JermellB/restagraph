@@ -42,8 +42,8 @@
               (dest-type (nth (- (length dest-parts) 2) dest-parts))
               (relationship-attrs
                 (car (or
-                       (get-relationship-attrs schema source-type relationship dest-type)
-                       (get-relationship-attrs schema "any" relationship dest-type)))))
+                       (get-relationship schema source-type relationship dest-type)
+                       (get-relationship schema "any" relationship dest-type)))))
          (cond
            ;; No such relationship
            ((not relationship-attrs)
@@ -162,8 +162,8 @@
          (dest-type (first dest-parts))
          (dest-uid (second dest-parts))
          (relationship-attrs
-           (car (or (get-relationship-attrs schema source-type relationship dest-type)
-                    (get-relationship-attrs schema "any" relationship dest-type)))))
+           (car (or (get-relationship schema source-type relationship dest-type)
+                    (get-relationship schema "any" relationship dest-type)))))
     (log-message :debug (format nil "Source type: ~A" source-type))
     (log-message :debug (format nil "Relationship: ~A" relationship))
     (log-message :debug (format nil "Dest type: ~A" dest-type))
@@ -210,8 +210,8 @@
                                 :debug
                                 (format nil "Checking for dependencies in incoming relationship ~A from type ~A"
                                         (car inc) (car (second inc))))
-                              (relationship-attrs-dependent
-                                (get-relationship-attrs db dest-type (car inc) (car (second inc)))))
+                              (dependent
+                                (get-relationship db dest-type (car inc) (car (second inc)))))
                           others)))))
        (error 'restagraph:integrity-error
               :message "This would leave an orphan dependent resource. Delete the dependent resource instead."))

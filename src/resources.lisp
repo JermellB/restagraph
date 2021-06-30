@@ -102,10 +102,10 @@ Return an error if
          (parent-type (nth (- (length parent-parts) 2) parent-parts))
          (dest-type (car (last uri-parts)))
          (dest-uid (sanitise-uid (cdr (assoc "uid" attributes :test 'equal))))
-         (relationship-attrs (car (get-relationship-attrs schema
-                                                          parent-type
-                                                          relationship
-                                                          dest-type))))
+         (relationship-attrs (car (get-relationship schema
+                                                    parent-type
+                                                    relationship
+                                                    dest-type))))
     ;(log-message :debug (format nil "Relationship attributes found: ~A" relationship-attrs))
     (log-message :debug "Beginning sanity checks")
     (cond

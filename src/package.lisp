@@ -37,7 +37,6 @@
     create-relationship-by-path
     check-relationship-by-path
     delete-relationship-by-path
-    get-relationship-attrs
     delete-resource-by-path
     ;; Structures and their constructors and accessors
     make-relationship-attrs

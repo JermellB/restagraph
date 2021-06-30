@@ -102,12 +102,12 @@
 
 ;;; Structure methods
 
-(defgeneric get-relationship-attrs (schema source-type relationship dest-type)
+(defgeneric get-relationship (schema source-type relationship dest-type)
   (:documentation "Extract the attributes of interest for a given relationship.
                   Return a 'relationship-attrs struct.
                   cardinality defaults to many:many."))
 
-(defmethod get-relationship-attrs ((schema hash-table)
+(defmethod get-relationship ((schema hash-table)
                                    (source-type string)
                                    (relationship string)
                                    (dest-type string))
