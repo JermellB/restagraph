@@ -83,21 +83,23 @@
                   nil
                   ;; Basic resourcetype definition
                   "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })
-                   CREATE (v)-[:HAS]->(t:RgResourceType {name: \"~A\", dependent: \"~A\", notes: ~A})~A"
+                  CREATE (v)-[:HAS]->(t:RgResourceType {name: \"~A\", dependent: \"~A\", notes: ~A})~A"
                   schema-version
                   (name rtype)
                   (if (dependent rtype) "true" "false")
                   (if (notes rtype)
-                      (format nil "\"~A\"" (notes rtype))
-                      "null")
+                    (format nil "\"~A\"" (notes rtype))
+                    "null")
                   ;; Enumerate its attributes
                   (format nil "~{,~%~A~}"
                           (mapcar
                             #'(lambda
                                 (attr)
-                                (format nil "(t)-[:HAS]->(:RgResourceTypeAttribute {name: \"~A\", description: \"~A\", values: \"~A\"})"
+                                (format nil "(t)-[:HAS]->(:RgResourceTypeAttribute {name: \"~A\", description: \"~A\", values: ~A})"
                                         (name attr)
-                                        (description attr)
+                                        (if (description attr)
+                                          (format nil "\"~A\"" (description attr))
+                                          "null")
                                         (format nil "~{~A~^,~}" (attr-values attr))))
                             (attributes rtype))))))
           (log-message :debug (format nil "Installing resourcetype definition with this query:~%~A"
@@ -113,16 +115,16 @@
         (let ((query
                 (format nil
                         "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })-[:HAS]->(s:RgResourceType {name: \"~A\"}),
-                         (v)-[:HAS]->(t:RgResourceType {name: \"~A\"})
-                         CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(t)"
+                        (v)-[:HAS]->(t:RgResourceType {name: \"~A\"})
+                        CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(t)"
                         schema-version
                         (source-type rel)
                         (target-type rel)
                         (name rel)
                         (if (dependent rel) "true" "false")
                         (if (notes rel)
-                            (format nil "\"~A\"" (notes rel))
-                            "null")
+                          (format nil "\"~A\"" (notes rel))
+                          "null")
                         (cardinality rel))))
           (log-message :debug (format nil "Installing resourcetype definition with this query:~%~A"
                                       query))
@@ -135,7 +137,7 @@
                             (format nil "Neo4J client error ~A/~A - ~A"
                                     (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
                          (t
-                          (log-message :error e)))))))
+                           (log-message :error e)))))))
         (relationships subschema)))
 
 
