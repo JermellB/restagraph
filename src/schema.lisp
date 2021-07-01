@@ -323,9 +323,9 @@
 ;;; Structure methods
 
 (defmethod get-relationship ((schema hash-table)
-                                   (source-type string)
-                                   (relationship string)
-                                   (dest-type string))
+                             (source-type string)
+                             (relationship string)
+                             (dest-type string))
   (log-message
     :debug
     (format nil "Retrieving the relationship ~A from ~A to ~A, from a hash-table schema."
