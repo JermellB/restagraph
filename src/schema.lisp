@@ -33,7 +33,7 @@
                   Return a 'relationship-attrs struct.
                   cardinality defaults to many:many."))
 
-(defgeneric relationship-in-struct-p (rtype rel-type target-rtype)
+(defgeneric relationship-defined-p (rtype rel-type target-rtype)
   (:documentation "Check for a named type of relationship from a resourcetype to a target resourcetype.
   Return a schema-rels struct if present, otherwise nil.
   Note that it returns a list, which will have more than one element if we screwed up and allowed two
@@ -330,13 +330,13 @@
     :debug
     (format nil "Retrieving the relationship ~A from ~A to ~A, from a hash-table schema."
             relationship source-type dest-type))
-  (relationship-in-struct-p
+  (relationship-defined-p
     (resourcetype-exists-p schema source-type)
     relationship
     dest-type))
 
 
-(defmethod relationship-in-struct-p ((rtype schema-rtypes)
+(defmethod relationship-defined-p ((rtype schema-rtypes)
                                      (rel-type string)
                                      (target-rtype string))
   (log-message :debug (format nil "Checking resourcetype ~A for relationship ~A to type ~A (string)"
@@ -346,18 +346,6 @@
                        (equal rel-type (name rel))
                        (equal target-rtype (name
                                              (target-type rel)))))
-                 (relationships rtype)))
-
-(defmethod relationship-in-struct-p ((rtype schema-rtypes)
-                                     (rel-type string)
-                                     (target-rtype schema-rtypes))
-  (log-message :debug (format nil "Checking resourcetype ~A for relationship ~A to type ~A (rtype)"
-                              (name rtype) rel-type (name target-rtype)))
-  (remove-if-not #'(lambda (rel)
-                     (and
-                       (equal rel-type (name rel))
-                       (equal (name target-rtype)
-                              (name (target-type rel)))))
                  (relationships rtype)))
 
 
