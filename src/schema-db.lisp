@@ -246,5 +246,4 @@
               db
               `((:STATEMENTS
                   ((:STATEMENT
-                     . "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(:RgSchemaVersion)-[:HAS]->(r:RgResourceType)
-                        RETURN r.name;"))))))))
+                     . "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(:RgSchemaVersion)-[:HAS]->(r:RgResourceType) RETURN r.name;"))))))))
