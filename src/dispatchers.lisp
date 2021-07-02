@@ -109,10 +109,29 @@
                #'(lambda (r)
                    (describe-resource-type (schema tbnl:*acceptor*) r))
                (get-resourcetype-names (schema tbnl:*acceptor*))))))
+        ;; Upload a schema to install in the db
+        ;; Expects URL-encoded file upload, as in this example:
+        ;; curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
+        ((equal (tbnl:request-method*) :POST)
+         ;(and (equal (tbnl:request-method*) :POST)
+         ;     (tbnl:post-parameter "schema"))
+         (progn
+           (log-message :info "Received schema for upload.")
+           (log-message :debug (format nil "Received content-type: ~A" (tbnl:content-type*)))
+           (if
+             (install-uploaded-schema (tbnl:post-parameter "schema") (datastore tbnl:*acceptor*))
+             (progn
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               "Created")
+             (progn
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+               "That... did not go as planned."))))
         ;;
         ;; Methods we don't support.
         ;; Take the whitelist approach
-        ((not (member (tbnl:request-method*) '(:GET)))
+        ((not (member (tbnl:request-method*) '(:GET :POST)))
          (method-not-allowed))
         ;; Handle all other cases
         (t

@@ -237,6 +237,48 @@
     ;; Return the schema we created
     schema))
 
+(defun install-uploaded-schema (schema db)
+  (declare (type neo4cl:neo4j-rest-server db))
+  "Install a schema uploaded via the API."
+  (log-message :info "Processing uploaded schema.")
+  (let ((content (cl-json:decode-json-from-string schema))
+        (current-version (current-schema-p db)))
+    (log-message :info (format nil "Received schema '~A'" (cdr (assoc :NAME content))))
+    (let ((new-schema
+            (make-incoming-subschema-version
+              :name (cdr (assoc :NAME content))
+              :resourcetypes
+              (mapcar
+                #'(lambda (res)
+                    (make-incoming-rtypes
+                      :name (cdr (assoc :NAME res))
+                      :notes (when (and (cdr (assoc :NOTES res))
+                                        (not (equal "" (cdr (assoc :NOTES res)))))
+                               (cdr (assoc :NOTES res)))
+                      :attributes
+                      (mapcar #'(lambda (attr)
+                                  (make-incoming-rtype-attrs
+                                    :name (cdr (assoc :NAME attr))
+                                    :description (cdr (assoc :DESCRIPTION attr))
+                                    :attr-values (cdr (assoc :VALUES attr))))
+                              (cdr (assoc :ATTRIBUTES res)))))
+                (cdr (assoc :RESOURCETYPES content)))
+              :relationships
+              (mapcar
+                #'(lambda (rel)
+                    (make-incoming-rels
+                      :name (cdr (assoc :NAME rel))
+                      :source-type (cdr (assoc :SOURCE-TYPE rel))
+                      :target-type (cdr (assoc :TARGET-TYPE rel))
+                      :cardinality (cdr (assoc :CARDINALITY rel))
+                      :dependent (cdr (assoc :DEPENDENT rel))
+                      :notes (cdr (assoc :NOTES rel))))
+                (cdr (assoc :RELATIONSHIPS content))))))
+      ;; Return indication of success
+      t)))
+
+;; Keep this at the end of the file.
+;; Vim insists on indenting everything after it to match its last line.
 (defun list-resourcetypes-in-db (db)
   "Return a list of the names of resourcetypes in the current schema version."
   (declare (type neo4cl:neo4j-rest-server db))
