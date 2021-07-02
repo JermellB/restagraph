@@ -139,7 +139,7 @@
                             (format nil "\"~A\"" (notes rel))
                             "null")
                         (cardinality rel))))
-          (log-message :debug (format nil "Installing resourcetype definition with this query:~%~A"
+          (log-message :debug (format nil "Installing relationship definition with this query:~%~A"
                                       query))
           (handler-case
             (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
