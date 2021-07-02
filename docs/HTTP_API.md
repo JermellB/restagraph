@@ -36,7 +36,7 @@ HTTP status code on success is 204 (no content).
 
 # The Schema API
 
-This describes the types of resources that can be created on "this" instance, and what optional attributes they can have.
+This describes the types of resources that can be created, and what optional attributes they can have.
 
 It´s the "other half" of the main (raw) API, and is read-only - there is no provision for updating the schema via this API.
 
@@ -45,11 +45,65 @@ Use this to get a description of the available resource-types, in JSON format.
 
 ## GET - retrieve the schema
 
-The endpoint base URI is `/schema/v1`:
+The endpoint base URI is `/schema/v1`, and it always returns the schema in JSON format.
 
 `GET /schema/v1/` will return a description of all resources.
 
 `GET /schema/v1/<resourcetype>` will return the description of a single resourcetype.
+
+
+## POST - upload a new schema
+
+`POST /schema/v1/` with a payload of a JSON-formatted file.
+
+Expected format of the file
+
+    {
+      "name": "<name of the schema>",
+      "resourcetypes": [
+        {
+          "name": "NameOfResourceType",
+          "dependent": <boolean>,
+          "notes": "<Text describing what this resourcetype represents, and optionally how it's expected to be used.>",
+          "attributes": [
+            {
+              "name": "nameofattribute",
+              "description": "<Text describing what this attribute represents/means.>",
+              "values": [ "optional", "list", "of", "permissible", "values" ]
+            },
+            ...
+          ]
+        },
+        ...
+      ],
+      "relationships": [
+        {
+          "name": "NameOfRelationship",
+          "source-type": "ResourcetypeTheRelationshipComesFrom",
+          "target-type": "ResourcetypeTheRelationshipGoesTo",
+          "cardinality": One of "many:many", "1:many", "many:1" or "1:1" (default is "many:many"),
+          "dependent": boolean,
+          "notes": "<Text clarifying what this relationship is intended to mean.>"
+        },
+        ...
+      ],
+    }
+
+### Notes about the format and naming conventions
+
+- It's recommended that you follow [Neo4j naming conventions](https://neo4j.com/docs/cypher-manual/current/syntax/naming/):
+    - Names of resourcetypes and relationships should be in `PascalCase`, as they are created as Neo4j labels.
+    - Relationships should be in `SCREAMING_SNAKE_CASE`.
+- Booleans must be either `true` or `false` (actual JSON boolean values), not "true" or "false" (strings).
+- The `dependent` attribute of a resource indicates whether it has independent existence (dependent=`false`, the default) or whether it only exists in the context of a parent resource. E.g, an IP address configured on an interface doesn't exist independently - the only reason not to define it as an attribute is that an interface may have any number of addresses configured on it.
+    - This is an optional attribute; it defaults to `false`.
+- The `dependent` attribute of a relationship indicates whether the target resource is dependent on the source resource, i.e. is a child to that parent resource.
+    - This means that if `dependent` is true in a relationship type, the target resource will be created along with it. The only exception to this case is if a dependent resource is moved to a new parent.
+    - A dependent resource can only have one parent resource.
+    - A dependent relationship _cannot_ be created to a non-dependent target resource.
+    - A non-dependent relationship _can_ be created to a dependent target resource, if the target already exists.
+- The `notes` attribute of a resourcetype or relationship, and the `description` of an attribute, is optional. If you omit it altogether, or specify it as `null` or an empty string, it will not be added to the resourcetype definition in the database, and will be effectively a null or empty string when this is queried.
+- The `values` attribute on an attribute is optional, and should only be used when you have a specific reason to constrain it to a fixed set of values. If you're considering using it, think about whether it makes more sense to use a separate resourcetype, enabling you to add/remove values in future.
 
 
 # The Raw API (resources)
@@ -75,15 +129,7 @@ With payload of `uid=<uid>`, plus optionally `<attribute-name>=<value>` pairs fo
 
 The UID must be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
-On success, returns
-- status code of 201
-- `Location` header containing the URI for the newly-created resource
-- body in the form of a JSON object, containing the following fields/attributes:
-    - `data` = a nested object containing data representing the resource that was just created
-        - `uri` = URI from which the resource's representation can be fetched via GET, and through which it can be deleted via the DELETE method. This is the same URI as is found in the `Location` header, so which of these the client uses is purely a matter of preference.
-    - `metadata`' = a nested object mostly containing URLs for actions that can be performed on this object.
-        - `attributes` = a list of URIs that can be used to set attributes of the resource, via the PUT method.
-        - `relationships` = a list of URIs that can be used to create new relationships to other resources, or query existing relationships.
+On success, returns a status code of 201, and the URI for the newly-created resource, e.g. `/People/Blake`.
 
 
 ## Retrieve a resource
