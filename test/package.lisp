@@ -7,4 +7,5 @@
   (:use #:cl)
   (:export main
            pure
-           side-effecting))
+           side-effecting
+           utilities-pure))

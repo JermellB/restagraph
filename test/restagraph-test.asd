@@ -12,5 +12,7 @@
                              #:fiveam)
                 :components ((:file "package")
                              (:file "restagraph-test")
+                             (:file "utilities-pure")
+                             (:file "utilities-side-effecting")
                              (:file "pure-tests")
                              (:file "side-effecting-tests")))

@@ -32,7 +32,9 @@
 
 (defun get-uri-parts (uri)
   "Break the URI into parts for processing by uri-node-helper.
-  Assumes the base-uri and trailing parameters have already been removed."
+  Assumes the base-uri and trailing parameters have already been removed.
+  Expects a leading forward-slash before the first element;
+  anything *before and including* the first forward slash will be discarded."
   (declare (type (string) uri))
   (mapcar #'sanitise-uid
           (cdr (ppcre:split "/" uri))))
