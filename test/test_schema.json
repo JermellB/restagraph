@@ -1,0 +1,34 @@
+{
+  "name": "test",
+  "resourcetypes": [
+    {
+      "name": "AttributeTest",
+      "dependent": false,
+      "notes": null,
+      "attributes": [
+        {
+          "name": "attr1"
+        },
+        {
+          "name": "attr2",
+          "attr-values": [
+            "eenie",
+            "meenie",
+            "minie",
+            "moe"
+          ]
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "source-type" : "People",
+      "name": "HAS",
+      "target-type": "AttributeTest",
+      "cardinality": "1:many",
+      "dependent": false,
+      "notes": null
+    }
+  ]
+}
