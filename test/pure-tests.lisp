@@ -44,7 +44,7 @@
   (let ((attrs (list (restagraph::make-schema-rtype-attrs
                        :NAME "status"
                        :DESCRIPTION "Task status."
-                       :values '("idea"
+                       :attr-values '("idea"
                                  "active"
                                  "waiting"
                                  "scheduled"
@@ -65,7 +65,7 @@
                      (restagraph::make-schema-rtype-attrs
                        :NAME "description"
                        :DESCRIPTION "More details about the task."
-                       :values '())
+                       :attr-values '())
                      (restagraph::make-schema-rtype-attrs
                        :NAME "scheduled"
                        :DESCRIPTION "A date/time."))))
