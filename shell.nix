@@ -11,9 +11,9 @@ stdenv.mkDerivation rec {
         pkgs.openssl
         pkgs.sbcl
         # Python env
-        pkgs.python37Full
-        pkgs.python37Packages.pip
-        pkgs.python37Packages.virtualenv
+        pkgs.python39Full
+        pkgs.python39Packages.pip
+        pkgs.python39Packages.virtualenv
     ];
 
     env = buildEnv {
