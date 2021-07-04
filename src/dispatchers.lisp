@@ -371,7 +371,7 @@
         ;; Attempting to delete a file
         ((and (equal (tbnl:request-method*) :DELETE)
               (equal (mod (length uri-parts) 3) 2)
-              (equal "files" (first uri-parts)))
+              (equal "Files" (first uri-parts)))
          (log-message :debug "Client is requesting deletion of a file")
          (setf (tbnl:content-type*) "text/plain")
          (setf (tbnl:return-code*) tbnl:+http-bad-request+)
@@ -484,7 +484,7 @@
        (log-message :debug (format nil "Checking for an existing file by name '~A'"
                                    (sanitise-uid requested-filename)))
        (if (get-resources (datastore tbnl:*acceptor*)
-                          (format nil "/files/~A" (sanitise-uid requested-filename)))
+                          (format nil "/Files/~A" (sanitise-uid requested-filename)))
          ;; If it already exists, bail out now.
          (progn
            (log-message :error (format nil "File ~A already exists; bailing out."
@@ -509,9 +509,9 @@
            (handler-case
              (let ((uri (concatenate
                           'string
-                          "/files/"
+                          "/Files/"
                           (store-resource (datastore tbnl:*acceptor*)
-                                          "files"
+                                          "Files"
                                           `(("uid" . ,(sanitise-uid requested-filename))
                                             ("title" . ,requested-filename)
                                             ("sha3256sum" . ,checksum)
@@ -592,7 +592,7 @@
             ;; Do it separately because we use it again later in this function.
             ;; Get the search result
             (result (get-resources (datastore tbnl:*acceptor*)
-                                   (format nil "/files/~A" filename)
+                                   (format nil "/Files/~A" filename)
                                    :directional nil
                                    :filters nil)))
        (log-message :debug (format nil "Retrieved resource details ~A" result))
@@ -623,7 +623,7 @@
        (log-message :debug (format nil "Client requested deletion of file '~A'" filename))
        ;; Check whether the file is present.
        (let ((result (get-resources (datastore tbnl:*acceptor*)
-                                    (format nil "/files/~A" filename)
+                                    (format nil "/Files/~A" filename)
                                     :directional nil
                                     :filters nil)))
          (log-message :debug (format nil "Got result '~A'" result))
@@ -634,12 +634,12 @@
              ;; Delete the metadata
              (delete-resource-by-path
                (datastore tbnl:*acceptor*)
-               (concatenate 'string "/files/" filename)
+               (concatenate 'string "/Files/" filename)
                (schema tbnl:*acceptor*)
                :recursive nil)
              ;; Now delete the file itself
              (when (null (get-resources (datastore *restagraph-acceptor*)
-                                        "/files"
+                                        "/Files"
                                         :filters '(("sha3256sum" .
                                                     (cdr (assoc :SHA3256SUM (cdr result)))))))
                (let* ((source-path (digest-to-filepath
