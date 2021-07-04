@@ -21,6 +21,7 @@ import re
 import unittest
 
 # Third-party libraries
+import pytest
 import requests
 
 
@@ -51,57 +52,48 @@ class TestResources(unittest.TestCase):
     restype = 'People'
     resuid = 'Sam Spade'
     result = None
+
+    @pytest.mark.dependency()
     def test_create_and_delete_single_resource(self):
         print('Test: test_create_and_delete_single_resource')
         # Ensure it's not already present
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
+        assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
-                                                    self.resuid)).status_code,
-                         200)
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resuid)).status_code == 200
+        assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
-                                                    self.resuid)).json(),
-                         [])
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resuid)).json() == []
+        assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
-                                                    self.resuid)).json(),
-                         [])
+                                                    self.resuid)).json() == []
         # Ensure we have none of that kind of resource
-        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL,
-                                                 self.restype)).status_code,
-                         200)
-        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL,
-                                                 self.restype)).json(),
-                         [])
+        assert requests.get('%s/%s' % (API_BASE_URL,
+                                                 self.restype)).status_code == 200
+        assert requests.get('%s/%s' % (API_BASE_URL,
+                                                 self.restype)).json() == []
         # Create it
         self.result = requests.post('%s/%s/' % (API_BASE_URL, self.restype),
                                     data={'uid': self.resuid})
-        self.assertEqual(self.result.status_code, 201)
-        self.assertEqual(self.result.text, '/{rtype}/{uid}'.format(rtype=self.restype,
-                                                                   uid=sanitise_uid(self.resuid)))
+        assert self.result.status_code == 201
+        assert self.result.text == '/{rtype}/{uid}'.format(rtype=self.restype,
+                                                                   uid=sanitise_uid(self.resuid))
         # Confirm that it's now there
         self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
                                                  self.restype,
                                                  sanitise_uid(self.resuid))).json()
         print('Found resource: {}'.format(self.result))
-        self.assertEqual(self.result['original_uid'], self.resuid)
-        self.assertEqual(self.result['uid'], sanitise_uid(self.resuid))
+        assert self.result['original_uid'] == self.resuid
+        assert self.result['uid'] == sanitise_uid(self.resuid)
         # Delete it
-        self.assertEqual(
-            requests.delete('%s/%s/%s' % (API_BASE_URL,
-                                          self.restype,
-                                          sanitise_uid(self.resuid))).status_code,
-            204)
+        assert requests.delete('%s/%s/%s' % (
+            API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 204
         # Confirm it's gone
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
-                                                    self.restype,
-                                                    sanitise_uid(self.resuid))).status_code,
-                         200)
-        self.assertEqual(requests.get('%s/%s/%s' % (API_BASE_URL,
-                                                    self.restype,
-                                                    sanitise_uid(self.resuid))).json(),
-                         [])
+        assert requests.get('%s/%s/%s' % (
+            API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 200
+        assert requests.get('%s/%s/%s' % (
+            API_BASE_URL, self.restype, sanitise_uid(self.resuid))).json() == []
 
+@pytest.mark.dependency(depends=["TestResources::test_create_and_delete_single_resource"])
 class TestDuplicateResistance(unittest.TestCase):
     '''
     Check that we can't create duplicate primary resources.
@@ -132,6 +124,7 @@ class TestDuplicateResistance(unittest.TestCase):
                                                        self.resourcename)).status_code,
                          204)
 
+@pytest.mark.dependency(depends=["TestDuplicateResistance::test_unique_resources"])
 class TestMultipleResources(unittest.TestCase):
     '''
     Retrieve details of all resources of a given type.
@@ -195,6 +188,7 @@ class TestMultipleResources(unittest.TestCase):
                                                        self.resource3uid)).status_code,
                          204)
 
+@pytest.mark.dependency(depends=["TestDuplicateResistance::test_unique_resources"])
 class TestBasicResourceErrors(unittest.TestCase):
     '''
     Confirm what happens when we make basic errors in resource-creation requests.
@@ -217,6 +211,9 @@ class TestBasicResourceErrors(unittest.TestCase):
                                        data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
                          409)
 
+@pytest.mark.dependency(depends=[
+    "TestDuplicateResistance::test_unique_resources",
+    "TestBasicResourceErrors::test_basic_resource_errors"])
 class TestFilesApi(unittest.TestCase):
     '''
     Upload, download, metadata and deletion of files.
@@ -303,6 +300,7 @@ class TestFilesApi(unittest.TestCase):
 # Untested tests follow
 #
 
+@pytest.mark.skip()
 class TestResourceAttributesEnums(unittest.TestCase):
     '''
     Test enumerated resource-attributes.
@@ -344,6 +342,7 @@ class TestResourceAttributesEnums(unittest.TestCase):
                          204)
         requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
 
+@pytest.mark.skip()
 class TestDependentResources(unittest.TestCase):
     res1type = 'brands'
     res1uid = 'Acme'
@@ -466,6 +465,7 @@ class TestDependentResources(unittest.TestCase):
                                                     sanitise_uid(self.depres1uid))).json(),
                          [])
 
+@pytest.mark.skip()
 class TestMoveDependentResources(unittest.TestCase):
     p1type = 'countries'
     p1uid = 'Netherlands'
@@ -551,6 +551,7 @@ class TestMoveDependentResources(unittest.TestCase):
                          204)
 
 
+@pytest.mark.skip()
 class TestValidRelationships(unittest.TestCase):
     '''
     Basic CRD functions for relationships
@@ -682,6 +683,8 @@ class TestValidRelationships(unittest.TestCase):
                                          data={'recursive': 'true'}).status_code,
                          204)
 
+
+@pytest.mark.skip()
 class TestInvalidRelationships(unittest.TestCase):
     '''
     Basic CRD functions for relationships
@@ -732,6 +735,7 @@ class TestInvalidRelationships(unittest.TestCase):
                                                        self.res2uid)).status_code,
                          204)
 
+@pytest.mark.skip()
 class TestAnyType(unittest.TestCase):
     '''
     Confirm handling of the 'any' type
