@@ -252,6 +252,7 @@
                 #'(lambda (res)
                     (make-incoming-rtypes
                       :name (cdr (assoc :NAME res))
+                      :dependent (cdr (assoc :DEPENDENT res))
                       :notes (when (and (cdr (assoc :NOTES res))
                                         (not (equal "" (cdr (assoc :NOTES res)))))
                                (cdr (assoc :NOTES res)))
