@@ -275,7 +275,8 @@
                       :notes (cdr (assoc :NOTES rel))))
                 (cdr (assoc :RELATIONSHIPS content))))))
       ;; Return indication of success
-      t)))
+      (when (install-subschema db new-schema current-version)
+        t))))
 
 ;; Keep this at the end of the file.
 ;; Vim insists on indenting everything after it to match its last line.
