@@ -48,7 +48,7 @@ class TestResources(unittest.TestCase):
     '''
     Basic CRD functions for resources
     '''
-    restype = 'people'
+    restype = 'People'
     resuid = 'Sam Spade'
     result = None
     def test_create_and_delete_single_resource(self):
@@ -102,52 +102,41 @@ class TestResources(unittest.TestCase):
                                                     sanitise_uid(self.resuid))).json(),
                          [])
 
-class TestResourceAttributesEnums(unittest.TestCase):
+class TestDuplicateResistance(unittest.TestCase):
     '''
-    Test enumerated resource-attributes.
+    Check that we can't create duplicate primary resources.
     '''
-    resourcetype = 'places'
-    resourceuid = 'Midian'
-    attr1name = 'kind'
-    attr1val = 'Fictional'
-    attr1valbad = 'Real'
+    resourcetype = 'People'
+    resourcename = 'Dante'
     result = None
-    def test_create_and_use_enums(self):
-        print('Test: create a resource with a valid enum attribute')
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
-                                       data={'uid': self.resourceuid,
-                                             self.attr1name: self.attr1val}).status_code,
+    def test_unique_resources(self):
+        print('Test: test_unique_resources')
+        # Create a new resource
+        self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourcename}).status_code,
                          201)
-        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
-        print('Test: fail to create a resource with an invalid enum attribute')
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
-                                       data={'uid': self.resourceuid,
-                                             self.attr1name: self.attr1valbad}).status_code,
-                         400)
-        print('Test: fail to add an invalid enum attribute to an existing resource')
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
-                                       data={'uid': self.resourceuid}).status_code,
-                         201)
-        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
-                                                    self.resourcetype,
-                                                    self.attr1name),
-                                      data={'uid': self.resourceuid,
-                                            self.attr1name: self.attr1valbad}).status_code,
-                         400)
-        print('Test: add a valid attribute to an existing resource.')
-        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
-                                                    self.resourcetype,
-                                                    self.attr1name),
-                                      data={'uid': self.resourceuid,
-                                            self.attr1name: self.attr1val}).status_code,
+        # Confirm that it's now there
+        self.result = requests.get('%s/%s/%s/' % (API_BASE_URL,
+                                                  self.resourcetype,
+                                                  self.resourcename)).json()
+        print('Received result {}'.format(self.result))
+        self.assertEqual(self.result['original_uid'], sanitise_uid(self.resourcename))
+        self.assertEqual(self.result['uid'], self.resourcename)
+        # Attempt to create a duplicate.
+        self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourcename}).status_code,
+                         304)
+        # Delete the resource
+        self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
+                                                       self.resourcetype,
+                                                       self.resourcename)).status_code,
                          204)
-        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
 
 class TestMultipleResources(unittest.TestCase):
     '''
     Retrieve details of all resources of a given type.
     '''
-    resourcetype = 'people'
+    resourcetype = 'People'
     resource1uid = 'Dude'
     resource2uid = 'Fifi'
     resource3uid = 'Trixibelle'
@@ -205,6 +194,155 @@ class TestMultipleResources(unittest.TestCase):
                                                        self.resourcetype,
                                                        self.resource3uid)).status_code,
                          204)
+
+class TestBasicResourceErrors(unittest.TestCase):
+    '''
+    Confirm what happens when we make basic errors in resource-creation requests.
+    '''
+    invalid_resourcetype = 'IjustMadeThisUp'
+    valid_resourcetype = 'routers'
+    valid_uid = 'amchitka'
+    def test_basic_resource_errors(self):
+        print('Test: test_basic_resource_errors')
+        # Invalid resource-type
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.invalid_resourcetype),
+                                       data={'foo': 'bar'}).status_code,
+                         400)
+        # Missing UID
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
+                                       data={'foo': 'bar'}).status_code,
+                         400)
+        # Invalid non-UID parameters
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
+                                       data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
+                         409)
+
+class TestFilesApi(unittest.TestCase):
+    '''
+    Upload, download, metadata and deletion of files.
+    '''
+    file1source = 'cats_cuddling.jpg'
+    file1name = 'Cuddling cats'
+    file1sha3_256sum = '305664EB53010D52642594A3B3877A1BB811EAD9B610C5C1210F7F3B88B4C184'
+    file2source = 'cats_cuddling.jpg'
+    file2name = 'Cute kitties'
+    def test_files_api_basic(self):
+        print('Test: file upload')
+        fhandle = open(self.file1source, 'rb')
+        self.assertEqual(
+            requests.post('%s/files/' % (FILES_BASE_URL),
+                          data={'name': self.file1name},
+                          files={'file': fhandle}).status_code,
+            201)
+        fhandle.close()
+        print('Test: file metadata')
+        result = requests.get('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)))
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json()['title'], self.file1name)
+        self.assertEqual(result.json()['sha3256sum'], self.file1sha3_256sum)
+        print('Test: file content')
+        result = requests.get('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file1name)))
+        # Write it to a file
+        fhandle = open('testfile', 'wb')
+        fhandle.write(result.content)
+        fhandle.close()
+        # Confirm that the file we got back is the same as the one we uploaded
+        self.assertTrue(filecmp.cmp(self.file1source, 'testfile'))
+        # Clean up
+        os.remove('testfile')
+        print('Test: file deletion')
+        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
+                                                    sanitise_uid(self.file1name))).status_code,
+                         204)
+        result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)))
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), [])
+    def test_files_conditional_deletion(self):
+        print("Test: only delete files from the filesystem if they're fully dereferenced.")
+        # Upload the first file
+        fhandle = open(self.file1source, 'rb')
+        self.assertEqual(
+            requests.post('%s/files/' % (FILES_BASE_URL),
+                          data={'name': self.file1name},
+                          files={'file': fhandle}).status_code,
+            201)
+        fhandle.close()
+        # Upload the second file
+        fhandle = open(self.file2source, 'rb')
+        self.assertEqual(
+            requests.post('%s/files/' % (FILES_BASE_URL),
+                          data={'name': self.file2name},
+                          files={'file': fhandle}).status_code,
+            201)
+        fhandle.close()
+        # Delete the first file
+        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
+                                                    sanitise_uid(self.file1name))).status_code,
+                         204)
+        # Confirm that the second file can still be downloaded
+        result = requests.get('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file2name)))
+        # Write it to a file
+        fhandle = open('testfile', 'wb')
+        fhandle.write(result.content)
+        fhandle.close()
+        # Confirm that the file we got back is the same as the one we uploaded
+        self.assertTrue(filecmp.cmp(self.file2source, 'testfile'))
+        # Clean up
+        os.remove('testfile')
+        # Delete the second file
+        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
+                                                    sanitise_uid(self.file2name))).status_code,
+                         204)
+        # Confirm that it's no longer there
+        result = requests.get('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file2name)))
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), [])
+
+
+#
+# Untested tests follow
+#
+
+class TestResourceAttributesEnums(unittest.TestCase):
+    '''
+    Test enumerated resource-attributes.
+    '''
+    resourcetype = 'places'
+    resourceuid = 'Midian'
+    attr1name = 'kind'
+    attr1val = 'Fictional'
+    attr1valbad = 'Real'
+    result = None
+    def test_create_and_use_enums(self):
+        print('Test: create a resource with a valid enum attribute')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid,
+                                             self.attr1name: self.attr1val}).status_code,
+                         201)
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
+        print('Test: fail to create a resource with an invalid enum attribute')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid,
+                                             self.attr1name: self.attr1valbad}).status_code,
+                         400)
+        print('Test: fail to add an invalid enum attribute to an existing resource')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid}).status_code,
+                         201)
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.attr1name),
+                                      data={'uid': self.resourceuid,
+                                            self.attr1name: self.attr1valbad}).status_code,
+                         400)
+        print('Test: add a valid attribute to an existing resource.')
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.attr1name),
+                                      data={'uid': self.resourceuid,
+                                            self.attr1name: self.attr1val}).status_code,
+                         204)
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
 
 class TestDependentResources(unittest.TestCase):
     res1type = 'brands'
@@ -594,59 +732,6 @@ class TestInvalidRelationships(unittest.TestCase):
                                                        self.res2uid)).status_code,
                          204)
 
-class TestDbSchema(unittest.TestCase):
-    '''
-    Check that the DB schema is being enforced.
-    Principally, make sure we can't create duplicates.
-    '''
-    resourcetype = 'routers'
-    resourcename = 'whitesands'
-    result = None
-    def test_unique_resources(self):
-        print('Test: test_unique_resources')
-        # Create a new resource
-        self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
-                                       data={'uid': self.resourcename}).status_code,
-                         201)
-        # Confirm that it's now there
-        self.result = requests.get('%s/%s/%s/' % (API_BASE_URL,
-                                                  self.resourcetype,
-                                                  self.resourcename)).json()
-        print('Received result {}'.format(self.result))
-        self.assertEqual(self.result['original_uid'], sanitise_uid(self.resourcename))
-        self.assertEqual(self.result['uid'], self.resourcename)
-        # Attempt to create a duplicate.
-        self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
-                                       data={'uid': self.resourcename}).status_code,
-                         304)
-        # Delete the resource
-        self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
-                                                       self.resourcetype,
-                                                       self.resourcename)).status_code,
-                         204)
-
-class TestBasicResourceErrors(unittest.TestCase):
-    '''
-    Confirm what happens when we make basic errors in resource-creation requests.
-    '''
-    invalid_resourcetype = 'IjustMadeThisUp'
-    valid_resourcetype = 'routers'
-    valid_uid = 'amchitka'
-    def test_basic_resource_errors(self):
-        print('Test: test_basic_resource_errors')
-        # Invalid resource-type
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.invalid_resourcetype),
-                                       data={'foo': 'bar'}).status_code,
-                         400)
-        # Missing UID
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
-                                       data={'foo': 'bar'}).status_code,
-                         400)
-        # Invalid non-UID parameters
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
-                                       data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
-                         400)
-
 class TestAnyType(unittest.TestCase):
     '''
     Confirm handling of the 'any' type
@@ -725,87 +810,6 @@ class TestAnyType(unittest.TestCase):
                                                        self.t1type,
                                                        self.t1uid)).status_code,
                          204)
-
-class TestFilesApi(unittest.TestCase):
-    '''
-    Upload, download, metadata and deletion of files.
-    '''
-    file1source = 'cats_cuddling.jpg'
-    file1name = 'Cuddling cats'
-    file1sha3_256sum = '305664EB53010D52642594A3B3877A1BB811EAD9B610C5C1210F7F3B88B4C184'
-    file2source = 'cats_cuddling.jpg'
-    file2name = 'Cute kitties'
-    def test_files_api_basic(self):
-        print('Test: file upload')
-        fhandle = open(self.file1source, 'rb')
-        self.assertEqual(
-            requests.post('%s/files/' % (FILES_BASE_URL),
-                          data={'name': self.file1name},
-                          files={'file': fhandle}).status_code,
-            201)
-        fhandle.close()
-        print('Test: file metadata')
-        result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)))
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json()['title'], self.file1name)
-        self.assertEqual(result.json()['sha3256sum'], self.file1sha3_256sum)
-        print('Test: file content')
-        result = requests.get('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file1name)))
-        # Write it to a file
-        fhandle = open('testfile', 'wb')
-        fhandle.write(result.content)
-        fhandle.close()
-        # Confirm that the file we got back is the same as the one we uploaded
-        self.assertTrue(filecmp.cmp(self.file1source, 'testfile'))
-        # Clean up
-        os.remove('testfile')
-        print('Test: file deletion')
-        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
-                                                    sanitise_uid(self.file1name))).status_code,
-                         204)
-        result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)))
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json(), [])
-    def test_files_conditional_deletion(self):
-        print("Test: only delete files from the filesystem if they're fully dereferenced.")
-        # Upload the first file
-        fhandle = open(self.file1source, 'rb')
-        self.assertEqual(
-            requests.post('%s/files/' % (FILES_BASE_URL),
-                          data={'name': self.file1name},
-                          files={'file': fhandle}).status_code,
-            201)
-        fhandle.close()
-        # Upload the second file
-        fhandle = open(self.file2source, 'rb')
-        self.assertEqual(
-            requests.post('%s/files/' % (FILES_BASE_URL),
-                          data={'name': self.file2name},
-                          files={'file': fhandle}).status_code,
-            201)
-        fhandle.close()
-        # Delete the first file
-        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
-                                                    sanitise_uid(self.file1name))).status_code,
-                         204)
-        # Confirm that the second file can still be downloaded
-        result = requests.get('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file2name)))
-        # Write it to a file
-        fhandle = open('testfile', 'wb')
-        fhandle.write(result.content)
-        fhandle.close()
-        # Confirm that the file we got back is the same as the one we uploaded
-        self.assertTrue(filecmp.cmp(self.file2source, 'testfile'))
-        # Clean up
-        os.remove('testfile')
-        # Delete the second file
-        self.assertEqual(requests.delete('%s/%s' % (FILES_BASE_URL,
-                                                    sanitise_uid(self.file2name))).status_code,
-                         204)
-        # Confirm that it's no longer there
-        result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file2name)))
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json(), [])
 
 # Make it happen
 if __name__ == '__main__':
