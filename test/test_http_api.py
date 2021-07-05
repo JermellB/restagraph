@@ -30,9 +30,11 @@ PROTOCOL = 'http'
 SERVER_URL = 'localhost:4950'
 API_PREFIX = '/raw/v1'
 FILES_PREFIX = '/files/v1'
+SCHEMA_PREFIX = '/schema/v1'
 
 API_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, API_PREFIX)
 FILES_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, FILES_PREFIX)
+SCHEMA_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, SCHEMA_PREFIX)
 
 
 # Utilities
@@ -294,6 +296,66 @@ class TestFilesApi(unittest.TestCase):
         result = requests.get('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file2name)))
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), [])
+
+
+@pytest.mark.dependency(depends=[
+    "TestDuplicateResistance::test_unique_resources",
+    "TestBasicResourceErrors::test_basic_resource_errors"])
+class TestSchemaBasic(unittest.TestCase):
+    def test_schema_any(self):
+        assert requests.get('%s/any' % (SCHEMA_BASE_URL)).json() == {
+                "name": "any",
+                "attributes": None,
+                "dependent": "false",
+                "notes": "Special-case meta-resource, representing an instance of any type of resource.",
+                "relationships": [
+                    {
+                        "relationship": "CREATOR",
+                        "dependent": "false",
+                        "cardinality": "many:many",
+                        "notes": "",
+                        "resourcetype": [
+                            "People"
+                            ]
+                        },
+                    {
+                        "relationship": "GROUPS",
+                        "dependent": "false",
+                        "cardinality": "many:many",
+                        "notes": "",
+                        "resourcetype": [
+                            "Groups"
+                            ]
+                        },
+                    {
+                        "relationship": "TAGS",
+                        "dependent": "false",
+                        "cardinality": "many:many",
+                        "notes": "",
+                        "resourcetype": [
+                            "Tags"
+                            ]
+                        }
+                    ]}
+    def test_schema_tags(self):
+        assert requests.get('%s/Tags' % (SCHEMA_BASE_URL)).json() == {
+                "name": "Tags",
+                "attributes": [
+                    {
+                        "name": "description",
+                        "description": "Clarification of what the tag means.",
+                        "vals": {
+                            "name": "description",
+                            "description": "Clarification of what the tag means.",
+                            "attr-values": None
+                            }
+                        }
+                    ],
+                "dependent": "false",
+                "notes": "For categorising resources of any type.",
+                "relationships": None
+                }
+
 
 
 #
