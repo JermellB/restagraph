@@ -127,6 +127,11 @@ POST /api/v1/<resource-type>/
 
 With payload of `uid=<uid>`, plus optionally `<attribute-name>=<value>` pairs for any subset of the attributes defined for this resource type.
 
+Example:
+```
+curl -d 'uid=Blake' http://localhost:4950/raw/v1/People
+```
+
 The UID must be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
 On success, returns a status code of 201, and the URI for the newly-created resource, e.g. `/People/Blake`.
@@ -138,7 +143,9 @@ On success, returns a status code of 201, and the URI for the newly-created reso
 GET /api/v1/<resource-type>/<uid>
 ```
 
-Returns a JSON representation of the resource. On success, returns a status code of 200.
+On success, returns a status code of 200, and the response body is a JSON representation of the resource.
+
+If no resource of that type exists with that UID, a status code of 404 is returned.
 
 
 ## Retrieve all resources of a given type
@@ -147,7 +154,9 @@ Returns a JSON representation of the resource. On success, returns a status code
 GET /api/v1/<resource-type>/
 ```
 
-Returns a JSON representation of all resources of that type, with a status code of 200, or 404 if there aren´t any.
+Returns a JSON representation of all resources of that type, with a status code of 200.
+
+If there aren´t any resources of this type, it still returns a status code of 200, and the response body is an empty JSON array, i.e. `[]`. This may seem inconsistent with the 404 returned for a failed request for a single resource, but it's the difference between "nothing at this URL" and "this URL is valid, but the search returned nothing."
 
 
 ## Update one or more attributes of a resource

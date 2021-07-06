@@ -61,13 +61,7 @@ class TestResources(unittest.TestCase):
         # Ensure it's not already present
         assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                                     self.restype,
-                                                    self.resuid)).status_code == 200
-        assert requests.get('%s/%s/%s' % (API_BASE_URL,
-                                                    self.restype,
-                                                    self.resuid)).json() == []
-        assert requests.get('%s/%s/%s' % (API_BASE_URL,
-                                                    self.restype,
-                                                    self.resuid)).json() == []
+                                                    self.resuid)).status_code == 404
         # Ensure we have none of that kind of resource
         assert requests.get('%s/%s' % (API_BASE_URL,
                                                  self.restype)).status_code == 200
@@ -91,9 +85,7 @@ class TestResources(unittest.TestCase):
             API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 204
         # Confirm it's gone
         assert requests.get('%s/%s/%s' % (
-            API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 200
-        assert requests.get('%s/%s/%s' % (
-            API_BASE_URL, self.restype, sanitise_uid(self.resuid))).json() == []
+            API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 404
 
 @pytest.mark.dependency(depends=["TestResources::test_create_and_delete_single_resource"])
 class TestDuplicateResistance(unittest.TestCase):
@@ -213,9 +205,28 @@ class TestBasicResourceErrors(unittest.TestCase):
                                        data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
                          409)
 
-@pytest.mark.dependency(depends=[
-    "TestDuplicateResistance::test_unique_resources",
-    "TestBasicResourceErrors::test_basic_resource_errors"])
+@pytest.mark.dependency(depends=["TestBasicResourceErrors::test_basic_resource_errors"])
+class TestRelationshipsBasic(unittest.TestCase):
+    '''
+    The most rudimentary of relationship testing
+    '''
+    person1 = 'Blake'
+    tag1 = 'Idealist'
+    def test_tag_a_person(self):
+        # Setup
+        requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
+        requests.post('%s/Tags/' % (API_BASE_URL), data={"uid": self.tag1})
+        # Test
+        assert requests.post('%s/People/%s/TAGS' % (API_BASE_URL, self.person1),
+                data={"target": "/Tags/{tag}".format(tag=self.tag1)}).status_code == 201
+        # Teardown
+        assert requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 204
+        assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
+        # Confirm teardown
+        assert requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 404
+        assert requests.get('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 404
+
+@pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
 class TestFilesApi(unittest.TestCase):
     '''
     Upload, download, metadata and deletion of files.

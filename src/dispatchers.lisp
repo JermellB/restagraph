@@ -185,14 +185,23 @@
              ((and (= (mod (length uri-parts) 3) 2)
                    (or (null result)
                        (equal result "")))
-              "[]")
+              (progn
+                (setf (tbnl:content-type*) "text/plain")
+                (setf (tbnl:return-code*) tbnl:+http-not-found+)
+                "Resource not found."))
              ;; Single resource was requested, and something was found.
              ((= (mod (length uri-parts) 3) 2)
-              (cl-json:encode-json-alist-to-string result))
+              (progn
+                (setf (tbnl:content-type*) "application/json")
+                (setf (tbnl:return-code*) tbnl:+http-ok+)
+                (cl-json:encode-json-alist-to-string result)))
              ;; Class of resources was requested, and nothing was found.
              ((or (null result)
                   (equal result ""))
-              "[]")
+              (progn
+                (setf (tbnl:content-type*) "application/json")
+                (setf (tbnl:return-code*) tbnl:+http-ok+)
+                "[]"))
              ;; Class of resources was requested, and something was found.
              (t
                (cl-json:encode-json-to-string result)))))
