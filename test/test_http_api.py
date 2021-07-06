@@ -206,6 +206,39 @@ class TestBasicResourceErrors(unittest.TestCase):
                          409)
 
 @pytest.mark.dependency(depends=["TestBasicResourceErrors::test_basic_resource_errors"])
+class TestAttributesBasic(unittest.TestCase):
+    '''
+    Add an attribute to a resource
+    '''
+    person1 = 'Blake'
+    attr1name = 'displayname'
+    attr1val = 'Roj Blake'
+    def test_add_and_remove_single_attribute(self):
+        # Create the resource
+        requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
+        # Check that it doesn't yet have the attribute we're adding
+        result1 = requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).json()
+        assert result1['uid'] == self.person1
+        with pytest.raises(NameError):
+            result1[attr1name]
+        # Add the attribute
+        assert requests.put('%s/People/%s' % (API_BASE_URL, self.person1),
+                            data={self.attr1name: self.attr1val}).status_code == 204
+        # Confirm that the attribute is there
+        assert requests.get('%s/People/%s' % (
+            API_BASE_URL, self.person1)).json()[self.attr1name] == self.attr1val
+        # Remove the attribute
+        assert requests.put('%s/People/%s' % (API_BASE_URL, self.person1),
+                            data={self.attr1name: self.attr1val}).status_code == 204
+        # Confirm that the attribute is gone
+        with pytest.raises(NameError):
+            requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).json()[attr1name]
+        # Remove the resource
+        assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
+        # Confirm the resource is gone
+        assert requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 404
+
+@pytest.mark.dependency(depends=["TestAttributesBasic::test_add_and_remove_single_attribute"])
 class TestRelationshipsBasic(unittest.TestCase):
     '''
     The most rudimentary of relationship testing
