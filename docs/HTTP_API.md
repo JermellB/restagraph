@@ -1,5 +1,45 @@
 # API reference
 
+## General overview
+
+The purpose of the API is to ensure that data going _into_ the database fits a schema. It's arranged around two key things:
+
+- resources, or the "things" represented in the database
+- relationships between the resources.
+
+The rest is details, around things like:
+
+- What types of resource can be represented in the database.
+- What attributes a resourcetype can have.
+- Whether a resource can exist in its own right (primary resource) or whether it only makes sense in the context of another resource (dependent resource).
+    - E.g, a floor of a building.
+- What relationships are permitted from one resourcetype to another.
+- The cardinality of a relationship: one-to-one, one-to-many, many-to-one, or many-to-many.
+- Whether a relationship is a parent-child one between a primary resource and a dependent one.
+
+
+### What makes this API different from the others
+
+"Why don't you tell her... why you are the way you are."
+
+Restagraph is designed explicitly around the property-graph model, as you find in Neo4j, rather than presenting a graph db in relational terms.
+
+The most significant part of this is that one resourcetype can have the same type of relationship to _multiple_ other resourcetypes. That is, a task can relate to a wikipage, a person _and_ another task, all in the same schema at the same time. In the same way, a resourcetype can have several different relationships to another resourcetype: one organisation can be a vendor to another, _and_ be a customer of it, both at the same time. Thus, it can represent the real world as faithfully as possible.
+
+Thus, we separate what a thing is, from its role in the scheme of things. There are no `customer` resourcetypes, just `people` or `organisations` that have customer or vendor relationships to other people or organisations.
+
+The next important element is that you can trace the path of relationships from one resource to another, starting from any resource, and following any number of relationships. Among other things, this means that the hierarchy of dependent resources can go just as deep as necessary to represent your subject area.
+
+Combining these two things, you get the `resourcetype/UID/relationship/resourcetype/UID` pattern. If you have two people who are friends, and one has a dog, you could trace the path to the dog via this URI: `/People/PersonOne/FRIEND/People/PersonTwo/PETS/dog/Fifi`
+
+Why is the resourcetype _always_ in the path, even if that relationship could only lead to one resourcetype?
+
+- Predictability, for one thing. As a sysadmin and network automation engineer, I've learned that a predictable, self-consistent API is the best kind.
+- Another reason is preparing for the future: however unexpected, you may wind up defining another resourcetype as a possible target for that relationship, and this approach means you won't have to change any of your existing links or definitions.
+- Lastly, the extra code to handle these special cases is another source of potential bugs. The simpler the code, the more reliable the server can be.
+
+
+
 ## Supported HTTP methods
 
 Restagraph makes use of several of the HTTP methods, using their standard meanings according to [RFC 7231](https://tools.ietf.org/html/rfc7231).
