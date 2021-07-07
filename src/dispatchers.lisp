@@ -510,7 +510,7 @@
            ;; Now we need to store the file's metadata,
            (log-message
              :debug
-             (format nil "Storing file metadata: name = '~A', checksum = '~A', original name '~A', mimetype '~A'"
+             (format nil "Storing file metadata: name = '~A', checksum = '~A', mimetype '~A'"
                      requested-filename
                      checksum
                      (second (tbnl:post-parameter "file"))
@@ -524,7 +524,6 @@
                                           `(("uid" . ,(sanitise-uid requested-filename))
                                             ("title" . ,requested-filename)
                                             ("sha3256sum" . ,checksum)
-                                            ("originalname" . ,(second (tbnl:post-parameter "file")))
                                             ("mimetype" . ,mimetype))
                                           (schema tbnl:*acceptor*)))))
                ;; then if that succeeds move it to its new location.

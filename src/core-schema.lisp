@@ -54,9 +54,6 @@
                                 :name "title"
                                 :description "The UID requested by the client")
                               (make-incoming-rtype-attrs
-                                :name "originalname"
-                                :description "The filename sent by the browser.")
-                              (make-incoming-rtype-attrs
                                 :name "notes"
                                 :description "Notes about this file")
                               (make-incoming-rtype-attrs
