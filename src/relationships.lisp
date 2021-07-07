@@ -41,9 +41,9 @@
               (source-type (nth (- (length source-parts) 2) source-parts))
               (dest-type (nth (- (length dest-parts) 2) dest-parts))
               (relationship-attrs
-                (car (or
-                       (get-relationship schema source-type relationship dest-type)
-                       (get-relationship schema "any" relationship dest-type)))))
+                (or (get-relationship schema source-type relationship dest-type)
+                    (get-relationship schema "any" relationship dest-type))))
+         (log-message :debug "Basic sanity-checks passed. Starting more in-depth checks.")
          (cond
            ;; No such relationship
            ((not relationship-attrs)
@@ -142,7 +142,7 @@
                                       :directional nil)))))))))
 
 
-(defgeneric delete-relationship-by-path (db relationship-uri target-resource schema)
+(defgeneric delete-relationship-by-path (db schema relationship-uri target-resource)
   (:documentation "Delete a relationship based on its path, and that of its target.
                   Arguments:
                   - relationship-uri = URI of the relationship itself
@@ -150,9 +150,9 @@
                   This form is required to distinguish between deleting the relationship, and the resource itself."))
 
 (defmethod delete-relationship-by-path ((db neo4cl:neo4j-rest-server)
+                                        (schema hash-table)
                                         (relationship-uri string)
-                                        (target-resource string)
-                                        (schema hash-table))
+                                        (target-resource string))
   (log-message :debug (format nil "Attempting to delete the relationship ~A to ~A"
                               relationship-uri target-resource))
   (let* ((rel-parts (get-uri-parts relationship-uri))
@@ -192,13 +192,14 @@
                          (neo4cl:neo4j-transaction
                            db
                            `((:STATEMENTS
-                               ((:STATEMENT .
-                                 ,(format nil "MATCH ~A<-[r]-(n) RETURN type(r), labels(n);"
-                                          (uri-node-helper
-                                            (append rel-parts dest-parts)
-                                            :path ""
-                                            :marker "n"
-                                            :directional t))))))))))
+                               ((:STATEMENT
+                                  .
+                                  ,(format nil "MATCH ~A<-[r]-(n) RETURN type(r), labels(n);"
+                                           (uri-node-helper
+                                             (append rel-parts dest-parts)
+                                             :path ""
+                                             :marker "n"
+                                             :directional t))))))))))
            (log-message :debug (format nil "Found ~D other incoming relationships to the target resource"
                                        (length others)))
            ;; Either there are no others to check...
@@ -211,7 +212,7 @@
                                 (format nil "Checking for dependencies in incoming relationship ~A from type ~A"
                                         (car inc) (car (second inc))))
                               (dependent
-                                (get-relationship db dest-type (car inc) (car (second inc)))))
+                                (get-relationship schema dest-type (car inc) (car (second inc)))))
                           others)))))
        (error 'restagraph:integrity-error
               :message "This would leave an orphan dependent resource. Delete the dependent resource instead."))

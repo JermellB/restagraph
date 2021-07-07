@@ -13,7 +13,7 @@
                    (debug 3)))
 
 
-(defgeneric store-resource (db resourcetype attributes schema)
+(defgeneric store-resource (db schema resourcetype attributes)
   (:documentation "Store a resource in the database. Attributes argument is expected in the form of an alist.
 Return the UID on success.
 Return an error if
@@ -21,28 +21,27 @@ Return an error if
 - the client attempts to set attributes that aren't defined for this resourcetype."))
 
 (defmethod store-resource ((db neo4cl:neo4j-rest-server)
+                           (schema hash-table)
                            (resourcetype string)
                            ;; `attributes` is an alist, where the car is the name
                            ;; and the cdr is the value
-                           (attributes list)
-                           schema)
+                           (attributes list))
+  (log-message :debug (format nil "Attempting to store a resource of type '~A' with attributes ~{~A~^, ~}"
+                              resourcetype attributes))
   (cond
     ;; Catch any critical deficiencies in the definition asap
     ((or (null (assoc "uid" attributes :test 'equal))
-         (equal (cdr (assoc "uid" attributes :test 'equal)) ""))
-     (error 'client-error
-            :message "The UID must be a non-empty string"))
+         (equal "" (cdr (assoc "uid" attributes :test 'equal))))
+     (error 'client-error :message "The UID must be a non-empty string"))
     ;; If this is a dependent resource, bail out now
-    ((dependent-resource-p schema resourcetype)
+    ((dependent (gethash resourcetype schema))
      (let ((message "This is a dependent resource; it must be created as a sub-resource of an existing resource."))
        (log-message :warn message)
        (error 'integrity-error :message message)))
     ;; OK so far: carry on
     (t
       (handler-case
-        (let ((attributes (validate-resource-before-creating schema
-                                                             resourcetype
-                                                             attributes)))
+        (let ((attributes (validate-resource-before-creating schema resourcetype attributes)))
           ;; If we got this far, we have a valid resource type and valid attribute names.
           ;; Make it happen
           (log-message :debug (format nil "Creating a ~A resource with attributes ~A"
@@ -88,13 +87,13 @@ Return an error if
                    :message (message e))))))))
 
 
-(defgeneric store-dependent-resource (db uri attributes schema)
+(defgeneric store-dependent-resource (db schema uri attributes)
   (:documentation "Create a dependent resource, at the end of the path given by URI. Its parent resource must exist, and the relationship must be a valid dependent relationship."))
 
 (defmethod store-dependent-resource ((db neo4cl:neo4j-rest-server)
+                                     (schema hash-table)
                                      (uri string)
-                                     (attributes list)
-                                     schema)
+                                     (attributes list))
   (log-message :debug (format nil "Attempting to create a dependent resource at path ~A" uri))
   (let* ((uri-parts (get-uri-parts uri))
          (relationship (car (last (butlast uri-parts))))
@@ -102,11 +101,7 @@ Return an error if
          (parent-type (nth (- (length parent-parts) 2) parent-parts))
          (dest-type (car (last uri-parts)))
          (dest-uid (sanitise-uid (cdr (assoc "uid" attributes :test 'equal))))
-         (relationship-attrs (car (get-relationship schema
-                                                    parent-type
-                                                    relationship
-                                                    dest-type))))
-    ;(log-message :debug (format nil "Relationship attributes found: ~A" relationship-attrs))
+         (relationship-attrs (get-relationship schema parent-type relationship dest-type)))
     (log-message :debug "Beginning sanity checks")
     (cond
       ;; Sanity check: required parameters
@@ -133,7 +128,7 @@ Return an error if
          (log-message :debug message)
          (error 'client-error :message message)))
       ;; Sanity check: is this a dependent resource type?
-      ((not (dependent-resource-p schema dest-type))
+      ((not (dependent (gethash dest-type schema)))
        (let ((message "This is not a dependent resource type"))
          (log-message :debug message)
          (error 'client-error :message message)))
@@ -141,16 +136,18 @@ Return an error if
       (t
         (log-message :debug "Sanity checks passed. Attempting to create the resource.")
        ;; Validate the supplied attributes
-       (let* ((validated-attributes (validate-resource-before-creating
-                                      schema
-                                      dest-type
-                                      (remove-if #'(lambda (param) (equal (car param) "type"))
-                                                 attributes)))
-              (resource-path (format nil "~{/~A~}/~A/~A/~A"
-                                     parent-parts
-                                     relationship
-                                     dest-type
-                                     (cdr (assoc "uid" validated-attributes :test #'string=)))))
+       (let* ((validated-attributes
+                (validate-resource-before-creating
+                  schema
+                  dest-type
+                  (remove-if #'(lambda (param) (equal (car param) "type"))
+                             attributes)))
+              (resource-path
+                (format nil "~{/~A~}/~A/~A/~A"
+                        parent-parts
+                        relationship
+                        dest-type
+                        (cdr (assoc "uid" validated-attributes :test #'string=)))))
          ;; Report on the attributes for debugging
          (log-message :debug (format nil "Validated attributes: ~A" validated-attributes))
          ;; One more sanity-check: does it already exist?
@@ -199,17 +196,18 @@ Return an error if
              (error 'integrity-error :message (format nil "Resource ~A already exists" resource-path))))))))
 
 
-(defgeneric move-dependent-resource (db uri newparent schema)
+(defgeneric move-dependent-resource (db schema uri newparent)
   (:documentation "Take an existing dependent resource, and give it a new parent, where both are identified by their URI paths."))
 
 (defmethod move-dependent-resource ((db neo4cl:neo4j-rest-server)
+                                    (schema hash-table)
                                     (uri string)
-                                    (newparent string)
-                                    schema)
+                                    (newparent string))
   (log-message :debug
                (format nil "Attempting to move dependent resource ~A to new parent ~A"
                        uri newparent))
   (let* ((uri-parts (get-uri-parts uri))
+         (dest-parts (get-uri-parts newparent))
          (current-parent-path (uri-node-helper (butlast uri-parts 3)
                                                :path ""
                                                :marker "b"
@@ -217,15 +215,16 @@ Return an error if
          ;; It's a dependent resource, so the length of this path
          ;; will always be longer than 2:
          (current-relationship (car (last (butlast uri-parts 2))))
-         (target-type (car (last (butlast uri-parts))))
-         (target-uid (car (last uri-parts)))
-         (dest-parts (get-uri-parts newparent))
-         (new-relationship (car (last dest-parts)))
+         (target-type (car (last (butlast uri-parts)))) ; Dependent resourcetype
+         (target-uid (car (last uri-parts)))  ; Dependent UID
+         (new-relationship-type (car (last dest-parts)))
          ;; The new parent may have a 2-element path,
          ;; in which case we don't need to extract the last 2 elements:
          (new-parent-type (car (if (> (length dest-parts) 2)
                                    (last (butlast dest-parts 2))
                                    dest-parts)))
+         (new-relationship-details
+           (get-relationship schema new-parent-type new-relationship-type target-type))
          ;; Define this here because we use it at both the start and the end
          (new-path (format nil "~{/~A~}/~A/~A" dest-parts target-type target-uid)))
     (cond
@@ -244,14 +243,14 @@ Return an error if
                                      (butlast dest-parts)))
          (error 'client-error :message "Parent resource does not exist")))
       ;; Sanity-check: is the new relationship a valid dependent one?
-      ((not (dependent-relationship-p schema new-parent-type new-relationship target-type))
+      ((not (dependent new-relationship-details))
        (progn
          (log-message
            :debug
            (format
              nil
              "Target resource ~A does not depend on the new parent-type ~A for relationship ~A"
-             target-type new-parent-type new-relationship))
+             target-type new-parent-type new-relationship-type))
          (error 'client-error
                 :message
                 (format
@@ -273,7 +272,7 @@ Return an error if
                                  :directional t))
               (destpath (format nil "~A-[:~A]->(:~A {uid: '~A'})"
                                 new-parent-path
-                                new-relationship
+                                new-relationship-type
                                 target-type
                                 target-uid)))
          (log-message
@@ -287,7 +286,7 @@ Return an error if
                   . ,(format nil "MATCH ~A MATCH ~A CREATE (m)-[:~A]->(t)"
                              new-parent-path
                              sourcepath
-                             new-relationship)))))))
+                             new-relationship-type)))))))
        ;; Confirm that the new relationship is actually present.
        ;; If the MATCH clause matched nothing, it'll return OK.
        ;; We want to check this every time, and bail out if we detect that it failed.
@@ -428,13 +427,12 @@ The optional 'filters parameter is for refining the search results."))
                                              :path ""
                                              :marker "n"
                                              :directional directional))))
-         (log-message :debug (concatenate 'string "Querying database: "
+         (log-message :debug (concatenate 'string "Using query-string: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))
          (neo4cl:extract-data-from-get-request
            (neo4cl:neo4j-transaction
              db
-             `((:STATEMENTS
-                 ((:STATEMENT . ,query))))))))
+             `((:STATEMENTS ((:STATEMENT . ,query))))))))
       ;; All resources with a particular relationship to this one
       (t
        (log-message
@@ -465,17 +463,30 @@ The optional 'filters parameter is for refining the search results."))
                    response)))))))
 
 
-(defgeneric get-dependent-resources (db sourcepath schema)
+(defgeneric get-dependent-resources (db schema sourcepath)
   (:documentation "Return a list of the resources that depend critically on this one.
 The returned list contains 3-element lists of relationship, type and UID."))
 
 (defmethod get-dependent-resources ((db neo4cl:neo4j-rest-server)
-                                    (sourcepath list)
-                                    schema)
+                                    (schema hash-table)
+                                    (sourcepath list))
   (log-message :debug (format nil "Searching for resources dependent on parent ~{/~A~}" sourcepath))
-  ;; Get all nodes to which this node has outbound relationships
-  (let ((candidates
-          (mapcar
+  ;; Get all dependent relationships outbound from this resourcetype
+  ;; Get all nodes to which this node has outbound relationships of those types
+  (let ((query-string (format nil "MATCH ~A-[r]->(b) WHERE type(r) IN [~{\"~A\"~^, ~}] RETURN type(r), labels(b), b.uid"
+
+                              (uri-node-helper sourcepath
+                                               :path ""
+                                               :marker "n"
+                                               :directional t)
+                              (mapcar #'name
+                                      (remove-if-not
+                                        #'dependent
+                                        (relationships (gethash (car (last sourcepath 2))
+                                                                schema)))))))
+    (log-message :debug (format nil "Generated query-string '~A'" query-string))
+    ;; We should probably return the result
+    (mapcar
             #'(lambda (row)
                 ;; List elements: relationship, target type, target UID
                 ;; The Neo4j operator `labels(n)` returns a list, hence the (car (second row)).
@@ -484,101 +495,16 @@ The returned list contains 3-element lists of relationship, type and UID."))
               (neo4cl:neo4j-transaction
                 db
                 `((:STATEMENTS
-                    ((:STATEMENT
-                       .  ,(format nil "MATCH ~A-[r]->(b) RETURN type(r), labels(b), b.uid"
-                                   (uri-node-helper sourcepath
-                                                    :path ""
-                                                    :marker "n"
-                                                    :directional t)))))))))))
-    (log-message :debug (format nil "Retrieved candidate links ~A" candidates))
-    ;; Filter out any candidate nodes that do not have a _dependent_ relationship on the parent
-    (remove-if
-      #'null
-      (mapcar #'(lambda (c)
-                  (log-message
-                    :debug
-                    (format nil "Checking candidate relationship '~A' to dependent resource '~A/~A'"
-                            (first c)                   ; Relationship to candidate
-                            (car (butlast sourcepath))  ; Type of target-resource
-                            (second c)))                ; Type of candidate
-                  (when (dependent-relationship-p
-                          schema
-                          (car (butlast sourcepath))    ; Type of target-resource
-                          (first c)                     ; Relationship to candidate
-                          (second c))                   ; Type of candidate
-                    c))
-              candidates))))
+                    ((:STATEMENT . ,query-string)))))))))
 
 
-
-;; Suspected to be unused
-#+(or)
-(defgeneric critical-dependency-p (db path)
-  (:documentation "Determine whether the resource identified by this path depends solely on its relationship to its immediate parent on that path.
-Return a boolean."))
-
-;; Suspected to be unused
-#+(or)
-(defmethod critical-dependency-p ((db neo4cl:neo4j-rest-server)
-                                  (path list)
-                                  schema)
-  ;; The path must end in a resource UID and be long enough to contain a dependency
-  (log-message
-    :debug
-    (format nil "Checking whether ~{/~A~} ends with a critical dependency." path))
-  (if (and
-        (> (length path) 2)
-        (= (mod (length path) 3) 2))
-      ;; Path is valid.
-      ;; Does the target even depend on this relationship?
-      (if (dependent-relationship-p
-            schema
-            (sanitise-uid (nth (- (length path) 5) path))    ; source-type
-            (sanitise-uid (nth (- (length path) 3) path))    ; relationship
-            (sanitise-uid (nth (- (length path) 2) path)))   ; target-type
-          ;; Extract all _other_ links to the target resource,
-          ;; and determine whether at least one is a dependent relationship.
-          (let ((target-type (sanitise-uid (nth (- (length path) 2) path)))
-                (candidates
-                  (neo4cl:extract-rows-from-get-request
-                    (neo4cl:neo4j-transaction
-                      db
-                      `((:STATEMENTS
-                          ((:STATEMENT .
-                            ,(format nil "MATCH ~A<-[r]-(n) RETURN type(r), labels(n)"
-                                     (uri-node-helper path
-                                                      :path ""
-                                                      :marker "n"
-                                                      :directional t))))))))))
-            (log-message
-              :debug
-              (format nil "Extracted the following list of relationships to check for dependency: ~A"
-                      candidates))
-            ;; Now check for any dependent relationships in the returned list.
-            ;; Invert the result of this test, because "no other dependent relationships"
-            ;; is a positive answer to our question.
-            (not
-              (remove-if #'null
-                         (mapcar #'(lambda (c)
-                                     (dependent-relationship-p
-                                       schema
-                                       target-type
-                                       (first c)
-                                       (car (second c))))
-                                 candidates))))
-          ;; The target does not depend on this relationship
-          (log-message :debug "This is not a dependent path."))
-      ;; Invalid path
-      (error 'client-error :message "Path must end with a resource UID")))
-
-
-(defgeneric update-resource-attributes (db path attributes schema)
+(defgeneric update-resource-attributes (db schema path attributes)
   (:documentation "Add, update or delete a set of attributes of a given resource."))
 
 (defmethod update-resource-attributes ((db neo4cl:neo4j-rest-server)
+                                       (schema hash-table)
                                        (path list)
-                                       (attributes list)
-                                       schema)
+                                       (attributes list))
   (log-message :debug (format nil "Updating attributes for resource ~{/~A~}" path))
   (let ((attrs
           (append
@@ -619,7 +545,7 @@ Return a boolean."))
 
 (defmethod delete-resource-by-path ((db neo4cl:neo4j-rest-server)
                                     (targetpath string)
-                                    schema
+                                    (schema hash-table)
                                     &key recursive)
   (log-message :debug (format nil "Attempting to delete resource ~A" targetpath))
   (let ((parts (get-uri-parts targetpath)))
@@ -631,45 +557,45 @@ Return a boolean."))
     ;;
     ;; Expected to use critical-dependency-p to answer some of these questions
     (if (equal (mod (length parts) 3) 2)
-      ;; Do any other resources depend critically on this one?
-      (let ((dependents (get-dependent-resources db parts schema)))
-        (if dependents
-          ;; Yes: it's a first-class resource with dependents.
-          ;; Was the recursive argument supplied?
-          (if recursive
-            ;; Yes. Delete the dependents, passing the value of the recursive argument
-            (progn
-              (log-message :debug "Dependent resources are present, and recursive deletion was requested.")
-              (mapcar
-                #'(lambda (d)
-                    (let ((newpath (format nil "~{/~A~}" (append parts d))))
-                      (log-message
-                        :debug
-                        (format nil "Recursing through delete-resource-by-path with new path ~A"
-                                newpath))
-                      (delete-resource-by-path db newpath schema :recursive t)))
-                dependents)
-              ;; Having deleted the dependents, delete the resource itself
-              (log-message :debug (format nil "Deleting target resource ~A" targetpath))
-              (neo4cl:neo4j-transaction
-                db
-                `((:STATEMENTS
-                    ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
-                                            (first parts) (second parts))))))))
-            ;; Dependents, but no recursive argument. Bail out.
-            (error 'integrity-error
-                   :message
-                   "Other resources depend critically on this one, and recursive was not specified."))
-          ;; First-class resource with no dependents: remove it.
-          (let ((query (format nil "MATCH ~A DETACH DELETE n" (uri-node-helper parts))))
-            (log-message
-              :debug
-              (format nil "No dependents. Deleting resource ~A with query '~A'" targetpath query))
-            (neo4cl:neo4j-transaction
-              db
-              `((:STATEMENTS
-                  ((:STATEMENT . ,query))))))))
-      (error 'client-error :message "This is not a valid deletion request"))))
+        ;; Do any other resources depend critically on this one?
+        (let ((dependents (get-dependent-resources db schema parts)))
+          (if dependents
+              ;; Yes: it's a first-class resource with dependents.
+              ;; Was the recursive argument supplied?
+              (if recursive
+                  ;; Yes. Delete the dependents, passing the value of the recursive argument
+                  (progn
+                    (log-message :debug "Dependent resources are present, and recursive deletion was requested.")
+                    (mapcar
+                      #'(lambda (d)
+                          (let ((newpath (format nil "~{/~A~}" (append parts d))))
+                            (log-message
+                              :debug
+                              (format nil "Recursing through delete-resource-by-path with new path ~A"
+                                      newpath))
+                            (delete-resource-by-path db newpath schema :recursive t)))
+                      dependents)
+                    ;; Having deleted the dependents, delete the resource itself
+                    (log-message :debug (format nil "Deleting target resource ~A" targetpath))
+                    (neo4cl:neo4j-transaction
+                      db
+                      `((:STATEMENTS
+                          ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
+                                                  (first parts) (second parts))))))))
+                  ;; Dependents, but no recursive argument. Bail out.
+                  (error 'integrity-error
+                         :message
+                         "Other resources depend critically on this one, and recursive was not specified."))
+              ;; First-class resource with no dependents: remove it.
+              (let ((query (format nil "MATCH ~A DETACH DELETE n" (uri-node-helper parts))))
+                (log-message
+                  :debug
+                  (format nil "No dependents. Deleting resource ~A with query '~A'" targetpath query))
+                (neo4cl:neo4j-transaction
+                  db
+                  `((:STATEMENTS
+                      ((:STATEMENT . ,query))))))))
+        (error 'client-error :message "This is not a valid deletion request"))))
 
 
 (defgeneric delete-resource-attributes (db path attributes)

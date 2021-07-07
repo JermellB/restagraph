@@ -19,7 +19,6 @@
     ;; Functions
     sanitise-uid
     ;; Methods
-    resourcetype-exists-p
     get-resource-attributes-from-db
     add-resource-relationship
     describe-resource-type

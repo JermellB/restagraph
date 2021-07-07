@@ -97,7 +97,7 @@
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-alist-to-string
-             (describe-resource-type (schema tbnl:*acceptor*) (car uri-parts)))))
+             (a-listify (gethash (car uri-parts) (schema tbnl:*acceptor*))))))
         ;; Get a description of the whole schema in JSON format
         ((equal (tbnl:request-method*) :GET)
          (progn
@@ -105,10 +105,15 @@
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            (cl-json:encode-json-to-string
-             (mapcar
-               #'(lambda (r)
-                   (describe-resource-type (schema tbnl:*acceptor*) r))
-               (get-resourcetype-names (schema tbnl:*acceptor*))))))
+             (let ((typenames
+                     (sort
+                       (loop for k being the hash-keys
+                             in (restagraph::schema restagraph::*restagraph-acceptor*)
+                             collecting k)
+                       #'string<)))
+               (mapcar #'(lambda (rtype)
+                           (a-listify (gethash rtype (schema tbnl:*acceptor*))))
+                       typenames)))))
         ;; Upload a schema to install in the db
         ;; Expects URL-encoded file upload, as in this example:
         ;; curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
@@ -119,7 +124,7 @@
            (log-message :info "Received schema for upload.")
            (log-message :debug (format nil "Received content-type: ~A" (tbnl:content-type*)))
            (if
-             (install-uploaded-schema (tbnl:post-parameter "schema") (datastore tbnl:*acceptor*))
+             (install-uploaded-schema (first (tbnl:post-parameter "schema")) (datastore tbnl:*acceptor*))
              (progn
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
@@ -212,30 +217,30 @@
            (equal (tbnl:request-method*) :POST)
            (equal (length uri-parts) 1)
            (tbnl:post-parameter "uid"))
-         (let ((resourcetype (first uri-parts)))
+         (let ((resourcetype (first uri-parts))
+               (uid (tbnl:post-parameter "uid")))
            (log-message
              :debug
              (format nil "Attempting to dispatch a POST request for resource type ~A" resourcetype))
            ;; Do we already have one of these?
            (if (get-resources
                  (datastore tbnl:*acceptor*)
-                 (format nil "/~A/~A" (car uri-parts) (tbnl:post-parameter "uid")))
+                 (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
              ;; It's already there; return 304 "Not modified"
              (progn
                (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
-                                           (car uri-parts) (tbnl:post-parameter "uid")))
+                                           resourcetype (sanitise-uid uid)))
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-not-modified+)
-               (format nil "/~A/~A" resourcetype
-                       (sanitise-uid (tbnl:post-parameter "uid"))))
+               (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
              ;; We don't already have one of these; store it
              (handler-case
                (let ((uri (format nil "/~A/~A"
                                   resourcetype
                                   (store-resource (datastore tbnl:*acceptor*)
+                                                  (schema tbnl:*acceptor*)
                                                   resourcetype
-                                                  (tbnl:post-parameters*)
-                                                  (schema tbnl:*acceptor*)))))
+                                                  (tbnl:post-parameters*)))))
                  ;; Return 201 and the URI
                  (log-message :debug (format nil "Stored the new resource with URI '~A'" uri))
                  (setf (tbnl:content-type*) "text/plain")
@@ -359,13 +364,13 @@
                (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
              (update-resource-attributes
                (datastore tbnl:*acceptor*)
+               (schema tbnl:*acceptor*)
                uri-parts
                (remove-if #'(lambda (param)
                               (or (null (cdr param))
                                   (equal (cdr param) "")))
                           (append (tbnl:post-parameters*)
-                                  (tbnl:get-parameters*)))
-               (schema tbnl:*acceptor*))
+                                  (tbnl:get-parameters*))))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
@@ -510,20 +515,18 @@
            (log-message
              :debug
              (format nil "Storing file metadata: name = '~A', checksum = '~A', mimetype '~A'"
-                     requested-filename
-                     checksum
-                     mimetype))
+                     requested-filename checksum mimetype))
            (handler-case
              (let ((uri (concatenate
                           'string
                           "/Files/"
                           (store-resource (datastore tbnl:*acceptor*)
+                                          (schema tbnl:*acceptor*)
                                           "Files"
                                           `(("uid" . ,(sanitise-uid requested-filename))
                                             ("title" . ,requested-filename)
                                             ("sha3256sum" . ,checksum)
-                                            ("mimetype" . ,mimetype))
-                                          (schema tbnl:*acceptor*)))))
+                                            ("mimetype" . ,mimetype))))))
                ;; then if that succeeds move it to its new location.
                ;; Check whether this file already exists by another name
                (log-message :debug "Moving the file to its new home.")
