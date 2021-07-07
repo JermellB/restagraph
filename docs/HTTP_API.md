@@ -42,45 +42,19 @@ Why is the resourcetype _always_ in the path, even if that relationship could on
 
 ## Supported HTTP methods
 
-Restagraph makes use of several of the HTTP methods, using their standard meanings according to [RFC 7231](https://tools.ietf.org/html/rfc7231).
+Restagraph makes use of several of the HTTP methods, using their standard meanings according to [RFC 7231](https://tools.ietf.org/html/rfc7231). Those methods are:
 
-
-### GET
-
-Retrieve the content of one or more resources.
-
-HTTP status code on success is 200 (OK).
-
-
-### POST
-
-Create a new resource.
-
-HTTP status code on success is 201 (created).
-
-
-### PUT
-
-Update one or more attributes of a resource.
-
-HTTP status code on success is 204 (no content).
-
-
-### DELETE
-
-Ensure that a resource is not present.
-
-HTTP status code on success is 204 (no content).
-
+- GET
+- POST
+- PUT
+- DELETE
 
 
 # The Schema API
 
-This describes the types of resources that can be created, and what optional attributes they can have.
+This describes the types of resources that can be created, and what optional attributes they can have. It´s the "other half" of the main (raw) API.
 
-It´s the "other half" of the main (raw) API, and is read-only - there is no provision for updating the schema via this API.
-
-Use this to get a description of the available resource-types, in JSON format.
+Use this with GET to get a description of the available resource-types, and with POST to upload new resourcetypes and relationships. There is no inherent limit to the number of times you can add new resourcetypes or relationships.
 
 
 ## GET - retrieve the schema
@@ -90,6 +64,8 @@ The endpoint base URI is `/schema/v1`, and it always returns the schema in JSON 
 `GET /schema/v1/` will return a description of all resources.
 
 `GET /schema/v1/<resourcetype>` will return the description of a single resourcetype.
+
+Note that this format is _not_ the same as the format required for uploading a subschema, as it's intended for clients to use in interactions with the server.
 
 
 ## POST - upload a new schema
@@ -134,7 +110,7 @@ Expected format of the file
 - It's recommended that you follow [Neo4j naming conventions](https://neo4j.com/docs/cypher-manual/current/syntax/naming/):
     - Names of resourcetypes and relationships should be in `PascalCase`, as they are created as Neo4j labels.
     - Relationships should be in `SCREAMING_SNAKE_CASE`.
-- Booleans must be either `true` or `false` (actual JSON boolean values), not "true" or "false" (strings).
+- Booleans must be either `true` or `false`, though `null` is also accepted as an equivalent to `false`.
 - The `dependent` attribute of a resource indicates whether it has independent existence (dependent=`false`, the default) or whether it only exists in the context of a parent resource. E.g, an IP address configured on an interface doesn't exist independently - the only reason not to define it as an attribute is that an interface may have any number of addresses configured on it.
     - This is an optional attribute; it defaults to `false`.
 - The `dependent` attribute of a relationship indicates whether the target resource is dependent on the source resource, i.e. is a child to that parent resource.
@@ -211,15 +187,18 @@ This always returns a status code of 204 (no content) on success.
 
 Although [section 4.3.4 of RFC 7231](https://tools.ietf.org/html/rfc7231#section-4.3.4) states that 201 must be returned "[i]f the target resource does not have a current representation and the PUT successfully creates one," this API provides for updating multiple resources in a single request, making it entirely possible to create, update _and_ delete attributes in a single transaction. It seems like a backward step to restrict clients to updating a single attribute per request, so I´m making the counter-argument that unpopulated attributes have the de facto representation of `Null`, so _technically_ there aren´t any valid resources lacking representation in the context of this method.
 
+There's currently no way to delete the value of an attribute, but I do plan to add this feature.
+
 
 ## Delete a resource
 
 ```
-DELETE /api/v1/<resource-type>
+DELETE /api/v1/<resource-type>/uid
 ```
-Requires a payload of `'uid=<uid>'`, and any other parameters are ignored.
 
 Returns 204 (no content) on success.
+
+If the parameter `recursive=true` is supplied, all dependent resources depending on this one will also be deleted, from the bottom up. That parameter is accepted in both GET-style (within the URL) and POST-style (within the request body).
 
 
 ## Create a relationship from one resource to another
