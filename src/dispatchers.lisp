@@ -472,7 +472,6 @@
     ((equal (tbnl:request-method*) :POST)
      (log-message :debug (format nil "Requested filename: ~A" (or (tbnl:post-parameter "name") "<not specified>")))
      (log-message :debug (format nil "Temporary filepath: ~A" (first (tbnl:post-parameter "file"))))
-     (log-message :debug (format nil "Original filename: ~A" (second (tbnl:post-parameter "file"))))
      (log-message :debug (format nil "Reported content-type: ~A" (third (tbnl:post-parameter "file"))))
      (let* ((requested-filename (tbnl:post-parameter "name"))
             ;; File-details should be a three-element list: (path file-name content-type)
@@ -513,7 +512,6 @@
              (format nil "Storing file metadata: name = '~A', checksum = '~A', mimetype '~A'"
                      requested-filename
                      checksum
-                     (second (tbnl:post-parameter "file"))
                      mimetype))
            (handler-case
              (let ((uri (concatenate
