@@ -47,6 +47,7 @@ def sanitise_uid(uid):
 
 # Tests
 
+@pytest.mark.dependency()
 class TestResources(unittest.TestCase):
     '''
     Basic CRD functions for resources
@@ -60,19 +61,17 @@ class TestResources(unittest.TestCase):
         print('Test: test_create_and_delete_single_resource')
         # Ensure it's not already present
         assert requests.get('%s/%s/%s' % (API_BASE_URL,
-                                                    self.restype,
-                                                    self.resuid)).status_code == 404
+                                          self.restype,
+                                          (sanitise_uid(self.resuid)))).status_code == 404
         # Ensure we have none of that kind of resource
-        assert requests.get('%s/%s' % (API_BASE_URL,
-                                                 self.restype)).status_code == 200
-        assert requests.get('%s/%s' % (API_BASE_URL,
-                                                 self.restype)).json() == []
+        assert requests.get('%s/%s' % (API_BASE_URL, self.restype)).status_code == 200
+        assert requests.get('%s/%s' % (API_BASE_URL, self.restype)).json() == []
         # Create it
         self.result = requests.post('%s/%s/' % (API_BASE_URL, self.restype),
                                     data={'uid': self.resuid})
         assert self.result.status_code == 201
         assert self.result.text == '/{rtype}/{uid}'.format(rtype=self.restype,
-                                                                   uid=sanitise_uid(self.resuid))
+                                                           uid=sanitise_uid(self.resuid))
         # Confirm that it's now there
         self.result = requests.get('%s/%s/%s' % (API_BASE_URL,
                                                  self.restype,
@@ -95,6 +94,7 @@ class TestDuplicateResistance(unittest.TestCase):
     resourcetype = 'People'
     resourcename = 'Dante'
     result = None
+    @pytest.mark.dependency()
     def test_unique_resources(self):
         print('Test: test_unique_resources')
         # Create a new resource
@@ -128,6 +128,7 @@ class TestMultipleResources(unittest.TestCase):
     resource2uid = 'Fifi'
     resource3uid = 'Trixibelle'
     result = None
+    @pytest.mark.dependency()
     def test_create_and_retrieve_multiple_resources(self):
         print('Test: test_create_and_retrieve_multiple_resources')
         # Confirm we're starting with an empty set
@@ -188,8 +189,9 @@ class TestBasicResourceErrors(unittest.TestCase):
     Confirm what happens when we make basic errors in resource-creation requests.
     '''
     invalid_resourcetype = 'IjustMadeThisUp'
-    valid_resourcetype = 'routers'
-    valid_uid = 'amchitka'
+    valid_resourcetype = 'People'
+    valid_uid = 'Soolin'
+    @pytest.mark.dependency()
     def test_basic_resource_errors(self):
         print('Test: test_basic_resource_errors')
         # Invalid resource-type
@@ -203,9 +205,11 @@ class TestBasicResourceErrors(unittest.TestCase):
         # Invalid non-UID parameters
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
                                        data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
-                         409)
+                         400)
 
-@pytest.mark.dependency(depends=["TestBasicResourceErrors::test_basic_resource_errors"])
+@pytest.mark.dependency(depends=[
+    "TestMultipleResources::test_create_and_retrieve_multiple_resources",
+    "TestBasicResourceErrors::test_basic_resource_errors"])
 class TestAttributesBasic(unittest.TestCase):
     '''
     Add an attribute to a resource
@@ -213,26 +217,21 @@ class TestAttributesBasic(unittest.TestCase):
     person1 = 'Blake'
     attr1name = 'displayname'
     attr1val = 'Roj Blake'
+    @pytest.mark.dependency()
     def test_add_and_remove_single_attribute(self):
         # Create the resource
         requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
         # Check that it doesn't yet have the attribute we're adding
         result1 = requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).json()
         assert result1['uid'] == self.person1
-        with pytest.raises(NameError):
-            result1[attr1name]
+        with pytest.raises(KeyError):
+            _ = result1[self.attr1name] # Assign to discard-var to shut pylint up
         # Add the attribute
         assert requests.put('%s/People/%s' % (API_BASE_URL, self.person1),
                             data={self.attr1name: self.attr1val}).status_code == 204
         # Confirm that the attribute is there
         assert requests.get('%s/People/%s' % (
             API_BASE_URL, self.person1)).json()[self.attr1name] == self.attr1val
-        # Remove the attribute
-        assert requests.put('%s/People/%s' % (API_BASE_URL, self.person1),
-                            data={self.attr1name: self.attr1val}).status_code == 204
-        # Confirm that the attribute is gone
-        with pytest.raises(NameError):
-            requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).json()[attr1name]
         # Remove the resource
         assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
         # Confirm the resource is gone
@@ -245,6 +244,7 @@ class TestRelationshipsBasic(unittest.TestCase):
     '''
     person1 = 'Blake'
     tag1 = 'Idealist'
+    @pytest.mark.dependency()
     def test_tag_a_person(self):
         # Setup
         requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
@@ -269,6 +269,7 @@ class TestFilesApi(unittest.TestCase):
     file1sha3_256sum = '305664EB53010D52642594A3B3877A1BB811EAD9B610C5C1210F7F3B88B4C184'
     file2source = 'cats_cuddling.jpg'
     file2name = 'Cute kitties'
+    @pytest.mark.dependency()
     def test_files_api_basic(self):
         print('Test: file upload')
         fhandle = open(self.file1source, 'rb')
@@ -298,8 +299,8 @@ class TestFilesApi(unittest.TestCase):
                                                     sanitise_uid(self.file1name))).status_code,
                          204)
         result = requests.get('%s/files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)))
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json(), [])
+        self.assertEqual(result.status_code, 404)
+    @pytest.mark.dependency()
     def test_files_conditional_deletion(self):
         print("Test: only delete files from the filesystem if they're fully dereferenced.")
         # Upload the first file
@@ -338,49 +339,45 @@ class TestFilesApi(unittest.TestCase):
                          204)
         # Confirm that it's no longer there
         result = requests.get('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file2name)))
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json(), [])
+        self.assertEqual(result.status_code, 404)
 
 
 @pytest.mark.dependency(depends=[
     "TestDuplicateResistance::test_unique_resources",
     "TestBasicResourceErrors::test_basic_resource_errors"])
 class TestSchemaBasic(unittest.TestCase):
+    @pytest.mark.dependency()
     def test_schema_any(self):
         assert requests.get('%s/any' % (SCHEMA_BASE_URL)).json() == {
                 "name": "any",
                 "attributes": None,
-                "dependent": "false",
+                "dependent": None,
+                #! pylint: disable=line-too-long
                 "notes": "Special-case meta-resource, representing an instance of any type of resource.",
                 "relationships": [
                     {
-                        "relationship": "CREATOR",
-                        "dependent": "false",
+                        "name": "CREATOR",
+                        "dependent": None,
                         "cardinality": "many:many",
-                        "notes": "",
-                        "resourcetype": [
-                            "People"
-                            ]
+                        "notes": None,
+                        "target-type": "People"
                         },
                     {
-                        "relationship": "GROUPS",
-                        "dependent": "false",
+                        "name": "GROUPS",
+                        "dependent": None,
                         "cardinality": "many:many",
-                        "notes": "",
-                        "resourcetype": [
-                            "Groups"
-                            ]
+                        "notes": None,
+                        "target-type": "Groups"
                         },
                     {
-                        "relationship": "TAGS",
-                        "dependent": "false",
+                        "name": "TAGS",
+                        "dependent": None,
                         "cardinality": "many:many",
-                        "notes": "",
-                        "resourcetype": [
-                            "Tags"
-                            ]
+                        "notes": None,
+                        "target-type": "Tags"
                         }
                     ]}
+    @pytest.mark.dependency()
     def test_schema_tags(self):
         assert requests.get('%s/Tags' % (SCHEMA_BASE_URL)).json() == {
                 "name": "Tags",
@@ -388,68 +385,212 @@ class TestSchemaBasic(unittest.TestCase):
                     {
                         "name": "description",
                         "description": "Clarification of what the tag means.",
-                        "vals": {
-                            "name": "description",
-                            "description": "Clarification of what the tag means.",
-                            "attr-values": None
-                            }
+                        "values": None
                         }
                     ],
-                "dependent": "false",
+                "dependent": None,
                 "notes": "For categorising resources of any type.",
                 "relationships": None
                 }
 
 
+@pytest.mark.dependency(["TestSchemaBasic::test_schema_tags"])
+#@pytest.mark.skip()
+class TestSchemaUpdates(unittest.TestCase):
+    @pytest.mark.dependency()
+    def test_schema_upload(self):
+        assert requests.post(SCHEMA_BASE_URL,
+                files={'schema': open('test_schema.json', 'rb')}).status_code == 201
+        # Request the schema and inspect it.
+        schema = requests.get(SCHEMA_BASE_URL).json()
+        assert list(filter(lambda x: x['name'] == 'Buildings', schema))[0]['dependent'] is None
 
-#
-# Untested tests follow
-#
+@pytest.mark.dependency(["TestSchemaUpdates"])
+class TestAttributeValues(unittest.TestCase):
+    res1type = "People"
+    res1uid = "Dorian"
+    res1attrname = "Real"
+    res1attrval_valid = "True"
+    res1attrval_invalid = "Banana"
+    @pytest.mark.dependency(["TestSchemaUpdates::test_schema_upload"])
+    def test_attribute_values(self):
+        # Create the resource
+        assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
+                             data={"uid": self.res1uid}).status_code == 201
+        # Confirm the "values" feature as well as the added subschema:
+        # Add a valid attribute (per the "values" attribute-attribute)
+        assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
+                            data={self.res1attrname: self.res1attrval_valid}).status_code == 204
+        # Fail to add an invalid attribute
+        assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
+                            data={self.res1attrname: self.res1attrval_invalid}).status_code == 400
+        # Clean up
+        assert requests.delete('%s/%s/%s' % (API_BASE_URL,
+                                             self.res1type,
+                                             self.res1uid)).status_code == 204
+    # - new relationships from an existing resourcetype to a new one.
+    # Test robustness against
+    # - duplicate attributes in new subschemas
+    #     - both within the same document, and in a subsequent one
+    # - duplicate relationship definitions
+    #     - both within the same document, and in a subsequent one
 
-@pytest.mark.skip()
-class TestResourceAttributesEnums(unittest.TestCase):
-    '''
-    Test enumerated resource-attributes.
-    '''
-    resourcetype = 'places'
-    resourceuid = 'Midian'
-    attr1name = 'kind'
-    attr1val = 'Fictional'
-    attr1valbad = 'Real'
-    result = None
-    def test_create_and_use_enums(self):
-        print('Test: create a resource with a valid enum attribute')
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
-                                       data={'uid': self.resourceuid,
-                                             self.attr1name: self.attr1val}).status_code,
-                         201)
-        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
-        print('Test: fail to create a resource with an invalid enum attribute')
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
-                                       data={'uid': self.resourceuid,
-                                             self.attr1name: self.attr1valbad}).status_code,
-                         400)
-        print('Test: fail to add an invalid enum attribute to an existing resource')
-        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
-                                       data={'uid': self.resourceuid}).status_code,
-                         201)
-        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
-                                                    self.resourcetype,
-                                                    self.attr1name),
-                                      data={'uid': self.resourceuid,
-                                            self.attr1name: self.attr1valbad}).status_code,
-                         400)
-        print('Test: add a valid attribute to an existing resource.')
-        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
-                                                    self.resourcetype,
-                                                    self.attr1name),
-                                      data={'uid': self.resourceuid,
-                                            self.attr1name: self.attr1val}).status_code,
-                         204)
-        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
-
-@pytest.mark.skip()
+@pytest.mark.dependency(["TestSchemaUpdates"])
 class TestDependentResources(unittest.TestCase):
+    res1type = "Buildings"
+    res1uid = "Xenon"
+    depres1rel = "FLOORS"
+    depres1type = "Floors"
+    depres1uid = "Hangar"
+    depres2rel = "ROOMS"
+    depres2type = "Rooms"
+    depres2uid = "Toolshed"
+    def test_dependent_resourcetypes_basic(self):
+        # Create the parent resource
+        assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
+                             data={"uid": self.res1uid}).status_code == 201
+        # Create the dependent resource
+        assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                              self.res1type,
+                                              self.res1uid,
+                                              self.depres1rel,
+                                              self.depres1type),
+                             data={"uid": self.depres1uid}).status_code == 201
+        # Confirm the dependent resource is there
+        assert requests.get('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                self.res1type,
+                                                self.depres1rel,
+                                                self.depres1type,
+                                                self.depres1uid)).status_code == 200
+        # Delete the dependent resource
+        assert requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                self.res1type,
+                                                self.res1uid,
+                                                self.depres1rel,
+                                                self.depres1type,
+                                                self.depres1uid)).status_code == 204
+        # Confirm it's gone
+        assert requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                self.res1type,
+                                                self.res1uid,
+                                                self.depres1rel,
+                                                self.depres1type,
+                                                self.depres1uid)).status_code == 404
+        # Confirm the parent is still there
+        assert requests.get('%s/%s/%s' % (API_BASE_URL,
+                                          self.res1type,
+                                          self.res1uid)).status_code == 200
+        # Clean up by deleting the parent resource
+        assert requests.delete('%s/%s/%s' % (API_BASE_URL,
+                                             self.res1type,
+                                             self.res1uid)).status_code == 204
+    # Check for recursive deletion, from the parent down 1 level.
+    def test_dependent_resourcetypes_recursive_1(self):
+        # Create the parent resource
+        assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
+                             data={"uid": self.res1uid}).status_code == 201
+        # Create the dependent resource
+        assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                              self.res1type,
+                                              self.res1uid,
+                                              self.depres1rel,
+                                              self.depres1type),
+                             data={"uid": self.depres1uid}).status_code == 201
+        # Confirm the dependent resource is there
+        assert requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                self.res1type,
+                                                self.res1uid,
+                                                self.depres1rel,
+                                                self.depres1type,
+                                                self.depres1uid)).status_code == 200
+        # Recursively delete the parent resource
+        assert requests.delete('%s/%s/%s?recursive=true' % (API_BASE_URL,
+                                                            self.res1type,
+                                                            self.res1uid)).status_code == 204
+        # Confirm the child is gone
+        assert requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                self.res1type,
+                                                self.res1uid,
+                                                self.depres1rel,
+                                                self.depres1type,
+                                                self.depres1uid)).status_code == 404
+        # Confirm the parent is gone
+        assert requests.get('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid)).status_code == 404
+    # Create a grandchild resource, and check recursive deletion from the parent.
+    # - check for orphaned grandchildren.
+    # Check for recursive deletion, from the parent down 2 levels.
+    def test_dependent_resourcetypes_recursive_2(self):
+        # Create the parent resource
+        assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
+                             data={"uid": self.res1uid}).status_code == 201
+        # Create the child resource
+        assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                              self.res1type,
+                                              self.res1uid,
+                                              self.depres1rel,
+                                              self.depres1type),
+                             data={"uid": self.depres1uid}).status_code == 201
+        # Create the grandchild resource
+        assert requests.post('%s/%s/%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                          self.res1type,
+                                                          self.res1uid,
+                                                          self.depres1rel,
+                                                          self.depres1type,
+                                                          self.depres1uid,
+                                                          self.depres2rel,
+                                                          self.depres2type),
+                             data={"uid": self.depres2uid}).status_code == 201
+        # Confirm the grandchild resource is there
+        assert requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                            self.res1type,
+                                                            self.res1uid,
+                                                            self.depres1rel,
+                                                            self.depres1type,
+                                                            self.depres1uid,
+                                                            self.depres2rel,
+                                                            self.depres2type,
+                                                            self.depres2uid)).status_code == 200
+        # Recursively delete the parent resource
+        assert requests.delete('%s/%s/%s?recursive=true' % (API_BASE_URL,
+                                                            self.res1type,
+                                                            self.res1uid)).status_code == 204
+        # Confirm the grandchild is gone
+        assert requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                            self.res1type,
+                                                            self.res1uid,
+                                                            self.depres1rel,
+                                                            self.depres1type,
+                                                            self.depres1uid,
+                                                            self.depres2rel,
+                                                            self.depres2type,
+                                                            self.depres2uid)).status_code == 404
+        # Confirm the child is gone
+        assert requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                self.res1type,
+                                                self.res1uid,
+                                                self.depres1rel,
+                                                self.depres1type,
+                                                self.depres1uid)).status_code == 404
+        # Confirm the parent is gone
+        assert requests.get('%s/%s/%s' % (API_BASE_URL,
+                                          self.res1type,
+                                          self.res1uid)).status_code == 404
+        # Confirm the grandchild doesn't live on as an orphan
+        assert requests.get('%s/%s/%s' % (API_BASE_URL,
+                                          self.depres2type,
+                                          self.depres2uid)).status_code == 404
+        # Confirm the child doesn't live on as an orphan
+        assert requests.get('%s/%s/%s' % (API_BASE_URL,
+                                          self.depres1type,
+                                          self.depres1uid)).status_code == 404
+    # Check that `recursive=true` _only_ deletes dependent resources,
+    # and _doesn't_ go on a rampage.
+    # Check that _only_ dependent resources can be created with a dependent relationship.
+    # Check that dependent relationships _cannot_ be created to existing resources, whether dependent or not. Positively confirm both cases.
+    # Check that the `recursive` parameter really does work in both GET- and POST-styles.
+
+@pytest.mark.skip()
+class TestDependentResources_ignoreme(unittest.TestCase):
     res1type = 'brands'
     res1uid = 'Acme'
     relationship1 = 'Produces'
@@ -570,6 +711,54 @@ class TestDependentResources(unittest.TestCase):
                                                     self.depres1type,
                                                     sanitise_uid(self.depres1uid))).json(),
                          [])
+
+
+
+#
+# Untested tests follow
+#
+
+@pytest.mark.skip()
+class TestResourceAttributesEnums(unittest.TestCase):
+    '''
+    Test enumerated resource-attributes.
+    '''
+    resourcetype = 'places'
+    resourceuid = 'Midian'
+    attr1name = 'kind'
+    attr1val = 'Fictional'
+    attr1valbad = 'Real'
+    result = None
+    def test_create_and_use_enums(self):
+        print('Test: create a resource with a valid enum attribute')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid,
+                                             self.attr1name: self.attr1val}).status_code,
+                         201)
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
+        print('Test: fail to create a resource with an invalid enum attribute')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid,
+                                             self.attr1name: self.attr1valbad}).status_code,
+                         400)
+        print('Test: fail to add an invalid enum attribute to an existing resource')
+        self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.resourcetype),
+                                       data={'uid': self.resourceuid}).status_code,
+                         201)
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.attr1name),
+                                      data={'uid': self.resourceuid,
+                                            self.attr1name: self.attr1valbad}).status_code,
+                         400)
+        print('Test: add a valid attribute to an existing resource.')
+        self.assertEqual(requests.put('%s/%s/%s' % (API_BASE_URL,
+                                                    self.resourcetype,
+                                                    self.attr1name),
+                                      data={'uid': self.resourceuid,
+                                            self.attr1name: self.attr1val}).status_code,
+                         204)
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.resourcetype, self.resourceuid))
 
 @pytest.mark.skip()
 class TestMoveDependentResources(unittest.TestCase):

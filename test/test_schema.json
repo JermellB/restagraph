@@ -2,31 +2,73 @@
   "name": "test",
   "resourcetypes": [
     {
-      "name": "AttributeTest",
-      "dependent": false,
-      "notes": null,
+      "name": "Buildings",
+      "dependent": "false",
+      "notes": "Individual buildings.",
       "attributes": [
         {
-          "name": "attr1"
+          "name": "description",
+          "description": "",
+          "values": null
         },
         {
-          "name": "attr2",
-          "attr-values": [
-            "eenie",
-            "meenie",
-            "minie",
-            "moe"
-          ]
+          "name": "type",
+          "description": "What kind of building it is",
+          "values": ["House", "Office", "Castle"]
+        }
+      ]
+    },
+    {
+      "name": "Floors",
+      "dependent": true,
+      "notes": "Floors within a building.",
+      "attributes": [
+        {
+          "name": "description",
+          "description": "",
+          "values": null
+        }
+      ]
+    },
+    {
+      "name": "Rooms",
+      "dependent": true,
+      "notes": "Rooms within a floor",
+      "attributes": []
+    },
+    {
+      "name": "People",
+      "attributes": [
+        {
+          "name": "Real",
+          "description": "Whether they're real or fictional. Boolean.",
+          "values": ["True", "False"]
         }
       ]
     }
   ],
   "relationships": [
     {
-      "source-type" : "People",
-      "name": "HAS",
-      "target-type": "AttributeTest",
+      "source-type": "Buildings",
+      "name": "FLOORS",
+      "target-type": "Floors",
       "cardinality": "1:many",
+      "dependent": true,
+      "notes": null
+    },
+    {
+      "source-type": "Floors",
+      "name": "ROOMS",
+      "target-type": "Rooms",
+      "cardinality": "1:many",
+      "dependent": true,
+      "notes": null
+    },
+    {
+      "source-type": "Buildings",
+      "name": "OWNER",
+      "target-type": "People",
+      "cardinality": "many:many",
       "dependent": false,
       "notes": null
     }
