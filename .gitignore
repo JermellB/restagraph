@@ -1,4 +1,5 @@
 .mypy_cache/
+__pycache__/
 scripts/docker/restagraph
 scripts/docker/result
 tags
