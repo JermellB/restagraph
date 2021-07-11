@@ -97,7 +97,7 @@
 
 (defun install-subschema (db subschema schema-version)
   "New attributes will be added as an augmentation to existing resourcetypes
-   and relationships, but existing definitions will not be changed."
+  and relationships, but existing definitions will not be changed."
   (declare (type neo4cl:neo4j-rest-server db)
            (type incoming-subschema-version subschema)
            (type integer schema-version))
@@ -105,55 +105,70 @@
   (log-message :info (format nil "Installing subschema '~A' to schema version ~D."
                              (name subschema)
                              schema-version))
-  ;; Install the resourcetypes
-  (mapcar
-    #'(lambda (rtype)
-        ;; Install the resourcetype itself
-        (let ((query
-                (format
-                  nil
-                  ;; Basic resourcetype definition
-                  "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })~A~A"
-                  schema-version
-                  ;; Create the resource iff it doesn't already exist
-                  (if (get-resourcetype-definition db (name rtype))
+  (let ((extant-resourcetypes (get-resourcetype-names db)))
+    ;; Install the resourcetypes
+    (mapcar
+      #'(lambda (rtype)
+          ;; Install the resourcetypes and their attributes
+          (let ((query
+                  (format
+                    nil
+                    ;; Basic resourcetype definition
+                    "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })~A~A"
+                    schema-version
+                    ;; Create the resource iff it doesn't already exist
+                    (if (member (name rtype) extant-resourcetypes :test #'equal)
+                      (format nil "-[:HAS]->(t:RgResourceType {name: \"~A\"}) CREATE " (name rtype))
                       (format nil
-                              " CREATE (v)-[:HAS]->(t:RgResourceType {name: \"~A\", dependent: ~A, notes: ~A})"
+                              " CREATE (v)-[:HAS]->(t:RgResourceType {name: \"~A\", dependent: ~A, notes: ~A})~A"
                               (name rtype)
                               (if (dependent rtype) "true" "false")
                               (if (and (notes rtype)
                                        (not (equal "" (notes rtype))))
-                                  (format nil "\"~A\"" (notes rtype))
-                                  "null"))
-                      (format nil "-[:HAS]->(t:RgResourceType {name: \"~A\"} CREATE " (name rtype)))
-                  ;; Enumerate its attributes
-                  (format nil "~{,~%~A~}"
-                          (mapcar
-                            #'(lambda
-                                (attr)
-                                (format nil "(t)-[:HAS]->(:RgResourceTypeAttribute {name: \"~A\", description: ~A, values: ~A})"
-                                        (name attr)
-                                        (if (and (description attr)
-                                                 (not (equal "" (description attr))))
+                                (format nil "\"~A\"" (notes rtype))
+                                "null")
+                              ;; Insert a comma if needed
+                              (if (attributes rtype) ", " " ")))
+                    ;; Enumerate its attributes
+                    (format nil "~{~%~A~^,~}"
+                            (mapcar
+                              #'(lambda
+                                  (attr)
+                                  (format nil "(t)-[:HAS]->(:RgResourceTypeAttribute {name: \"~A\", description: ~A, values: ~A})"
+                                          (name attr)
+                                          (if (and (description attr)
+                                                   (not (equal "" (description attr))))
                                             (format nil "\"~A\"" (description attr))
                                             "null")
-                                        (if (attr-values attr)
+                                          (if (attr-values attr)
                                             (format nil "\"~{~A~^,~}\"" (attr-values attr))
                                             "null")))
-                            (attributes rtype))))))
-          (log-message :debug (format nil "Installing resourcetype definition with this query:~%~A"
-                                      query))
-          (handler-case
-            (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
-            (error (e)
-                   (if (typep e 'neo4cl:client-error)
-                       (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
-                                                   (neo4cl:category e)
-                                                   (neo4cl:title e)
-                                                   (neo4cl:message e)))
-                       (progn
-                         (log-message :fatal (format nil "Unhandled error '~A'" e))))))))
-    (resourcetypes subschema))
+                              (attributes rtype))))))
+            (log-message :debug (format nil "Installing resourcetype definition with this query:~%~A"
+                                        query))
+            (handler-case
+              (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
+              (error (e)
+                     (cond
+                       ((typep e 'neo4cl:transient-error)
+                        (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
+                                                    (neo4cl:category e)
+                                                    (neo4cl:title e)
+                                                    (neo4cl:message e))))
+                       ((typep e 'neo4cl:database-error)
+                        (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
+                                                    (neo4cl:category e)
+                                                    (neo4cl:title e)
+                                                    (neo4cl:message e))))
+                       ((typep e 'neo4cl:client-error)
+                        (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
+                                                    (neo4cl:category e)
+                                                    (neo4cl:title e)
+                                                    (neo4cl:message e))))
+                       (t
+                         (progn
+                           (log-message :fatal (format nil "Unhandled error '~A'" e)))))))))
+      (resourcetypes subschema)))
   ;; Now install the relationships
   (log-message :info (format nil "Installing relationships for subschema '~A'"
                              (name subschema)))
@@ -161,44 +176,44 @@
     #'(lambda (rel)
         ;; Only create this relationship if it doesn't already exist
         (if (get-relationship db (source-type rel) (name rel) (target-type rel))
-            (log-message :debug (format nil "Refusing to create duplicate relationship (:~A)-[:~A]->(~A)"
-                                        (source-type rel) (name rel) (target-type rel)))
-            (let ((query
-                    (format nil
-                            "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })-[:HAS]->(s:RgResourceType {name: \"~A\"}),
-                             (v)-[:HAS]->(t:RgResourceType {name: \"~A\"})
-                             CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(t)"
-                            schema-version
-                            (source-type rel)
-                            (target-type rel)
-                            (name rel)
-                            (if (dependent rel) "true" "false")
-                            (if (notes rel)
-                                (format nil "\"~A\"" (notes rel))
-                                "null")
-                            (cardinality rel))))
-              (log-message :debug (format nil "Installing relationship definition with this query:~%~A"
-                                          query))
-              (handler-case
-                (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
-                (error (e)
-                       (cond ((typep e 'neo4cl:client-error)
-                              (log-message
-                                :error
-                                (format nil "Neo4J client error ~A/~A - ~A"
-                                        (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
-                             ((typep e 'neo4cl:transient-error)
-                              (log-message
-                                :error
-                                (format nil "Neo4J transient error ~A/~A - ~A"
-                                        (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
-                             ((typep e 'neo4cl:database-error)
-                              (log-message
-                                :error
-                                (format nil "Neo4J database error ~A/~A - ~A"
-                                        (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
-                             (t
-                              (log-message :error e))))))))
+          (log-message :debug (format nil "Refusing to create duplicate relationship (:~A)-[:~A]->(~A)"
+                                      (source-type rel) (name rel) (target-type rel)))
+          (let ((query
+                  (format nil
+                          "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })-[:HAS]->(s:RgResourceType {name: \"~A\"}),
+                          (v)-[:HAS]->(t:RgResourceType {name: \"~A\"})
+                          CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(t)"
+                          schema-version
+                          (source-type rel)
+                          (target-type rel)
+                          (name rel)
+                          (if (dependent rel) "true" "false")
+                          (if (notes rel)
+                            (format nil "\"~A\"" (notes rel))
+                            "null")
+                          (cardinality rel))))
+            (log-message :debug (format nil "Installing relationship definition with this query:~%~A"
+                                        query))
+            (handler-case
+              (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
+              (error (e)
+                     (cond ((typep e 'neo4cl:client-error)
+                            (log-message
+                              :error
+                              (format nil "Neo4J client error ~A/~A - ~A"
+                                      (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
+                           ((typep e 'neo4cl:transient-error)
+                            (log-message
+                              :error
+                              (format nil "Neo4J transient error ~A/~A - ~A"
+                                      (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
+                           ((typep e 'neo4cl:database-error)
+                            (log-message
+                              :error
+                              (format nil "Neo4J database error ~A/~A - ~A"
+                                      (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
+                           (t
+                             (log-message :error e))))))))
         (relationships subschema)))
 
 
