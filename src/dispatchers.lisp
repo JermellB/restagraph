@@ -126,6 +126,8 @@
            (if
              (install-uploaded-schema (first (tbnl:post-parameter "schema")) (datastore tbnl:*acceptor*))
              (progn
+               (log-message :info "Successfull installed uploaded schema; reloading.")
+               (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*)))
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
                "Created")
