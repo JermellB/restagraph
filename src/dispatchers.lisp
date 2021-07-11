@@ -93,11 +93,16 @@
         ((and
            (equal (tbnl:request-method*) :GET)
            (equal 1 (length uri-parts)))
-         (progn
-           (setf (tbnl:content-type*) "application/json")
-           (setf (tbnl:return-code*) tbnl:+http-ok+)
-           (cl-json:encode-json-alist-to-string
-             (a-listify (gethash (car uri-parts) (schema tbnl:*acceptor*))))))
+         (let ((rtype (gethash (car uri-parts) (schema tbnl:*acceptor*))))
+           (if rtype
+             (progn
+               (setf (tbnl:content-type*) "application/json")
+               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               (cl-json:encode-json-alist-to-string (a-listify rtype)))
+             (progn
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-not-found+)
+               "Resourcetype not defined"))))
         ;; Get a description of the whole schema in JSON format
         ((equal (tbnl:request-method*) :GET)
          (progn
