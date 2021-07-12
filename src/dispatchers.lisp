@@ -316,9 +316,9 @@
                (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
                                            newtype uid sub-uri))
                (store-dependent-resource (datastore tbnl:*acceptor*)
+                                         (schema tbnl:*acceptor*)
                                          sub-uri
-                                         (tbnl:post-parameters*)
-                                         (schema tbnl:*acceptor*))
+                                         (tbnl:post-parameters*))
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-created+)
                (setf (tbnl:header-out "Location") new-uri)
@@ -407,8 +407,8 @@
                (datastore tbnl:*acceptor*)
                sub-uri
                (schema tbnl:*acceptor*)
-               :recursive (and (tbnl:post-parameter "recursive")
-                               (not (equal "" (tbnl:post-parameter "recursive")))))
+               :recursive (and (tbnl:parameter "recursive")
+                               (not (equal "" (tbnl:parameter "recursive")))))
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
