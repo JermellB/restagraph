@@ -473,29 +473,31 @@ The returned list contains 3-element lists of relationship, type and UID."))
   (log-message :debug (format nil "Searching for resources dependent on parent ~{/~A~}" sourcepath))
   ;; Get all dependent relationships outbound from this resourcetype
   ;; Get all nodes to which this node has outbound relationships of those types
-  (let ((query-string (format nil "MATCH ~A-[r]->(b) WHERE type(r) IN [~{\"~A\"~^, ~}] RETURN type(r), labels(b), b.uid"
+  (let ((dependent-types (mapcar #'name
+                                 (remove-if-not
+                                   #'dependent
+                                   (relationships (gethash (car (last sourcepath 2))
+                                                           schema))))))
+    (when dependent-types
+      (let ((query-string (format nil "MATCH ~A-[r]->(b) WHERE type(r) IN [~{\"~A\"~^, ~}] RETURN type(r), labels(b), b.uid"
 
-                              (uri-node-helper sourcepath
-                                               :path ""
-                                               :marker "n"
-                                               :directional t)
-                              (mapcar #'name
-                                      (remove-if-not
-                                        #'dependent
-                                        (relationships (gethash (car (last sourcepath 2))
-                                                                schema)))))))
-    (log-message :debug (format nil "Generated query-string '~A'" query-string))
-    ;; We should probably return the result
-    (mapcar
-            #'(lambda (row)
-                ;; List elements: relationship, target type, target UID
-                ;; The Neo4j operator `labels(n)` returns a list, hence the (car (second row)).
-                (list (first row) (car (second row)) (third row)))
-            (neo4cl:extract-rows-from-get-request
-              (neo4cl:neo4j-transaction
-                db
-                `((:STATEMENTS
-                    ((:STATEMENT . ,query-string)))))))))
+                                  (uri-node-helper sourcepath
+                                                   :path ""
+                                                   :marker "n"
+                                                   :directional t)
+                                  dependent-types)))
+        (log-message :debug (format nil "Generated query-string '~A'" query-string))
+        ;; We should probably return the result
+        (mapcar
+          #'(lambda (row)
+              ;; List elements: relationship, target type, target UID
+              ;; The Neo4j operator `labels(n)` returns a list, hence the (car (second row)).
+              (list (first row) (car (second row)) (third row)))
+          (neo4cl:extract-rows-from-get-request
+            (neo4cl:neo4j-transaction
+              db
+              `((:STATEMENTS
+                  ((:STATEMENT . ,query-string)))))))))))
 
 
 (defgeneric update-resource-attributes (db schema path attributes)
