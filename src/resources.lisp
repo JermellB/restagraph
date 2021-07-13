@@ -550,14 +550,8 @@ The returned list contains 3-element lists of relationship, type and UID."))
                                     (schema hash-table)
                                     &key recursive)
   (log-message :debug (format nil "Attempting to delete resource ~A" targetpath))
+  (log-message :debug (format nil "The recursive flag was~A set" (if recursive "" " not")))
   (let ((parts (get-uri-parts targetpath)))
-    ;; The special case turns out to be a link to another resource
-    ;; that does _not_ depend on this one.
-    ;; Both other cases involve deleting the resource and then potentially
-    ;; all resources depending on it.
-    ;; If feasible, refactor this to remove the significant amount of duplication.
-    ;;
-    ;; Expected to use critical-dependency-p to answer some of these questions
     (if (equal (mod (length parts) 3) 2)
         ;; Do any other resources depend critically on this one?
         (let ((dependents (get-dependent-resources db schema parts)))
@@ -578,12 +572,10 @@ The returned list contains 3-element lists of relationship, type and UID."))
                             (delete-resource-by-path db newpath schema :recursive t)))
                       dependents)
                     ;; Having deleted the dependents, delete the resource itself
-                    (log-message :debug (format nil "Deleting target resource ~A" targetpath))
-                    (neo4cl:neo4j-transaction
-                      db
-                      `((:STATEMENTS
-                          ((:STATEMENT . ,(format nil "MATCH (n:~A { uid: '~A' }) DETACH DELETE n"
-                                                  (first parts) (second parts))))))))
+                    (let ((querystring (format nil "MATCH ~A DETACH DELETE n" (uri-node-helper parts))))
+                      (log-message :debug (format nil "Deleting target resource '~A' with query '~A'"
+                                                  targetpath querystring))
+                      (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,querystring)))))))
                   ;; Dependents, but no recursive argument. Bail out.
                   (error 'integrity-error
                          :message
