@@ -27,71 +27,71 @@
                       (cdr param))))
           params))
 
-;; Helper function
 (defun validate-attributes (requested defined &key (invalid '()) (badvalue '()))
   "Recursive helper function to validate the requested attributes against those defined for the resourcetype.
-   Return a list of three lists:
-   - invalid attributes (attributes whose name is not defined for this resourcetype)
-   - attributes for which an invalid value was provided"
+  Return a list of three lists:
+  - invalid attributes (attributes whose name is not defined for this resourcetype)
+  - attributes for which an invalid value was provided"
   (declare (type (or cons null) requested)  ; alist, where the car is the name and the cdr is the value
            (type (or cons null) defined)    ; Should have the outer layer of conses stripped
            (type (or cons null) invalid)
            (type (or cons null) badvalue))
   (log-message :debug (format nil "validate-attributes requested attrs: ~A" requested))
-  (log-message :debug (format nil "validate-attributes defined attrs: ~A" defined))
+  (log-message :debug (format nil "validate-attributes defined attrs: ~{~A~^, ~}"
+                              (mapcar #'a-listify defined)))
   ;; Are we at the end of the list of requested attributes?
   (if (null requested)
-      ;; If we are, return what's been accumulated
-      (list invalid badvalue)
-      ;; If not, check the attribute at the head of the list, then call this function on the rest.
-      (validate-attributes
-        ;; Rest of the list.
-        (cdr requested)
-        ;; Definitions, unchanged.
-        defined
-        ;; If this attribute is invalid, add it to that accumulator.
-        ;; Pull the list of attribute-names from the 'defined parameter, and test whether it's a member.
-        :invalid (if (not (member (caar requested)
-                                  (mapcar #'(lambda (attr) (name attr))
-                                          defined)
-                                  :test #'equal))
-                   ;; Invalid attribute. Log it and add it to the `invalid` accumulator.
-                   (progn
-                     (log-message :debug (format nil "Detected invalid attribute name '~A'" (caar requested)))
-                     (append invalid (list (car requested))))
-                   ;; It's valid; leave the `invalid` list as-is
-                   invalid)
-        :badvalue (if
-                     ;; Is it a valid attribute? (yes, we have to test this again)
-                     (if (member (caar requested)
-                                 ;; Remember this was parsed from JSON
-                                 (mapcar #'(lambda (attr) (name attr))
-                                         defined)
-                                 :test #'equal)
-                         ;; Is this an enum attribute?
-                         (let ((enums
-                                 (attr-values
-                                   (car (remove-if-not #'(lambda (attr)
-                                                           (equal (caar requested)
-                                                                  (name attr)))
-                                                       defined)))))
-                           (if (and enums
-                                    (not (null enums)))
-                               ;; If so, is it a valid value?
-                               (when
-                                 (member (cdar requested)
-                                         enums
-                                         :test #'equal)
-                                 ;; If it's a valid value for this enum, return True
-                                 t)
-                               ;; If it's not an enum, then we do no other checking.
-                               t))
-                         ;; If it's not a valid attribute, this isn't relevant.
-                         t)
-                     ;; If all those tests passed, pass on the value of `badvalue` we received
-                     badvalue
-                     ;; If any of those failed, add this to `badvalue`
-                     (append badvalue (list (car requested)))))))
+    ;; If we are, return what's been accumulated
+    (list invalid badvalue)
+    ;; If not, check the attribute at the head of the list, then call this function on the rest.
+    (validate-attributes
+      ;; Rest of the list.
+      (cdr requested)
+      ;; Definitions, unchanged.
+      defined
+      ;; If this attribute is invalid, add it to that accumulator.
+      ;; Pull the list of attribute-names from the 'defined parameter, and test whether it's a member.
+      :invalid (if (not (member (caar requested)
+                                (mapcar #'(lambda (attr) (name attr))
+                                        defined)
+                                :test #'equal))
+                 ;; Invalid attribute. Log it and add it to the `invalid` accumulator.
+                 (progn
+                   (log-message :debug (format nil "Detected invalid attribute name '~A'" (caar requested)))
+                   (append invalid (list (car requested))))
+                 ;; It's valid; leave the `invalid` list as-is
+                 invalid)
+      :badvalue (if
+                  ;; Is it a valid attribute? (yes, we have to test this again)
+                  (if (member (caar requested)
+                              ;; Remember this was parsed from JSON
+                              (mapcar #'(lambda (attr) (name attr))
+                                      defined)
+                              :test #'equal)
+                    ;; Is this an enum attribute?
+                    (let ((enums
+                            (attr-values
+                              (car (remove-if-not #'(lambda (attr)
+                                                      (equal (caar requested)
+                                                             (name attr)))
+                                                  defined)))))
+                      (if (and enums
+                               (not (null enums)))
+                        ;; If so, is it a valid value?
+                        (when
+                          (member (cdar requested)
+                                  enums
+                                  :test #'equal)
+                          ;; If it's a valid value for this enum, return True
+                          t)
+                        ;; If it's not an enum, then we do no other checking.
+                        t))
+                    ;; If it's not a valid attribute, this isn't relevant.
+                    t)
+                  ;; If all those tests passed, pass on the value of `badvalue` we received
+                  badvalue
+                  ;; If any of those failed, add this to `badvalue`
+                  (append badvalue (list (car requested)))))))
 
 
 (defgeneric validate-resource-before-creating (schema resourcetype params)
