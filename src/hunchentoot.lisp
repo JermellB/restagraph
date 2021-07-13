@@ -77,7 +77,7 @@
   (when (sb-ext:posix-getenv "DEBUG")
     (setf *loglevel* :debug))
   ;; Diagnostics
-  (log-message :info (format nil "Shell search path: ~A" (sb-ext:posix-getenv "PATH")))
+  (log-message :debug (format nil "Shell search path: ~A" (sb-ext:posix-getenv "PATH")))
   (log-message :info "Attempting to start up the restagraph application server")
   ;; Control the decoding of JSON identifiers
   (setf JSON:*JSON-IDENTIFIER-NAME-TO-LISP* 'common-lisp:string-upcase)
