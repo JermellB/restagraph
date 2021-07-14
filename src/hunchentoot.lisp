@@ -4,7 +4,7 @@
 ;   - for details, see LICENSE.txt in the top-level directory
 
 
-;;;; The REST API server application
+;;;; The HTTP API server application
 
 (in-package #:restagraph)
 
