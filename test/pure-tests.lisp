@@ -9,6 +9,12 @@
 
 (in-package #:restagraph-test)
 
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)
+                   (debug 3)))
+
+
 (fiveam:def-suite
   pure
   :description "Tests for pure code, i.e. code with no side-effects."

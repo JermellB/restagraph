@@ -31,10 +31,12 @@ SERVER_URL = 'localhost:4950'
 API_PREFIX = '/raw/v1'
 FILES_PREFIX = '/files/v1'
 SCHEMA_PREFIX = '/schema/v1'
+IPAM_PREFIX = '/ipam/v1'
 
 API_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, API_PREFIX)
 FILES_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, FILES_PREFIX)
 SCHEMA_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, SCHEMA_PREFIX)
+IPAM_BASE_URL = '%s://%s%s' % (PROTOCOL, SERVER_URL, IPAM_PREFIX)
 
 
 # Utilities
@@ -711,3 +713,90 @@ class TestDependentResources_ignoreme(unittest.TestCase):
                                                     self.depres1type,
                                                     sanitise_uid(self.depres1uid))).json(),
                          [])
+
+
+## IPAM tests
+
+@pytest.mark.dependency("TestDependentResources")
+class TestIpv4SubnetsBasicNoVrf(unittest.TestCase):
+    '''
+    Basic CRD functions for subnets
+    '''
+    subnet1 = '172.16.0.0/12'
+    organisation = 'testco'
+    def test_create_and_delete_single_subnet(self):
+        print('Test: test_create_and_delete_single_subnet')
+        # Create the organisation that it goes under
+        self.assertEqual(requests.post('%s/Organisations' % (API_BASE_URL),
+                                       data={'uid': self.organisation}).status_code,
+                         201)
+        # Add the subnet
+        self.assertEqual(requests.post('%s/subnets' % (IPAM_BASE_URL),
+                                       data={'org': self.organisation,
+                                             'subnet': self.subnet1}).status_code,
+                         201)
+        # Confirm it's there
+        self.assertEqual(requests.get('%s/subnets?subnet=%s&org=%s'
+                                      % (IPAM_BASE_URL,
+                                         self.subnet1,
+                                         self.organisation)).status_code,
+                         200)
+        # Delete it
+        self.assertEqual(requests.delete('%s/subnets' % (IPAM_BASE_URL),
+                                         data={'org': self.organisation,
+                                               'subnet': self.subnet1}).status_code,
+                         204)
+        # Ensure it's gone
+        self.assertEqual(requests.get('%s/subnets?subnet=%s&org=%s'
+                                      % (IPAM_BASE_URL,
+                                         self.subnet1,
+                                         self.organisation)).status_code,
+                         404)
+        # Remove the organisation
+        self.assertEqual(requests.delete('%s/Organisations/%s'
+                                         % (API_BASE_URL, self.organisation)).status_code,
+                         204)
+
+@pytest.mark.dependency("TestDependentResources")
+class TestIpv4AddressesBasicNoVrf(unittest.TestCase):
+    '''
+    Basic CRD functions for Ipv4 addresses
+    '''
+    org = 'testco'
+    subnet1 = '172.16.0.0/12'
+    address1 = '172.16.23.4'
+    organisation = 'testco'
+    def test_create_and_delete_single_address(self):
+        print('Test: test_create_and_delete_single_address')
+        # Create the organisation that it goes under
+        self.assertEqual(requests.post('%s/Organisations' % (API_BASE_URL),
+                                       data={'uid': self.organisation}).status_code,
+                         201)
+        # Add the subnet
+        self.assertEqual(requests.post('%s/subnets' % (IPAM_BASE_URL),
+                                       data={'org': self.organisation,
+                                             'subnet': self.subnet1}).status_code,
+                         201)
+        # Add the address
+        self.assertEqual(requests.post('%s/addresses' % (IPAM_BASE_URL),
+                                       data={'org': self.organisation,
+                                             'address': self.address1}).status_code,
+                         201)
+        # Confirm it's there
+        self.assertEqual(requests.get('%s/addresses?address=%s&org=%s'
+                                      % (IPAM_BASE_URL, self.address1, self.organisation)).status_code,
+                         200)
+        # Delete it
+        self.assertEqual(requests.delete('%s/addresses' % (IPAM_BASE_URL),
+                                         data={'org': self.organisation,
+                                               'address': self.address1}).status_code,
+                         204)
+        # Ensure it's gone
+        self.assertEqual(requests.get('%s/addresses?address=%s&org=%s'
+                                      % (IPAM_BASE_URL, self.address1, self.organisation)).status_code,
+                         404)
+        # Remove the organisation and subnet
+        self.assertEqual(requests.delete('%s/Organisations/%s'
+                                         % (API_BASE_URL, self.organisation),
+                                         data={'recursive': 'true'}).status_code,
+                         204)

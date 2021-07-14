@@ -66,12 +66,12 @@
 
 (defun startup (&key acceptor dispatchers docker)
   "Start up the appserver.
-   Ensures the uniqueness constraint on resource-types is present in Neo4j.
-   Keyword arguments:
-   - acceptor = prebuilt acceptor, to use instead of the default.
-   - dispatchers = extra dispatchers to add to tbnl:*dispatch-table* in addition to the defaults.
-   - docker = whether to start up in a manner suitable to running under docker,
-   i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up."
+  Ensures the uniqueness constraint on resource-types is present in Neo4j.
+  Keyword arguments:
+  - acceptor = prebuilt acceptor, to use instead of the default.
+  - dispatchers = extra dispatchers to add to tbnl:*dispatch-table* in addition to the defaults.
+  - docker = whether to start up in a manner suitable to running under docker,
+  i.e. return only after Hunchentoot shuts down, instead of immediately after it starts up."
   (declare (type (boolean) docker))
   ;; Set debug logging, if requested
   (when (sb-ext:posix-getenv "DEBUG")
@@ -92,60 +92,60 @@
   ;;; We can't directly check whether this acceptor is running,
   ;;; so we're using the existence of its special variable as a proxy.
   (if *restagraph-acceptor*
-      ;; There's an acceptor already in play; bail out.
-      (log-message :warn "Acceptor already exists; refusing to create a new one.")
-      ;; No existing acceptor; we're good to go.
-      ;;
-      ;; Figure out whether we have a schema directory to work with
-      (progn
-        ;; Ensure we have an acceptor to work with
-        (when (null acceptor) (setf acceptor (make-default-acceptor)))
-        ;; Make it available as a dynamic variable, for shutdown to work on
-        (defparameter *restagraph-acceptor* acceptor)
-        ;; Sanity-check whether the database is available
-        (unless (confirm-db-is-running (datastore acceptor) :max-count 25)
-          (error "Database is not available"))
-        ;; Update the schema, if one has been specified
-        (ensure-current-schema (datastore acceptor) *core-schema*)
-        (setf (schema acceptor) (fetch-current-schema (datastore acceptor)))
-        ;; Set the dispatch table
-        (restagraph:log-message :info "Configuring the dispatch table")
-        (setf tbnl:*dispatch-table*
-              (append
-                ;; Restagraph defaults
-                (list (tbnl:create-prefix-dispatcher
-                        (uri-base-api acceptor) 'api-dispatcher-v1)
-                      (tbnl:create-prefix-dispatcher
-                        (uri-base-schema acceptor) 'schema-dispatcher-v1)
-                      (tbnl:create-prefix-dispatcher
-                        (uri-base-files acceptor) 'files-dispatcher-v1))
-                ;; Include the additional dispatchers here
-                dispatchers
-                ;; Default fallback
-                (list (tbnl:create-prefix-dispatcher "/" 'four-oh-four))))
-        ;; Prepare for file upload
-        (log-message :info "Ensuring the file-upload temp directory is present")
-        (ensure-directories-exist
-          (if (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
-              (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
-              (getf *config-vars* :files-temp-location)))
-        (setf tbnl:*tmp-directory* (getf *config-vars* :files-temp-location))
-        ;; Start up the server
-        (log-message :info "Starting up Hunchentoot to serve HTTP requests")
-        (handler-case
-          (tbnl:start acceptor)
-          (usocket:address-in-use-error
-            () (log-message :error
-                            (format nil "Attempted to start an already-running instance!"))))
-        (when docker
-          (sb-thread:join-thread
-            (find-if
-                    (lambda (th)
-                      (string= (sb-thread:thread-name th)
-                               (format nil "hunchentoot-listener-~A:~A"
-                                       (tbnl:acceptor-address acceptor)
-                                       (tbnl:acceptor-port acceptor))))
-                    (sb-thread:list-all-threads)))))))
+    ;; There's an acceptor already in play; bail out.
+    (log-message :warn "Acceptor already exists; refusing to create a new one.")
+    ;; No existing acceptor; we're good to go.
+    ;;
+    ;; Figure out whether we have a schema directory to work with
+    (progn
+      ;; Ensure we have an acceptor to work with
+      (when (null acceptor) (setf acceptor (make-default-acceptor)))
+      ;; Make it available as a dynamic variable, for shutdown to work on
+      (defparameter *restagraph-acceptor* acceptor)
+      ;; Sanity-check whether the database is available
+      (unless (confirm-db-is-running (datastore acceptor) :max-count 25)
+        (error "Database is not available"))
+      ;; Update the schema, if one has been specified
+      (ensure-current-schema (datastore acceptor) *core-schema*)
+      (setf (schema acceptor) (fetch-current-schema (datastore acceptor)))
+      ;; Methods
+      ;; Set the dispatch table
+      (restagraph:log-message :info "Configuring the dispatch table")
+      (setf tbnl:*dispatch-table*
+            (append
+              ;; Restagraph defaults
+              (list (tbnl:create-prefix-dispatcher (uri-base-api acceptor) 'api-dispatcher-v1)
+                    (tbnl:create-prefix-dispatcher (uri-base-schema acceptor) 'schema-dispatcher-v1)
+                    (tbnl:create-prefix-dispatcher (uri-base-files acceptor) 'files-dispatcher-v1)
+                    (tbnl:create-prefix-dispatcher (uri-base-subnets acceptor) 'subnet-dispatcher-v1)
+                    (tbnl:create-prefix-dispatcher (uri-base-addresses acceptor) 'address-dispatcher-v1))
+              ;; Include the additional dispatchers here
+              dispatchers
+              ;; Default fallback
+              (list (tbnl:create-prefix-dispatcher "/" 'four-oh-four))))
+      ;; Prepare for file upload
+      (log-message :info "Ensuring the file-upload temp directory is present")
+      (ensure-directories-exist
+        (if (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
+          (sb-ext:posix-getenv "FILES_TEMP_LOCATION")
+          (getf *config-vars* :files-temp-location)))
+      (setf tbnl:*tmp-directory* (getf *config-vars* :files-temp-location))
+      ;; Start up the server
+      (log-message :info "Starting up Hunchentoot to serve HTTP requests")
+      (handler-case
+        (tbnl:start acceptor)
+        (usocket:address-in-use-error
+          () (log-message :error
+                          (format nil "Attempted to start an already-running instance!"))))
+      (when docker
+        (sb-thread:join-thread
+          (find-if
+            (lambda (th)
+              (string= (sb-thread:thread-name th)
+                       (format nil "hunchentoot-listener-~A:~A"
+                               (tbnl:acceptor-address acceptor)
+                               (tbnl:acceptor-port acceptor))))
+            (sb-thread:list-all-threads)))))))
 
 (defun dockerstart ()
   (startup :docker t))

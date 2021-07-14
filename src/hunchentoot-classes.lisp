@@ -32,6 +32,12 @@
                    :reader uri-base-files
                    :initform "/files/v1"
                    :documentation "Base URI on which the files API is to be presented.")
+   (uri-base-subnets :initarg :uri-base-subnets
+                     :reader uri-base-subnets
+                     :initform "/ipam/v1/subnets")
+   (uri-base-addresses :initarg :uri-base-addresses
+                       :reader uri-base-addresses
+                       :initform "/ipam/v1/addresses")
    (files-location :initarg :files-location
                    :reader files-location
                    :initform (error "files-location is required")

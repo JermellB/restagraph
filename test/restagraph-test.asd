@@ -15,4 +15,5 @@
                              (:file "utilities-pure")
                              (:file "utilities-side-effecting")
                              (:file "pure-tests")
-                             (:file "side-effecting-tests")))
+                             (:file "side-effecting-tests")
+                             (:file "ipam")))

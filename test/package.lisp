@@ -8,4 +8,5 @@
   (:export main
            pure
            side-effecting
-           utilities-pure))
+           utilities-pure
+           ipam))

@@ -12,7 +12,8 @@
                #:hunchentoot
                #:drakma
                #:ironclad
-               #:cl-json)
+               #:cl-json
+               #:ipaddress)
   :components ((:file "package")
                (:file "conditions")
                (:file "logging")
@@ -22,6 +23,7 @@
                (:file "schema-queries")
                (:file "resources")
                (:file "relationships")
+               (:file "ipam")
                (:file "core-schema")
                (:file "config")
                (:file "dispatchers")

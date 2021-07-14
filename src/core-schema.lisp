@@ -35,6 +35,13 @@
                                 :name "description"
                                 :description "Clarification of what the group means.")))
           (make-incoming-rtypes
+            :name "Organisations"
+            :notes "Any kind of organisation: professional, social or other."
+            :dependent nil
+            :attributes (list (make-incoming-rtype-attrs
+                                :name "description"
+                                :description "Notes about this particular organisation.")))
+          (make-incoming-rtypes
             :name "People"
             :notes "UID should be their login name or some other compact reference."
             :attributes (list (make-incoming-rtype-attrs
@@ -61,7 +68,49 @@
                                 :description "The detected mime-type of this file.")
                               (make-incoming-rtype-attrs
                                 :name "sha3256sum"
-                                :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."))))
+                                :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions.")))
+          (make-incoming-rtypes
+            :name "VrfGroups"
+            :notes "VRF Groups, as allocated by an organisation."
+            :dependent t
+            :attributes (list (make-incoming-rtype-attrs
+                                :name "description")))
+          (make-incoming-rtypes
+            :name "Ipv4Subnets"
+            :notes "IPv4 Subnets, as allocated rather than as configured."
+            :dependent t
+            :attributes (list (make-incoming-rtype-attrs
+                                :name "description")
+                              (make-incoming-rtype-attrs
+                                :name "netaddress"
+                                :description "The network address of the subnet.")
+                              (make-incoming-rtype-attrs
+                                :name "prefixlength"
+                                :description "The prefix length of the subnet - an integer between 1 and 32.")))
+          (make-incoming-rtypes
+            :name "Ipv6Subnets"
+            :notes "IPv6 Subnets, as allocated rather than as configured."
+            :dependent t
+            :attributes (list (make-incoming-rtype-attrs
+                                :name "description")
+                              (make-incoming-rtype-attrs
+                                :name "netaddress"
+                                :description "The network address of the subnet.")
+                              (make-incoming-rtype-attrs
+                                :name "prefixlength"
+                                :description "The prefix length of the subnet - an integer between 1 and 64.")))
+          (make-incoming-rtypes
+            :name "Ipv4Addresses"
+            :notes "IPv4 Addresses. Unqualified, so really only useful for allocating."
+            :dependent t
+            :attributes (list (make-incoming-rtype-attrs
+                                :name "description")))
+          (make-incoming-rtypes
+            :name "Ipv6Addresses"
+            :notes "IPv6 Addresses. Unqualified, so really only useful for allocating."
+            :dependent t
+            :attributes (list (make-incoming-rtype-attrs
+                                :name "description"))))
     :relationships (list (make-incoming-rels :name "TAGS"
                                              :source-type "any"
                                              :target-type "Tags")
@@ -73,4 +122,46 @@
                                              :target-type "People")
                          (make-incoming-rels :name "PRONOUNS"
                                              :source-type "People"
-                                             :target-type "Pronouns"))))
+                                             :target-type "Pronouns")
+                         (make-incoming-rels :name "MEMBERS"
+                                             :source-type "Organisations"
+                                             :target-type "People")
+                         (make-incoming-rels :name "MEMBER_OF"
+                                             :source-type "People"
+                                             :target-type "Organisations")
+                         (make-incoming-rels :name "VRF_GROUPS"
+                                             :source-type "Organisations"
+                                             :target-type "VrfGroups"
+                                             :dependent t)
+                         (make-incoming-rels :name "SUBNETS"
+                                             :source-type "Organisations"
+                                             :target-type "Ipv4Subnets"
+                                             :dependent t)
+                         (make-incoming-rels :name "SUBNETS"
+                                             :source-type "VrfGroups"
+                                             :target-type "Ipv4Subnets"
+                                             :dependent t)
+                         (make-incoming-rels :name "SUBNETS"
+                                             :source-type "Ipv4Subnets"
+                                             :target-type "Ipv4Subnets"
+                                             :dependent t)
+                         (make-incoming-rels :name "ADDRESSES"
+                                             :source-type "Ipv4Subnets"
+                                             :target-type "Ipv4Addresses"
+                                             :dependent t)
+                         (make-incoming-rels :name "SUBNETS"
+                                             :source-type "Organisations"
+                                             :target-type "Ipv6Subnets"
+                                             :dependent t)
+                         (make-incoming-rels :name "SUBNETS"
+                                             :source-type "VrfGroups"
+                                             :target-type "Ipv6Subnets"
+                                             :dependent t)
+                         (make-incoming-rels :name "SUBNETS"
+                                             :source-type "Ipv6Subnets"
+                                             :target-type "Ipv6Subnets"
+                                             :dependent t)
+                         (make-incoming-rels :name "ADDRESSES"
+                                             :source-type "Ipv6Subnets"
+                                             :target-type "Ipv6Addresses"
+                                             :dependent t))))

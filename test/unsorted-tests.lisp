@@ -11,6 +11,12 @@
 
 (in-package #:restagraph-test)
 
+(declaim (optimize (compilation-speed 0)
+                   (speed 2)
+                   (safety 3)
+                   (debug 3)))
+
+
 
 (fiveam:test
   resources-basic
