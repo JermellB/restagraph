@@ -114,7 +114,7 @@ Expected format of the file
 - The `dependent` attribute of a resource indicates whether it has independent existence (dependent=`false`, the default) or whether it only exists in the context of a parent resource. E.g, an IP address configured on an interface doesn't exist independently - the only reason not to define it as an attribute is that an interface may have any number of addresses configured on it.
     - This is an optional attribute; it defaults to `false`.
 - The `dependent` attribute of a relationship indicates whether the target resource is dependent on the source resource, i.e. is a child to that parent resource.
-    - This means that if `dependent` is true in a relationship type, the target resource will be created along with it. The only exception to this case is if a dependent resource is moved to a new parent.
+    - This means that if `dependent` is true in a relationship type, the target resource will be created along with it.
     - A dependent resource can only have one parent resource.
     - A dependent relationship _cannot_ be created to a non-dependent target resource.
     - A non-dependent relationship _can_ be created to a dependent target resource, if the target already exists.
@@ -145,12 +145,23 @@ With payload of `uid=<uid>`, plus optionally `<attribute-name>=<value>` pairs fo
 
 Example:
 ```
-curl -d 'uid=Blake' http://localhost:4950/raw/v1/People
+curl -X POST -d 'uid=Blake' http://localhost:4950/raw/v1/People
 ```
 
 The UID must be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
 On success, returns a status code of 201, and the URI for the newly-created resource, e.g. `/People/Blake`.
+
+
+### Create a dependent resource
+
+This works the same way as with primary resources, except that you append the dependent relationship and resourcetype to an existing parent resource, e.g:
+
+```
+curl -X POST -d 'uid=Hangar' http://localhost:4950/raw/v1/Buildings/Xenon/FLOORS/Floors
+```
+
+UIDs for dependent resources must be unique within each parent resource, but are not required to be globally unique the way that primary resources are.
 
 
 ## Retrieve a resource
@@ -163,6 +174,12 @@ On success, returns a status code of 200, and the response body is a JSON repres
 
 If no resource of that type exists with that UID, a status code of 404 is returned.
 
+These URIs can be as long as the client supports, and can follow any relationship from one resource to another. As an example, you could fetch the details of the janitor for the hangar in the above example with this query:
+
+```
+curl http://localhost:4950/raw/v1/Buildings/Xenon/FLOORS/Floors/Hangar/JANITOR/People/Joe
+```
+
 
 ## Retrieve all resources of a given type
 
@@ -174,6 +191,25 @@ Returns a JSON representation of all resources of that type, with a status code 
 
 If there aren´t any resources of this type, it still returns a status code of 200, and the response body is an empty JSON array, i.e. `[]`. This may seem inconsistent with the 404 returned for a failed request for a single resource, but it's the difference between "nothing at this URL" and "this URL is valid, but the search returned nothing."
 
+The results can be filtered on amy of the attributes using [Java-style regexes](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html), e.g:
+
+```
+curl 'http://localhost:4950/raw/v1/People?displayname=Bla.*'
+```
+
+Regular expressions can be negated by putting `!` at the start of the regex, e.g. `!.*foo.*` would filter for every string that does _not_ include the substring "foo".
+
+
+### Retrieve the type and UID of all resources to which this one has a specific relationship
+
+This is essentially the extended version of retrieving all resources of a given type. Alternatively, the previous section is a special case of this feature:
+
+```
+GET /api/v1/<resource-type>/<Unique ID>/<relationship>
+```
+
+Either way, the same filtering works here as well.
+
 
 ## Update one or more attributes of a resource
 
@@ -181,7 +217,7 @@ If there aren´t any resources of this type, it still returns a status code of 2
 PUT /api/v1/<resource-type>/<resource UID>
 ```
 
-The payload should be supplied in the request body, POST-style. Among other considerations, this avoids the 1024-character limit for GET-style parameters.
+The payload must be supplied in the request body, POST-style. This is mainly to get past the 1024-character limit for GET-style parameters, which is a little short for something like a wiki page.
 
 This always returns a status code of 204 (no content) on success.
 
@@ -209,17 +245,9 @@ POST /api/v1/<resource-type>/<Unique ID>/<relationship>
 with parameter: 'target' = '/type/uid'
 ```
 
-Parameter _must_ include `type` and `uid`, and _may_ also include `attributes`.
-
-If the destination resource doesn´t already exist, it will be automatically created first. This has to be done as a separate transaction; beware race-conditions where two clients try to create the same thing at the same time.
+The `target` parameter can actually be any valid path to an existing resource, but it _must_ uniquely identify a unique resource by including the `type` and `uid` values as the last two elements.
 
 Returns the URI of the newly-created path through this relationship.
-
-
-## Retrieve the type and UID of all resources to which this one has a specific relationship
-```
-GET /api/v1/<resource-type>/<Unique ID>/<relationship>
-```
 
 
 ## Delete a relationship to another object
@@ -228,36 +256,10 @@ DELETE /api/v1/<resource-type>/<Unique ID>/<relationship>/<Unique ID>
 ```
 
 
-## Search for objects to which this one has a particular kind of relationship, optionally matching a set of attribute/value pairs
-```
-GET /api/v1/<resource-type>/<Unique ID>/<relationship>/?<attribute>=<value>
-```
-
-Regular expressions based on [Java regexes](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) can be used. Negation can be effected by putting `!` at the start of the regex.
-
-
-## Search for objects with a set relationship to another resource
-
-This is currently limited to one hop.
-```
-GET /api/v1/<resource-type>?outbound=<relationship>/<resource-type>/<resource-uid>
-```
-
-E.g, `GET /api/v1/devices?outbound=BusinessOwner/organisations/Sales`
-
-
-## Create a resource that depends on another for its context
-This is defined in the schema by adding the attribute `dependent=true` to the dependent `rgResource` definition, and by then adding the same attribute to the relationships to that resource-type from resource-types that are valid parents.
-It´s valid to create resources that depend on other dependent resources, with no limit to the depth of these chains.
-```
-POST /api/v1/<parent-type>/<parent-uid>/<relationship-type>
-with parameters: 'type=<child-type>' and 'uid=<child-uid>' (both are required)
-```
-
-
 ## Delete a dependent resource
-Either use the `DELETE` method on the full path to the resource in question to remove it specifically, or pass the `delete-dependent=true` parameter to the API call to one of its parents further up the chain.
-The `delete-dependent` parameter acts recursively downward from whatever resource is being deleted.
+
+Either use the `DELETE` method on the full path to the resource in question to remove it specifically, or pass the `recursive=true` parameter to the API call to one of its parents further up the chain.
+The `recursive` parameter acts recursively downward from whatever resource is being deleted.
 
 
 ## Move a dependent resource from one parent to another
@@ -268,57 +270,9 @@ with parameter: 'target=/uri/path/to/new/parent/and/relationship'
 ```
 
 
-# Working example
-
-FIXME: `schema goes here`
-
-Create a router:
-```
-prompt> curl -i -X POST -d 'uid=amchitka' -d 'comment=Router 1' http://localhost:4950/api/v1/routers
-HTTP/1.1 201 Created
-Content-Length: 11
-Date: Tue, 06 Dec 2016 19:47:57 GMT
-Server: Hunchentoot 1.2.35
-Content-Type: text/plain; charset=utf-8
-
-201 /routers/amchitka
-```
-
-Retrieve its details:
-```
-prompt> curl -i http://localhost:4950/api/v1/routers/amchitka
-HTTP/1.1 200 OK
-Content-Length: 39
-Date: Tue, 06 Dec 2016 19:48:08 GMT
-Server: Hunchentoot 1.2.35
-Content-Type: application/json
-
-{"uid":"amchitka","comment":"Router 1"}
-```
-
-Delete it:
-```
-prompt> curl -i -X DELETE -d 'uid=amchitka' -d 'comment=Router 1' http://localhost:4950/api/v1/routers
-HTTP/1.1 200 OK
-Content-Length: 2
-Date: Tue, 06 Dec 2016 19:48:15 GMT
-Server: Hunchentoot 1.2.35
-Content-Type: text/plain; charset=utf-8
-```
-
-Confirm that it´s gone:
-```
-prompt> curl -i http://localhost:4950/api/v1/routers/amchitka
-HTTP/1.1 404 Not Found
-Content-Length: 40
-Date: Tue, 06 Dec 2016 19:48:18 GMT
-Server: Hunchentoot 1.2.35
-Content-Type: text/plain; charset=utf-8
-
-No routers found with a UID of amchitka.
-```
-
 # Files API
+
+This is the API for uploading and deleting files; these operations cannot be done via the Raw API. You can retrieve the file itself with a GET request to this endpoint, or retrieve its metadata via a get request to `/raw/v1/Files/<file UID>`.
 
 Endpoint is `/files/v1`
 
@@ -331,6 +285,3 @@ To use them via `curl`:
 ```
 curl -F "file=@/path/to/file.jpg" -F "name=NameOfMyFile" http://localhost:4950/files/v1/
 ```
-
-
-
