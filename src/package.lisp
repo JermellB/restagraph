@@ -35,4 +35,5 @@
     check-relationship-by-path
     delete-relationship-by-path
     delete-resource-by-path
+    schema
     ))
