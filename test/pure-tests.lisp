@@ -36,7 +36,7 @@
                                 :name "baz"
                                 :description "Valid attribute."))))
     ;; Confirm it isn't dependent
-    (fiveam:is (null (restagraph::dependent-resource-p schema "foo")))))
+    (fiveam:is (null (restagraph::dependent (gethash "foo" schema))))))
 
 (fiveam:test
   validate-attributes
