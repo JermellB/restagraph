@@ -121,10 +121,10 @@ Return an error if
          (log-message :error message)
          (error 'client-error :message message)))
       ;; Sanity check: dependency between parent and child resource types
-      ((null (dependent relationship-attrs))
+      ((not (dependent relationship-attrs))
        (let ((message
-               (format nil "Target resource-type ~A doesn't depend on the parent type ~A"
-                       dest-type parent-type)))
+               (format nil "Target resource-type '~A' doesn't depend on the parent type '~A' for relationship '~A': ~A"
+                       dest-type parent-type relationship (a-listify relationship-attrs))))
          (log-message :debug message)
          (error 'client-error :message message)))
       ;; Sanity check: is this a dependent resource type?
