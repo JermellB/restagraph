@@ -179,42 +179,57 @@
           (log-message :debug (format nil "Refusing to create duplicate relationship (:~A)-[:~A]->(~A)"
                                       (source-type rel) (name rel) (target-type rel)))
           (let ((query
-                  (format nil
-                          "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })-[:HAS]->(s:RgResourceType {name: \"~A\"}),
-                          (v)-[:HAS]->(t:RgResourceType {name: \"~A\"})
-                          CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(t)"
-                          schema-version
-                          (source-type rel)
-                          (target-type rel)
-                          (name rel)
-                          (if (dependent rel) "true" "false")
-                          (if (notes rel)
-                            (format nil "\"~A\"" (notes rel))
-                            "null")
-                          (cardinality rel))))
-            (log-message :debug (format nil "Installing relationship definition with this query:~%~A"
-                                        query))
-            (handler-case
-              (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
-              (error (e)
-                     (cond ((typep e 'neo4cl:client-error)
-                            (log-message
-                              :error
-                              (format nil "Neo4J client error ~A/~A - ~A"
-                                      (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
-                           ((typep e 'neo4cl:transient-error)
-                            (log-message
-                              :error
-                              (format nil "Neo4J transient error ~A/~A - ~A"
-                                      (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
-                           ((typep e 'neo4cl:database-error)
-                            (log-message
-                              :error
-                              (format nil "Neo4J database error ~A/~A - ~A"
-                                      (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
-                           (t
-                             (log-message :error e))))))))
-        (relationships subschema)))
+                  ;; Special-case code for self-relationships.
+                  ;; If the source-type and target-type are the same resource, Cypher will
+                  ;; refuse to make two separate references to iitt
+                  (if (equal (source-type rel) (target-type rel))
+                    (format nil
+                            "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })-[:HAS]->(s:RgResourceType {name: \"~A\"})
+                            CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(s)"
+                            schema-version
+                            (source-type rel)
+                            (name rel)
+                            (if (dependent rel) "true" "false")
+                            (if (notes rel)
+                              (format nil "\"~A\"" (notes rel))
+                              "null")
+                            (cardinality rel))
+                            ;; Normal case where the source and target types are different
+                            (format nil
+                                    "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })-[:HAS]->(s:RgResourceType {name: \"~A\"}), (v)-[:HAS]->(t:RgResourceType {name: \"~A\"})
+                                    CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(t)"
+                                    schema-version
+                                    (source-type rel)
+                                    (target-type rel)
+                                    (name rel)
+                                    (if (dependent rel) "true" "false")
+                                    (if (notes rel)
+                                      (format nil "\"~A\"" (notes rel))
+                                      "null")
+                                    (cardinality rel)))))
+                  (log-message :debug (format nil "Installing relationship definition with this query:~%~A"
+                                              query))
+                  (handler-case
+                    (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
+                    (error (e)
+                           (cond ((typep e 'neo4cl:client-error)
+                                  (log-message
+                                    :error
+                                    (format nil "Neo4J client error ~A/~A - ~A"
+                                            (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
+                                 ((typep e 'neo4cl:transient-error)
+                                  (log-message
+                                    :error
+                                    (format nil "Neo4J transient error ~A/~A - ~A"
+                                            (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
+                                 ((typep e 'neo4cl:database-error)
+                                  (log-message
+                                    :error
+                                    (format nil "Neo4J database error ~A/~A - ~A"
+                                            (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
+                                 (t
+                                   (log-message :error e))))))))
+          (relationships subschema)))
 
 
 ;;; Extract a schema from the database
