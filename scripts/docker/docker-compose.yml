@@ -1,0 +1,49 @@
+version: "3"
+services:
+  neo4j:
+    image: neo4j:4.1.10
+    deploy:
+      replicas: 1
+    ports:
+      - "7801:7474"
+      - "7802:7687"
+    volumes:
+      - rgtestdb:/data
+    networks:
+      - rgtestnet
+    environment:
+      NEO4J_AUTH: "neo4j/wombat"
+      NEO4J_dbms_jvm_additional: "-Dfile.encoding=UTF-16"
+  restagraph:
+    image: equill/restagraph:0.7.0a1
+    depends_on:
+      - neo4j
+    deploy:
+      replicas: 1
+    ports:
+      - "4965:4949"
+    volumes:
+      - rgtestfiles:/files
+    networks:
+      - rgtestnet
+    environment:
+      # This app
+      LISTEN_ADDR: "0.0.0.0"
+      LISTEN_PORT: 4949
+      FILES_LOCATION: "/files/"
+      FILES_TEMP_LOCATION: "/tmp/"
+      SCHEMAPATH: "/schemas/"
+      # The Neo4j server
+      NEO4J_HOSTNAME: "neo4j"
+      NEO4J_PORT: 7474
+      NEO4J_USER: "neo4j"
+      NEO4J_PASSWORD: "wombat"
+      # Uncomment the following line to enable debug-logging
+      #DEBUG: "true"
+networks:
+  rgtestnet:
+volumes:
+  rgtestfiles:
+    external: true
+  rgtestdb:
+    external: true

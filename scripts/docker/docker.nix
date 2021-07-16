@@ -5,15 +5,13 @@ let
         name = "restagraph";
         builder = "${bash}/bin/bash";
         args = [ ./nix-builder.sh ];
-        inherit coreutils openssl libyaml;
+        inherit coreutils openssl;
         system = builtins.currentSystem;
-        schemapath = ../../src/schemas;
         restagraphpath = ./restagraph;
     };
 
-    ld_path = stdenv.lib.makeLibraryPath [
+    ld_path = pkgs.lib.makeLibraryPath [
         pkgs.openssl
-        pkgs.libyaml
     ];
 
     entrypoint = writeScript "entrypoint.sh" ''
@@ -25,7 +23,7 @@ let
 in
 pkgs.dockerTools.buildImage {
     name = "equill/restagraph";
-    tag = "0.6.8";
+    tag = "0.7.0a1";
     created = "now";
 
     contents = restagraph_deriv;
