@@ -120,12 +120,12 @@
                     (if (member (name rtype) extant-resourcetypes :test #'equal)
                       (format nil "-[:HAS]->(t:RgResourceType {name: \"~A\"}) CREATE " (name rtype))
                       (format nil
-                              " CREATE (v)-[:HAS]->(t:RgResourceType {name: \"~A\", dependent: ~A, notes: ~A})~A"
+                              " CREATE (v)-[:HAS]->(t:RgResourceType {name: \"~A\", dependent: ~A, description: ~A})~A"
                               (name rtype)
                               (if (dependent rtype) "true" "false")
-                              (if (and (notes rtype)
-                                       (not (equal "" (notes rtype))))
-                                (format nil "\"~A\"" (notes rtype))
+                              (if (and (description rtype)
+                                       (not (equal "" (description rtype))))
+                                (format nil "\"~A\"" (description rtype))
                                 "null")
                               ;; Insert a comma if needed
                               (if (attributes rtype) ", " " ")))
@@ -185,26 +185,26 @@
                   (if (equal (source-type rel) (target-type rel))
                     (format nil
                             "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })-[:HAS]->(s:RgResourceType {name: \"~A\"})
-                            CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(s)"
+                            CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, description: ~A, cardinality: \"~A\"})-[:TARGET]->(s)"
                             schema-version
                             (source-type rel)
                             (name rel)
                             (if (dependent rel) "true" "false")
-                            (if (notes rel)
-                              (format nil "\"~A\"" (notes rel))
+                            (if (description rel)
+                              (format nil "\"~A\"" (description rel))
                               "null")
                             (cardinality rel))
                             ;; Normal case where the source and target types are different
                             (format nil
                                     "MATCH (r:RgSchema {name: \"root\"})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })-[:HAS]->(s:RgResourceType {name: \"~A\"}), (v)-[:HAS]->(t:RgResourceType {name: \"~A\"})
-                                    CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, notes: ~A, cardinality: \"~A\"})-[:TARGET]->(t)"
+                                    CREATE (s)<-[:SOURCE]-(:RgRelationship {name: \"~A\", dependent: ~A, description: ~A, cardinality: \"~A\"})-[:TARGET]->(t)"
                                     schema-version
                                     (source-type rel)
                                     (target-type rel)
                                     (name rel)
                                     (if (dependent rel) "true" "false")
-                                    (if (notes rel)
-                                      (format nil "\"~A\"" (notes rel))
+                                    (if (description rel)
+                                      (format nil "\"~A\"" (description rel))
                                       "null")
                                     (cardinality rel)))))
                   (log-message :debug (format nil "Installing relationship definition with this query:~%~A"
@@ -303,28 +303,28 @@
                       (target-type (gethash (third rel) schema))
                       (rel-cardinality (fourth rel))
                       (rel-dependent (fifth rel))
-                      (rel-notes (when (and (sixth rel)
-                                            (not (equal "" (sixth rel))))
-                                   (sixth rel))))
+                      (rel-description (when (and (sixth rel)
+                                                  (not (equal "" (sixth rel))))
+                                         (sixth rel))))
                   (log-message
                     :debug
-                    (format nil "Creating relationship entry for (:~A)-[:~A {cardinality: '~A', dependent: '~A', notes: '~A'}]->(~A - ~A)"
+                    (format nil "Creating relationship entry for (:~A)-[:~A {cardinality: '~A', dependent: '~A', description: '~A'}]->(~A - ~A)"
                             source-type
-                            rel-name rel-cardinality rel-dependent rel-notes
+                            rel-name rel-cardinality rel-dependent rel-description
                             target-name
                             (name target-type)))
                   (push (make-schema-rels :name rel-name
                                           :target-type target-type
                                           :cardinality rel-cardinality
                                           :dependent rel-dependent
-                                          :notes rel-notes)
+                                          :description rel-description)
                         (gethash source-type rels))))
             (neo4cl:extract-rows-from-get-request
               (neo4cl:neo4j-transaction
                 db
                 `((:STATEMENTS
                     ((:STATEMENT
-                       . "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType)<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN s.name, r.name, t.name, r.cardinality, r.dependent, r.notes")))))))
+                       . "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType)<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN s.name, r.name, t.name, r.cardinality, r.dependent, r.description")))))))
     ;; Return the accumulated hash-table
     rels))
 
@@ -348,9 +348,9 @@
                                              (equal dependent "true")
                                              (equal dependent "True"))
                                      t))
-                      :notes (when (and (cdr (assoc :NOTES res))
-                                        (not (equal "" (cdr (assoc :NOTES res)))))
-                               (cdr (assoc :NOTES res)))
+                      :description (when (and (cdr (assoc :DESCRIPTION res))
+                                              (not (equal "" (cdr (assoc :DESCRIPTION res)))))
+                                     (cdr (assoc :DESCRIPTION res)))
                       :attributes
                       (mapcar #'(lambda (attr)
                                   (make-incoming-rtype-attrs
@@ -372,7 +372,7 @@
                                              (equal dependent "true")
                                              (equal dependent "True"))
                                      t))
-                      :notes (cdr (assoc :NOTES rel))))
+                      :description (cdr (assoc :DESCRIPTION rel))))
                 (cdr (assoc :RELATIONSHIPS content))))))
       ;; Return indication of success
       (when (install-subschema db new-schema current-version)
@@ -403,7 +403,7 @@
     :debug
     (format nil "Retrieving the relationship ~A from ~A to ~A."
             relationship source-type target-type))
-  (let ((query (format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType {name: \"~A\"})<-[:SOURCE]-(r:RgRelationship {name: \"~A\"})-[:TARGET]->(t:RgResourceType {name: \"~A\"}) RETURN r.name, t.name, r.cardinality, r.dependent, r.notes"
+  (let ((query (format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType {name: \"~A\"})<-[:SOURCE]-(r:RgRelationship {name: \"~A\"})-[:TARGET]->(t:RgResourceType {name: \"~A\"}) RETURN r.name, t.name, r.cardinality, r.dependent, r.description"
                        source-type relationship target-type)))
     (log-message :debug (format nil "Checking for relationship (:~A)-[:~A]->(:~A)"
                                 source-type relationship target-type))
@@ -415,7 +415,7 @@
                                     :target-type (second rel)
                                     :cardinality (third rel)
                                     :dependent (fourth rel)
-                                    :notes (fifth rel)))
+                                    :description (fifth rel)))
               (neo4cl:extract-data-from-get-request
                 (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))))
       (error (e)
@@ -458,13 +458,13 @@
                   db
                   `((:STATEMENTS
                       ((:STATEMENT
-                         . ,(format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType {name: \"~A\"}) RETURN s.dependent AS dependent, s.notes AS notes"
+                         . ,(format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType {name: \"~A\"}) RETURN s.dependent AS dependent, s.description AS description"
                                     resourcetype))))))))))
       ;; Convert to schema-rtypes instances
       (make-schema-rtypes :name resourcetype
                           :dependent (first rtype)
                           ;; Convert to boolean:
-                          :notes (second rtype)
+                          :description (second rtype)
                           :relationships ()
                           :attributes ()))
     (error (e)
@@ -501,13 +501,13 @@
                                 :target-type (second rel)
                                 :cardinality (third rel)
                                 :dependent (fourth rel)
-                                :notes (fifth rel)))
+                                :description (fifth rel)))
           (neo4cl:extract-rows-from-get-request
             (neo4cl:neo4j-transaction
               db
               `((:STATEMENTS
                   ((:STATEMENT
-                     . ,(format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: \"~A\"})<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN r.name, t.name, r.cardinality, t.dependent, t.notes"
+                     . ,(format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: \"~A\"})<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN r.name, t.name, r.cardinality, t.dependent, t.description"
                                 resourcetype)))))))))
 
 (defgeneric get-resourcetype-names (db)

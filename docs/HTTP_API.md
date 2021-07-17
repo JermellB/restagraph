@@ -80,7 +80,7 @@ Expected format of the file
         {
           "name": "NameOfResourceType",
           "dependent": <boolean>,
-          "notes": "<Text describing what this resourcetype represents, and optionally how it's expected to be used.>",
+          "description": "<Text describing what this resourcetype represents, and optionally how it's expected to be used.>",
           "attributes": [
             {
               "name": "nameofattribute",
@@ -99,7 +99,7 @@ Expected format of the file
           "target-type": "ResourcetypeTheRelationshipGoesTo",
           "cardinality": One of "many:many", "1:many", "many:1" or "1:1" (default is "many:many"),
           "dependent": boolean,
-          "notes": "<Text clarifying what this relationship is intended to mean.>"
+          "description": "<Text clarifying what this relationship is intended to mean.>"
         },
         ...
       ],
@@ -118,7 +118,7 @@ Expected format of the file
     - A dependent resource can only have one parent resource.
     - A dependent relationship _cannot_ be created to a non-dependent target resource.
     - A non-dependent relationship _can_ be created to a dependent target resource, if the target already exists.
-- The `notes` attribute of a resourcetype or relationship, and the `description` of an attribute, is optional. If you omit it altogether, or specify it as `null` or an empty string, it will not be added to the resourcetype definition in the database, and will be effectively a null or empty string when this is queried.
+- The `description` attribute of a resourcetype or relationship, and the `description` of an attribute, is optional. If you omit it altogether, or specify it as `null` or an empty string, it will not be added to the resourcetype definition in the database, and will be effectively a null or empty string when this is queried.
 - The `values` attribute on an attribute is optional, and should only be used when you have a specific reason to constrain it to a fixed set of values. If you're considering using it, think about whether it makes more sense to use a separate resourcetype, enabling you to add/remove values in future.
 
 

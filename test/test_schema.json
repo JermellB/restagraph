@@ -4,7 +4,7 @@
     {
       "name": "Buildings",
       "dependent": "false",
-      "notes": "Individual buildings.",
+      "description": "Individual buildings.",
       "attributes": [
         {
           "name": "description",
@@ -21,7 +21,7 @@
     {
       "name": "Floors",
       "dependent": true,
-      "notes": "Floors within a building.",
+      "description": "Floors within a building.",
       "attributes": [
         {
           "name": "description",
@@ -33,7 +33,7 @@
     {
       "name": "Rooms",
       "dependent": true,
-      "notes": "Rooms within a floor",
+      "description": "Rooms within a floor",
       "attributes": []
     },
     {
@@ -54,7 +54,7 @@
       "target-type": "Floors",
       "cardinality": "1:many",
       "dependent": true,
-      "notes": null
+      "description": null
     },
     {
       "source-type": "Floors",
@@ -62,7 +62,7 @@
       "target-type": "Rooms",
       "cardinality": "1:many",
       "dependent": true,
-      "notes": null
+      "description": null
     },
     {
       "source-type": "Buildings",
@@ -70,7 +70,7 @@
       "target-type": "People",
       "cardinality": "many:many",
       "dependent": false,
-      "notes": null
+      "description": null
     }
   ]
 }

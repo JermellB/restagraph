@@ -20,30 +20,30 @@
     :resourcetypes
     (list (make-incoming-rtypes
             :name "any"
-            :notes "Special-case meta-resource, representing an instance of any type of resource."
+            :description "Special-case meta-resource, representing an instance of any type of resource."
             :attributes ())
           (make-incoming-rtypes
             :name "Tags"
-            :notes "For categorising resources of any type."
+            :description "For categorising resources of any type."
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description"
                                 :description "Clarification of what the tag means.")))
           (make-incoming-rtypes
             :name "Groups"
-            :notes "For collecting resources into explicit groups."
+            :description "For collecting resources into explicit groups."
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description"
                                 :description "Clarification of what the group means.")))
           (make-incoming-rtypes
             :name "Organisations"
-            :notes "Any kind of organisation: professional, social or other."
+            :description "Any kind of organisation: professional, social or other."
             :dependent nil
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description"
                                 :description "Notes about this particular organisation.")))
           (make-incoming-rtypes
             :name "People"
-            :notes "UID should be their login name or some other compact reference."
+            :description "UID should be their login name or some other compact reference."
             :attributes (list (make-incoming-rtype-attrs
                                 :name "displayname"
                                 :description "The human-friendly version of their name, to be displayed in the UI.")
@@ -52,11 +52,11 @@
                                 :description "Notes about this person.")))
           (make-incoming-rtypes
             :name "Pronouns"
-            :notes "The pronouns by which a person prefers to be addressed."
+            :description "The pronouns by which a person prefers to be addressed."
             :attributes ())
           (make-incoming-rtypes
             :name "Files"
-            :notes "Files uploaded by users."
+            :description "Files uploaded by users."
             :attributes (list (make-incoming-rtype-attrs
                                 :name "title"
                                 :description "The UID requested by the client")
@@ -71,13 +71,13 @@
                                 :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions.")))
           (make-incoming-rtypes
             :name "VrfGroups"
-            :notes "VRF Groups, as allocated by an organisation."
+            :description "VRF Groups, as allocated by an organisation."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description")))
           (make-incoming-rtypes
             :name "Ipv4Subnets"
-            :notes "IPv4 Subnets, as allocated rather than as configured."
+            :description "IPv4 Subnets, as allocated rather than as configured."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description")
@@ -89,7 +89,7 @@
                                 :description "The prefix length of the subnet - an integer between 1 and 32.")))
           (make-incoming-rtypes
             :name "Ipv6Subnets"
-            :notes "IPv6 Subnets, as allocated rather than as configured."
+            :description "IPv6 Subnets, as allocated rather than as configured."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description")
@@ -101,13 +101,13 @@
                                 :description "The prefix length of the subnet - an integer between 1 and 64.")))
           (make-incoming-rtypes
             :name "Ipv4Addresses"
-            :notes "IPv4 Addresses. Unqualified, so really only useful for allocating."
+            :description "IPv4 Addresses. Unqualified, so really only useful for allocating."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description")))
           (make-incoming-rtypes
             :name "Ipv6Addresses"
-            :notes "IPv6 Addresses. Unqualified, so really only useful for allocating."
+            :description "IPv6 Addresses. Unqualified, so really only useful for allocating."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description"))))

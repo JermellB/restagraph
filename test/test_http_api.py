@@ -355,27 +355,27 @@ class TestSchemaBasic(unittest.TestCase):
                 "attributes": None,
                 "dependent": None,
                 #! pylint: disable=line-too-long
-                "notes": "Special-case meta-resource, representing an instance of any type of resource.",
+                "description": "Special-case meta-resource, representing an instance of any type of resource.",
                 "relationships": [
                     {
                         "name": "CREATOR",
                         "dependent": None,
                         "cardinality": "many:many",
-                        "notes": None,
+                        "description": None,
                         "target-type": "People"
                         },
                     {
                         "name": "GROUPS",
                         "dependent": None,
                         "cardinality": "many:many",
-                        "notes": None,
+                        "description": None,
                         "target-type": "Groups"
                         },
                     {
                         "name": "TAGS",
                         "dependent": None,
                         "cardinality": "many:many",
-                        "notes": None,
+                        "description": None,
                         "target-type": "Tags"
                         }
                     ]}
@@ -391,7 +391,7 @@ class TestSchemaBasic(unittest.TestCase):
                         }
                     ],
                 "dependent": None,
-                "notes": "For categorising resources of any type.",
+                "description": "For categorising resources of any type.",
                 "relationships": None
                 }
 

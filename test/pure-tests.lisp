@@ -30,14 +30,14 @@
     (setf (gethash "foo" schema)
           (restagraph::make-schema-rtypes :name "foo"
                                           :dependent nil
-                                          :notes nil
+                                          :description nil
                                           :attributes nil
                                           :relationships nil))
     (setf (gethash "bar" schema)
           (restagraph::make-schema-rtypes
             :name "bar"
             :dependent nil
-            :notes "For testing attribute validation"
+            :description "For testing attribute validation"
             :attributes (list (restagraph::make-incoming-rtype-attrs
                                 :name "baz"
                                 :description "Valid attribute."))))

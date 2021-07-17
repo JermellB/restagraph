@@ -33,8 +33,8 @@
    (dependent :initarg :dependent
               :reader dependent
               :type boolean)
-   (notes :initarg :notes
-          :reader notes
+   (description :initarg :description
+          :reader description
           :type (or null string))
    (attributes :reader attributes
                :type (or null list)
@@ -56,7 +56,7 @@
 (defmethod a-listify ((obj schema-rtypes))
   `((:name . ,(name obj))
     (:dependent . ,(dependent obj))
-    (:notes . ,(notes obj))
+    (:description . ,(description obj))
     (:attributes
       . ,(mapcar #'a-listify
                  (sort (attributes obj)
@@ -83,15 +83,15 @@
       (setf (slot-value obj 'relationships) rels)
       (error "Invalid type for schema-rtypes relationships slot.")))
 
-(defun make-schema-rtypes (&key name dependent notes attributes relationships)
+(defun make-schema-rtypes (&key name dependent description attributes relationships)
   (declare (type string name)
            (type boolean dependent)
-           (type (or null string) notes)
+           (type (or null string) description)
            (type (or null list) attributes relationships))
   "Constructor for schema-rtypes instances."
   (let ((rtype (make-instance 'schema-rtypes :name name
                               :dependent dependent
-                              :notes notes)))
+                              :description description)))
     (when attributes (set-attributes rtype attributes))
     (when relationships (set-relationships rtype relationships))
     ;; Return the instance we created
@@ -144,8 +144,8 @@
               :reader dependent
               :type boolean
               :initform nil)
-   (notes :initarg :notes
-          :reader notes
+   (description :initarg :description
+          :reader description
           :type (or null string)
           :initform nil))
   (:documentation "Relationships between resourcetypes, for use in schema definitions."))
@@ -155,19 +155,19 @@
     (:target-type . ,(name (target-type obj)))
     (:cardinality . ,(cardinality obj))
     (:dependent . ,(dependent obj))
-    (:notes . ,(notes obj))))
+    (:description . ,(description obj))))
 
-(defmethod make-schema-rels (&key name target-type cardinality dependent notes)
+(defmethod make-schema-rels (&key name target-type cardinality dependent description)
   (declare (type string name cardinality)
            (type schema-rtypes target-type)
            (type boolean dependent)
-           (type (or null string) notes))
+           (type (or null string) description))
   "Constructor for schema-rels instances"
   (make-instance 'schema-rels :name name
                  :target-type target-type
                  :cardinality cardinality
                  :dependent dependent
-                 :notes notes))
+                 :description description))
 
 
 ;; Incoming data, describing things _to be added to_ a schema
@@ -222,16 +222,16 @@
       (setf (slot-value rtype 'attributes) attributes)))
 
 
-(defun make-incoming-rtypes (&key name dependent notes attributes)
+(defun make-incoming-rtypes (&key name dependent description attributes)
   "Constructor for incoming-rtypes class."
   (declare (type string name)
            (type boolean dependent)
-           (type (or null string) notes)
+           (type (or null string) description)
            (type list attributes))
   (let ((instance (make-instance 'incoming-rtypes
                                  :name name
                                  :dependent dependent
-                                 :notes notes)))
+                                 :description description)))
     (when attributes (set-attributes instance attributes))
     ;; Return the instance that we created and modified
     instance))
@@ -283,8 +283,8 @@
    (dependent :initarg :dependent
               :reader dependent
               :type boolean)
-   (notes :initarg :notes
-          :reader notes
+   (description :initarg :description
+          :reader description
           :type (or null string)))
   (:default-initargs :cardinality "many:many")
   (:documentation "Relationships between resourcetypes, for use in updating schema definitions."))
@@ -294,10 +294,10 @@
                                 target-type
                                 (cardinality "many:many")
                                 (dependent nil)
-                                notes)
+                                description)
   "Constructor function for incoming-rels"
   (declare (type string name source-type target-type cardinality)
-           (type (or null string) notes)
+           (type (or null string) description)
            (type boolean dependent))
   (unless (member cardinality '("many:many" "many:1" "1:many" "1:1") :test #'equal)
     (error "Cardinality argument is not valid."))
@@ -306,4 +306,4 @@
                  :target-type target-type
                  :cardinality cardinality
                  :dependent dependent
-                 :notes notes))
+                 :description description))
