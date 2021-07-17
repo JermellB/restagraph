@@ -93,7 +93,10 @@
                                              (r)-[:CURRENT_VERSION]->(v)
                                              RETURN v.createddate"
                                         (get-universal-time))))))))))))
-              (install-subschema db subschema version))))
+              ;; Install the core schema
+              (install-subschema db subschema version)
+              ;; Install an additional schema, if specified and present
+              (install-additional-schema db version))))
 
 (defun install-subschema (db subschema schema-version)
   "New attributes will be added as an augmentation to existing resourcetypes
@@ -230,6 +233,33 @@
                                  (t
                                    (log-message :error e))))))))
           (relationships subschema)))
+
+(defun install-additional-schema (db schema-version)
+  "Install an additional schema from the filesystem."
+  (declare (type neo4cl:neo4j-rest-server db)
+           (type integer schema-version))
+  ;; Check whether the env var was set
+  (let ((filevar (sb-posix:getenv "SCHEMAPATH")))
+    ;; If it was set, report this and try to act on it.
+    (if filevar
+        (progn
+          (log-message
+            :info
+            (format nil "Attempting to install additional schema to version ~D from '~A'"
+                    schema-version filevar))
+          ;; Check whether the file exists
+          ;; Use `let` because `probe-file` returns a valid filepath on success, so we get this for free.
+          (let ((filepath (probe-file filevar)))
+            (if filepath
+                ;; If it's there, install it.
+                (install-subschema
+                  db
+                  (parse-schema-from-alist (cl-json:decode-json-from-source filepath))
+                  schema-version)
+                ;; If it's not there, log the fact and move on.
+                (log-message :info (format nil "No file found at path '~A'" filevar)))))
+        ;; If the env var wasn't set, log this and move on.
+        (log-message :info "Environment variable SCHEMAPATH not set."))))
 
 
 ;;; Extract a schema from the database
