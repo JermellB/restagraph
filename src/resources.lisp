@@ -70,20 +70,20 @@ Return an error if
                                               (neo4cl:category e)
                                               (neo4cl:title e)
                                               (neo4cl:message e)))
-                  (error 'restagraph:integrity-error :message (neo4cl:message e)))
+                  (error 'integrity-error :message (neo4cl:message e)))
                 ;; Otherwise, just resignal it
                 (let ((text (format nil "Database error ~A.~A: ~A"
                                     (neo4cl:category e)
                                     (neo4cl:title e)
                                     (neo4cl:message e))))
                   (log-message :error text)
-                  (error 'restagraph:client-error :message text))))))
+                  (error 'client-error :message text))))))
         (client-error
           (e)
           (if (equal (message e) "No such resourcetype")
-            (error 'restagraph:integrity-error
+            (error 'integrity-error
                    :message "Requested resource type does not exist")
-            (error 'restagraph:client-error
+            (error 'client-error
                    :message (message e))))))))
 
 

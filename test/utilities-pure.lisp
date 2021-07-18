@@ -22,9 +22,9 @@
 (fiveam:in-suite utilities-pure)
 
 (fiveam:test
-  sanitise-uid
+  restagraph::sanitise-uid
   (fiveam:is (equal "foo_bar"
-                    (restagraph:sanitise-uid "foo bar"))))
+                    (restagraph::sanitise-uid "foo bar"))))
 
 (fiveam:test
   get-sub-uri

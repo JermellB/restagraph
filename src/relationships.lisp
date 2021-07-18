@@ -214,7 +214,7 @@
                               (dependent
                                 (get-relationship schema dest-type (car inc) (car (second inc)))))
                           others)))))
-       (error 'restagraph:integrity-error
+       (error 'integrity-error
               :message "This would leave an orphan dependent resource. Delete the dependent resource instead."))
       ;; Sanity-checks passed; let's try to make it happen
       (t

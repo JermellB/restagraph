@@ -144,7 +144,7 @@
                 (when (second results)
                   (log-message :debug (format nil "Identified invalid values ~{~A~^, ~}"
                                               (second results))))
-                (error 'restagraph:client-error :message
+                (error 'client-error :message
                        (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}. Invalid values: ~{~A~^, ~}."
                                resourcetype (first results) (second results)))))))
       ;; No such resourcetype

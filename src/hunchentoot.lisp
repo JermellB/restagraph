@@ -110,7 +110,7 @@
       (setf (schema acceptor) (fetch-current-schema (datastore acceptor)))
       ;; Methods
       ;; Set the dispatch table
-      (restagraph:log-message :info "Configuring the dispatch table")
+      (log-message :info "Configuring the dispatch table")
       (setf tbnl:*dispatch-table*
             (append
               ;; Restagraph defaults
@@ -159,7 +159,7 @@
       (if (tbnl::acceptor-shutdown-p *restagraph-acceptor*)
           (log-message :info "Acceptor was present but already shut down.")
           (progn
-            (restagraph:log-message
+            (log-message
               :info
               (format nil "Shutting down the restagraph application server"))
             (handler-case
@@ -168,15 +168,15 @@
               ;; Catch the case where it's already shut down
               (tbnl::unbound-slot
                 ()
-                (restagraph:log-message
+                (log-message
                   :info
                   "Attempting to shut down Hunchentoot, but it's not running."))
               (sb-pcl::no-applicable-method-error
                 ()
-                (restagraph:log-message
+                (log-message
                   :info
                   "Attempted to shut down Hunchentoot, but received an error. Assuming it wasn't running.")))))
         ;; Nuke the acceptor
         (setf *restagraph-acceptor* nil))
       ;; No acceptor. Note the fact and do nothing.
-      (restagraph:log-message :warn "No acceptor present; nothing to shut down.")))
+      (log-message :warn "No acceptor present; nothing to shut down.")))

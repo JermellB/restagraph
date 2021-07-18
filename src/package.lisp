@@ -8,13 +8,6 @@
   (:use
     #:cl)
   (:export
-    ;; Operational functions
     startup
-    shutdown
-    log-message
-    ;; Conditions
-    client-error
-    integrity-error
-    message
-    ;; Functions
-    sanitise-uid))
+    dockerstart
+    shutdown))
