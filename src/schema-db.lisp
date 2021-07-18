@@ -414,7 +414,10 @@
 
 
 (defgeneric get-relationship (db source-type relationship target-type)
-  (:documentation "Extract the attributes of interest for a given relationship. Return a 'schema-rels instance.  cardinality defaults to many:many."))
+  (:documentation "Extract the attributes of interest for a given relationship.
+                  Return a 'schema-rels instance if querying a hash-table,
+                  or an `incoming-rels type if querying a database.
+                  Cardinality defaults to many:many."))
 
 (defmethod get-relationship ((db hash-table)
                              (source-type string)
@@ -437,7 +440,7 @@
     :debug
     (format nil "Retrieving the relationship ~A from ~A to ~A."
             relationship source-type target-type))
-  (let ((query (format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType {name: \"~A\"})<-[:SOURCE]-(r:RgRelationship {name: \"~A\"})-[:TARGET]->(t:RgResourceType {name: \"~A\"}) RETURN r.name, t.name, r.cardinality, r.dependent, r.description"
+  (let ((query (format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType {name: \"~A\"})<-[:SOURCE]-(r:RgRelationship {name: \"~A\"})-[:TARGET]->(t:RgResourceType {name: \"~A\"}) RETURN r.cardinality, r.dependent, r.description"
                        source-type relationship target-type)))
     (log-message :debug (format nil "Checking for relationship (:~A)-[:~A]->(:~A)"
                                 source-type relationship target-type))
@@ -445,11 +448,12 @@
     (handler-case
       ;; Convert to schema-rel instances
       (mapcar #'(lambda (rel)
-                  (make-schema-rels :name (first rel)
-                                    :target-type (second rel)
-                                    :cardinality (third rel)
-                                    :dependent (fourth rel)
-                                    :description (fifth rel)))
+                  (make-incoming-rels :name relationship
+                                      :source-type source-type
+                                      :target-type target-type
+                                      :cardinality (first rel)
+                                      :dependent (second rel)
+                                      :description (third rel)))
               (neo4cl:extract-rows-from-get-request
                 (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))))
       (error (e)
