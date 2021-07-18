@@ -450,7 +450,7 @@
                                     :cardinality (third rel)
                                     :dependent (fourth rel)
                                     :description (fifth rel)))
-              (neo4cl:extract-data-from-get-request
+              (neo4cl:extract-rows-from-get-request
                 (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))))
       (error (e)
              (if (typep e 'neo4cl:client-error)
