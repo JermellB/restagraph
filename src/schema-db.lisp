@@ -29,6 +29,35 @@
                             .  "MATCH (c:RgSchema { name: 'root' })-[:VERSION]->(v:RgSchemaVersion) RETURN v.createddate AS version"))))))))
     (:current-version . ,(current-schema-version db))))
 
+;; FIXME: wrap this in a transaction
+(defun set-current-schema-version (db new-version)
+  (declare (type neo4cl:neo4j-rest-server db)
+           (type integer new-version))
+  "Update the current schema version"
+  (let ((versions (list-schema-versions db)))
+    ;; Do we have that version in the database?
+    (if (member new-version (cdr (assoc :versions versions)) :test #'equal)
+        ;; It's there. Is it already the current version?
+        (if (equal new-version (cdr (assoc :current-version versions)))
+            ;; Yes, it is. Do nothing.
+            nil
+            ;; Not the current version, but valid. Update it
+            (progn
+              ;; Delete the old current-version
+              (neo4cl:neo4j-transaction
+                db
+                `((:STATEMENTS
+                    ((:STATEMENT
+                       .  "MATCH (:RgSchema { name: 'root' })-[r:CURRENT_VERSION]->(:RgSchemaVersion) DELETE r")))))
+              ;; Set the new one
+              (neo4cl:neo4j-transaction
+                db
+                `((:STATEMENTS
+                    ((:STATEMENT
+                       .  ,(format nil "MATCH (r:RgSchema { name: 'root' })-[:VERSION]->(v:RgSchemaVersion { createddate: ~D }) CREATE (r)-[:CURRENT_VERSION]->(v)" new-version))))))))
+        ;; No such version
+        (error "No such schema version"))))
+
 (defun current-schema-version (db)
   "Test whether there's a current schema in place"
   (declare (type neo4cl:neo4j-rest-server db))

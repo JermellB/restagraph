@@ -127,6 +127,54 @@
                (mapcar #'(lambda (rtype)
                            (a-listify (gethash rtype (schema tbnl:*acceptor*))))
                        typenames)))))
+        ;; Set the current schema-version
+        ((and (equal (tbnl:request-method*) :PUT)
+              (integerp (parse-integer (tbnl:parameter "version") :junk-allowed t)))
+         (progn
+           (log-message :info (format nil "Attempting to set schema version to ~A"
+                                      (tbnl:parameter "version")))
+           (setf (tbnl:content-type*) "text/plain")
+           (let ((versions (list-schema-versions (datastore tbnl:*acceptor*)))
+                 (new-version (parse-integer (tbnl:parameter "version")
+                                             :junk-allowed t)))
+             ;; Do we have that version in the database?
+             (if (member new-version (cdr (assoc :versions versions))
+                         :test #'equal)
+               ;; It's there. Try to update it.
+               (handler-case
+                 (if (set-current-schema-version (datastore tbnl:*acceptor*) new-version)
+                   ;; Updated
+                   (progn
+                     ;; Reload the working schema
+                     (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*)))
+                     ;; Return a success message
+                     (setf (tbnl:return-code*) tbnl:+http-ok+)
+                     "OK")
+                   ;; It was already the current version
+                   (progn
+                     (setf (tbnl:return-code*) tbnl:+http-not-modified+)
+                     "That is already the current version"))
+                 (neo4cl:database-error
+                   (e)
+                   (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                   (format nil "~A.~A: ~A"
+                           (neo4cl:category e)
+                           (neo4cl:title e)
+                           (neo4cl:message e)))
+                 (neo4cl:client-error
+                   (e)
+                   (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                   (format nil "~A.~A: ~A"
+                           (neo4cl:category e)
+                           (neo4cl:title e)
+                           (neo4cl:message e)))
+                 (error (e)
+                        (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                        (format nil "~A" e)))
+               ;; No such version
+               (progn
+                 (setf (tbnl:return-code*) tbnl:+http-not-found+)
+                 "This version doesn't exist")))))
         ((equal (tbnl:request-method*) :POST)
          (progn
            ;; Create a new schema-version
@@ -176,7 +224,7 @@
         ;;
         ;; Methods we don't support.
         ;; Take the whitelist approach
-        ((not (member (tbnl:request-method*) '(:GET :POST)))
+        ((not (member (tbnl:request-method*) '(:GET :POST :PUT)))
          (method-not-allowed))
         ;; Handle all other cases
         (t

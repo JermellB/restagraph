@@ -147,6 +147,22 @@ If you add the parameter `create=true` to a POST request to this API, the server
 If you upload a subschema in the same request, as described in the previous section, the server will install it as a follow-up step.
 
 
+## PUT - change the current schema version
+
+If there's more than one schema version in the database, you can roll back or forward between them with a GET request, using the `version=<version number>` argument, e.g:
+
+```
+curl -X PUT http://localhost:4950/schema/v1?version=3835709407
+```
+
+Server responses:
+
+- On success: 200/OK
+- If the requested version was already current: 304/Not Modified
+- If the requested version doesn't exist: 404/Not Found
+- If something went wrong in the attempt: 500/Internal server error
+
+
 # The Raw API (resources)
 
 This is where you perform most CRUD operations on resources in the database. It´s called "raw" because it doesn´t have any domain-specific logic, like you find in the `files` API (described in the next section). It's expected to serve the majority of your interactions with a Restagraph system.
