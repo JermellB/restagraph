@@ -89,6 +89,14 @@
                                     (uri-base-schema tbnl:*acceptor*)))))
       (log-message :debug (format nil "Handling schema ~A request ~{/~A~}" (tbnl:request-method*) uri-parts))
       (cond
+        ;; Get a list of schema versions
+        ((and
+           (equal (tbnl:request-method*) :GET)
+           (equal "list" (tbnl:get-parameter "version")))
+         (setf (tbnl:content-type*) "application/json")
+         (setf (tbnl:return-code*) tbnl:+http-ok+)
+         (cl-json:encode-json-to-string
+           (list-schema-versions (datastore tbnl:*acceptor*))))
         ;; Get the description of a single resource-type
         ((and
            (equal (tbnl:request-method*) :GET)

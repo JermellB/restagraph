@@ -16,6 +16,19 @@
 
 ;;; Install a schema version in the database
 
+(defun list-schema-versions (db)
+  "Fetch a list of schema versions, plus the current version"
+  (declare (type neo4cl:neo4j-rest-server db))
+  `((:versions
+      . ,(mapcar #'car
+                 (neo4cl:extract-rows-from-get-request
+                   (neo4cl:neo4j-transaction
+                     db
+                     `((:STATEMENTS
+                         ((:STATEMENT
+                            .  "MATCH (c:RgSchema { name: 'root' })-[:VERSION]->(v:RgSchemaVersion) RETURN v.createddate AS version"))))))))
+    (:current-version . ,(current-schema-version db))))
+
 (defun current-schema-version (db)
   "Test whether there's a current schema in place"
   (declare (type neo4cl:neo4j-rest-server db))
