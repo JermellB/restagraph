@@ -119,27 +119,52 @@
                (mapcar #'(lambda (rtype)
                            (a-listify (gethash rtype (schema tbnl:*acceptor*))))
                        typenames)))))
-        ;; Upload a schema to install in the db
-        ;; Expects URL-encoded file upload, as in this example:
-        ;; curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
         ((equal (tbnl:request-method*) :POST)
-         ;(and (equal (tbnl:request-method*) :POST)
-         ;     (tbnl:post-parameter "schema"))
          (progn
-           (log-message :info "Received schema for upload.")
-           (log-message :debug (format nil "Received content-type: ~A" (tbnl:content-type*)))
-           (if
-             (install-uploaded-schema (first (tbnl:post-parameter "schema")) (datastore tbnl:*acceptor*))
+           ;; Create a new schema-version
+           (when (equal "true" (tbnl:post-parameter "create"))
              (progn
-               (log-message :info "Successfull installed uploaded schema; reloading.")
-               (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*)))
-               (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               "Created")
-             (progn
-               (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
-               "That... did not go as planned."))))
+               (log-message :info "Received request to create new schema")
+               ;; Create the new version-root
+               (let ((version (create-new-schema-version (datastore tbnl:*acceptor*))))
+                 ;; Install the core schema
+                 (log-message
+                   :info
+                   (format nil "Created new schema version ~D. Installing core schema."version))
+                 (install-subschema (datastore tbnl:*acceptor*) *core-schema* version))
+               ;; Reload the in-memory schema
+               (fetch-current-schema (datastore tbnl:*acceptor*))))
+           (log-message :debug (format nil "Content-type: ~A" (tbnl:header-in* "Content-type")))
+           (log-message :debug (format nil "Received POST parameters ~A"
+                                       (mapcar #'car (tbnl:post-parameters*))))
+           (log-message :debug (format nil "Length of schema parameter: ~D"
+                                       (length (tbnl:post-parameter "schema"))))
+           (log-message :debug (format nil "Type of schema parameter: ~D"
+                                       (type-of (tbnl:post-parameter "schema"))))
+           ;; Upload a schema to install in the db
+           ;; Expects URL-encoded file upload, as in this example:
+           ;; curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
+           (when (tbnl:post-parameter "schema")
+             ;(and (equal (tbnl:request-method*) :POST)
+             ;     (tbnl:post-parameter "schema"))
+             (log-message :info "Received schema for upload.")
+             (let ((schemasource (tbnl:post-parameter "schema")))
+               (if
+                 (install-uploaded-schema
+                   (if (stringp schemasource)
+                     (cl-json:decode-json-from-string schemasource)
+                     (cl-json:decode-json-from-source (first schemasource)))
+                   (datastore tbnl:*acceptor*))
+                 (progn
+                   (log-message :info "Successfull installed uploaded schema; reloading.")
+                   (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*)))
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-created+)
+                   "Created")
+                 (progn
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                   "That... did not go as planned."))))))
         ;;
         ;; Methods we don't support.
         ;; Take the whitelist approach

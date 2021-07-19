@@ -59,9 +59,34 @@
                       (neo4cl:title e)
                       (neo4cl:message e))))))))
 
+(defun create-new-schema-version (db)
+  "Create a new schema version, and return its createddate as an integer, giving its version identifier."
+  (declare (type neo4cl:neo4j-rest-server db))
+  (log-message :info "Attempting to create new schema version")
+  ;; Create the version.
+  ;; Confirm it by grabbing its returned createddate value as the version ID.
+  (let ((version
+          (caar
+            (neo4cl:extract-rows-from-get-request
+              (neo4cl:neo4j-transaction
+                db
+                `((:STATEMENTS
+                    ((:STATEMENT
+                       . ,(format nil "MATCH (r:RgSchema {name: \"root\"}) CREATE (r)-[:VERSION]->(v:RgSchemaVersion { createddate: ~D }), (r)-[:CURRENT_VERSION]->(v) RETURN v.createddate"
+                                  (get-universal-time)))))))))))
+          ;; Remove the previous CURRENT_VERSION link
+          (neo4cl:neo4j-transaction
+            db
+            `((:STATEMENTS
+                ((:STATEMENT
+                   . ,(format nil "MATCH (:RgSchema {name: \"root\"})-[r:CURRENT_VERSION]->(v:RgSchemaVersion) WHERE v.createddate <> ~A DELETE r"
+                              version))))))
+          ;; Return the new version ID
+          version))
+
 (defun ensure-current-schema (db subschema)
   "Ensure there's a current schema in place, complete with uniqueness constraints.
-   Return the timestamp of the current schema's created date, as its version identifier."
+  Return the timestamp of the current schema's created date, as its version identifier."
   (declare (type neo4cl:neo4j-rest-server db)
            (type incoming-subschema-version subschema))
   ;; Ensure we have a uniqueness constraint on resource-types
@@ -83,20 +108,11 @@
                          . ,(format nil "MERGE (s:RgSchema {name: \"root\"}) ON CREATE SET s.createddate = ~D RETURN s.name"
                                     (get-universal-time)))))))
                 ;; Add a current version.
-                (caar
-                  (neo4cl:extract-rows-from-get-request
-                    (neo4cl:neo4j-transaction
-                      db
-                      `((:STATEMENTS
-                          ((:STATEMENT
-                             . ,(format nil "MATCH (r:RgSchema {name: \"root\"}) CREATE (r)-[:VERSION]->(v:RgSchemaVersion { createddate: ~D }),
-                                             (r)-[:CURRENT_VERSION]->(v)
-                                             RETURN v.createddate"
-                                        (get-universal-time))))))))))))
-              ;; Install the core schema
-              (install-subschema db subschema version)
-              ;; Install an additional schema, if specified and present
-              (install-additional-schema db version))))
+                (create-new-schema-version db))))
+        ;; Install the core schema
+        (install-subschema db subschema version)
+        ;; Install an additional schema, if specified and present
+        (install-additional-schema db version))))
 
 (defun install-subschema (db subschema schema-version)
   "New attributes will be added as an augmentation to existing resourcetypes
@@ -404,11 +420,10 @@
   (declare (type neo4cl:neo4j-rest-server db))
   "Install a schema uploaded via the API."
   (log-message :info "Processing uploaded schema.")
-  (let ((content (cl-json:decode-json-from-source schema))
-        (current-version (current-schema-p db)))
-    (log-message :info (format nil "Received schema '~A'" (cdr (assoc :NAME content))))
+  (let ((current-version (current-schema-p db)))
+    (log-message :info (format nil "Received schema '~A'" (cdr (assoc :NAME schema))))
     ;; Attempt to install it
-    (when (install-subschema db (parse-schema-from-alist content) current-version)
+    (when (install-subschema db (parse-schema-from-alist schema) current-version)
       ;; Return indication of success
       t)))
 

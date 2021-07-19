@@ -68,6 +68,24 @@ The endpoint base URI is `/schema/v1`, and it always returns the schema in JSON 
 Note that this format is _not_ the same as the format required for uploading a subschema, as it's intended for clients to use in interactions with the server.
 
 
+### GET a list of schema versions
+
+You can fetch a list of the schema versions by appending the parameter `version=list` to a GET request to this API.
+
+The return value is a JSON object of this form:
+
+```
+{
+  "versions": [
+    3835709813,
+    3835709407,
+    3835709370
+  ],
+  "current-version": 3835709813
+}
+```
+
+
 ## POST - upload a new schema
 
 `POST /schema/v1/` with a payload of a JSON-formatted file.
@@ -120,6 +138,13 @@ Expected format of the file
     - A non-dependent relationship _can_ be created to a dependent target resource, if the target already exists.
 - The `description` attribute of a resourcetype or relationship, and the `description` of an attribute, is optional. If you omit it altogether, or specify it as `null` or an empty string, it will not be added to the resourcetype definition in the database, and will be effectively a null or empty string when this is queried.
 - The `values` attribute on an attribute is optional, and should only be used when you have a specific reason to constrain it to a fixed set of values. If you're considering using it, think about whether it makes more sense to use a separate resourcetype, enabling you to add/remove values in future.
+
+
+## Create a new schema version
+
+If you add the parameter `create=true` to a POST request to this API, the server will create a new schema version and pre-populate it with the core schema.
+
+If you upload a subschema in the same request, as described in the previous section, the server will install it as a follow-up step.
 
 
 # The Raw API (resources)
