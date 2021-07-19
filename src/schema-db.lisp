@@ -16,7 +16,7 @@
 
 ;;; Install a schema version in the database
 
-(defun current-schema-p (db)
+(defun current-schema-version (db)
   "Test whether there's a current schema in place"
   (declare (type neo4cl:neo4j-rest-server db))
   (caar
@@ -96,7 +96,7 @@
            (log-message :fatal "Failed to ensure uniqueness constraint on RgResource label.")
            (log-message :fatal (message e))
            (sb-ext:exit)))
-  (or (current-schema-p db)
+  (or (current-schema-version db)
       (let ((version
               ;; No current schema found; install one.
               (progn
@@ -420,7 +420,7 @@
   (declare (type neo4cl:neo4j-rest-server db))
   "Install a schema uploaded via the API."
   (log-message :info "Processing uploaded schema.")
-  (let ((current-version (current-schema-p db)))
+  (let ((current-version (current-schema-version db)))
     (log-message :info (format nil "Received schema '~A'" (cdr (assoc :NAME schema))))
     ;; Attempt to install it
     (when (install-subschema db (parse-schema-from-alist schema) current-version)
