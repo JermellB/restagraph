@@ -163,6 +163,17 @@ Server responses:
 - If something went wrong in the attempt: 500/Internal server error
 
 
+## DELETE - remove a schema version
+
+To remove a schema version, use an HTTP GET request against the Schema API, with the argument `version=<integer>`, e.g:
+
+```
+curl -X PUT http://localhost:4950/schema/v1?version=3835709407
+```
+
+If the requested version is the current version, the newest of the remaining versions will be set as the current version before the server begins deleting this one.
+
+
 # The Raw API (resources)
 
 This is where you perform most CRUD operations on resources in the database. It´s called "raw" because it doesn´t have any domain-specific logic, like you find in the `files` API (described in the next section). It's expected to serve the majority of your interactions with a Restagraph system.

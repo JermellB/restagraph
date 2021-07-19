@@ -221,10 +221,24 @@
                    (setf (tbnl:content-type*) "text/plain")
                    (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
                    "That... did not go as planned."))))))
+        ;; Delete a schema-version
+        ((and (equal (tbnl:request-method*) :DELETE)
+              (integerp (parse-integer (tbnl:parameter "version") :junk-allowed t)))
+         (let ((version (parse-integer (tbnl:parameter "version") :junk-allowed t)))
+           (log-message :info (format nil "Attempting to delete schema version ~D" version))
+           (setf (tbnl:content-type*) "text/plain")
+           (handler-case
+             ;; The happy path: the version was successfully deleted
+             (progn
+               (delete-schema-version (datastore tbnl:*acceptor*) version)
+               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               "OK")
+             ;; Basic error-handling
+             (error (e) (return-client-error (format nil "~A" e))))))
         ;;
         ;; Methods we don't support.
-        ;; Take the whitelist approach
-        ((not (member (tbnl:request-method*) '(:GET :POST :PUT)))
+        ;; Take the allow-list approach
+        ((not (member (tbnl:request-method*) '(:GET :POST :PUT :DELETE)))
          (method-not-allowed))
         ;; Handle all other cases
         (t

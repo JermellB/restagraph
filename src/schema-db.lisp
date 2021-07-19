@@ -58,6 +58,49 @@
         ;; No such version
         (error "No such schema version"))))
 
+(defun delete-schema-version (db version)
+  "Remove a schema version from the database"
+  (declare (type neo4cl:neo4j-rest-server db)
+           (type integer version))
+  (log-message :info (format nil "Atempting to delete schema version ~D from the database"
+                             version))
+  (let ((versions (list-schema-versions db)))
+    ;; Sanity check: do we have that version in the database?
+    (unless (member version (cdr (assoc :versions versions)) :test #'equal)
+      (error "There is no schema with that version identifier."))
+    ;; Pre-flight check: is it the current version?
+    ;; - If so, set the current version to be the newest remaining version
+    (when (equal version (cdr (assoc :current-version versions)))
+      (set-current-schema-version
+        db
+        (apply #'max (cdr (assoc :versions versions))))))
+  ;; If we've made it this far, we're good to go.
+  ;; Delete all relationships within this version
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           .  ,(format nil "MATCH (:RgSchema { name: 'root' })-[:VERSION]->(:RgSchemaVersion { createddate: ~D })-[:HAS]->(:RgResourceType)<-[:SOURCE]-(r:RgRelationship) DETACH DELETE r" version))))))
+  ;; Delete all resourcetype attributes
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           .  ,(format nil "MATCH (:RgSchema { name: 'root' })-[:VERSION]->(:RgSchemaVersion { createddate: ~D })-[:HAS]->(:RgResourceType)-[:HAS]->(a:RgResourceTypeAttribute) DETACH DELETE a" version))))))
+  ;; Delete all resourcetypes
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           .  ,(format nil "MATCH (:RgSchema { name: 'root' })-[:VERSION]->(:RgSchemaVersion { createddate: ~D })-[:HAS]->(t:RgResourceType)
+                            DETACH DELETE t" version))))))
+  ;; Delete the version identifier
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           .  ,(format nil "MATCH (:RgSchema { name: 'root' })-[:VERSION]->(v:RgSchemaVersion { createddate: ~D }) DETACH DELETE v" version)))))))
+
 (defun current-schema-version (db)
   "Test whether there's a current schema in place"
   (declare (type neo4cl:neo4j-rest-server db))
