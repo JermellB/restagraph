@@ -15,7 +15,7 @@ services:
       NEO4J_AUTH: "neo4j/wombat"
       NEO4J_dbms_jvm_additional: "-Dfile.encoding=UTF-16"
   restagraph:
-    image: equill/restagraph:0.7.0a3
+    image: equill/restagraph:0.7.0a4
     depends_on:
       - neo4j
     deploy:
