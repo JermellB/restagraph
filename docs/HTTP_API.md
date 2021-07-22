@@ -123,6 +123,11 @@ Expected format of the file
       ],
     }
 
+Note that if the file (re)defines an existing resourcetype, Restagraph will not create a duplicate or change anything about the existing one, but it will add any _new_ attributes to the existing one.
+
+Duplicate relationships will simply be ignored.
+
+
 ### Notes about the format and naming conventions
 
 - It's recommended that you follow [Neo4j naming conventions](https://neo4j.com/docs/cypher-manual/current/syntax/naming/):
@@ -337,3 +342,13 @@ To use them via `curl`:
 ```
 curl -F "file=@/path/to/file.jpg" -F "name=NameOfMyFile" http://localhost:4950/files/v1/
 ```
+
+## How files are stored: information for site-admins
+
+The database contains only metadata _about_ the files, not the files themselves. They're stored separately, using the SHA-256 checksum as the filename for a few reasons:
+
+- It's logistically simpler for things like distributing the files across directories, to prevent the server getting bogged down in a search through thousands of files in one directory.
+- It avoids character-set issues between the server and the storage filesystem.
+- Deduplication: if 2000 clients upload the same picture with different names, the server stores 2000 sets of metadata in the database, but only one copy of the file itself.
+    - Firstly, this avoids wasting disk space.
+    - Secondly, if you detect a picture of child porn (for example) it's trivial to find anybody else who's uploaded the same file, by searching for any other instances with the same checksum.

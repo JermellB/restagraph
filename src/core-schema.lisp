@@ -20,11 +20,11 @@
     :resourcetypes
     (list (make-incoming-rtypes
             :name "any"
-            :description "Special-case meta-resource, representing an instance of any type of resource."
+            :description "Special-case meta-resource, representing an instance of any type of resource. This is used for defining relationships where either the source or target could be, well, any resourcetype. The server refuses to create an instance of this resourcetype."
             :attributes ())
           (make-incoming-rtypes
             :name "Tags"
-            :description "For categorising resources of any type."
+            :description "For categorising resources of any type. Useful in searches."
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description"
                                 :description "Clarification of what the tag means.")))
@@ -43,7 +43,7 @@
                                 :description "Notes about this particular organisation.")))
           (make-incoming-rtypes
             :name "People"
-            :description "UID should be their login name or some other compact reference."
+            :description "Real people, imaginary people, security roles, members of an external organisation... if they're a person, this is the type."
             :attributes (list (make-incoming-rtype-attrs
                                 :name "displayname"
                                 :description "The human-friendly version of their name, to be displayed in the UI.")
@@ -56,13 +56,13 @@
             :attributes ())
           (make-incoming-rtypes
             :name "Files"
-            :description "Files uploaded by users."
+            :description "Metadata about files uploaded by users. The files themselves are stored separately, using the sha3-256 checksum as the filename."
             :attributes (list (make-incoming-rtype-attrs
                                 :name "title"
-                                :description "The UID requested by the client")
+                                :description "The requested filename, recorded verbatim instead of having to be sanitised for URI-safety.")
                               (make-incoming-rtype-attrs
                                 :name "notes"
-                                :description "Notes about this file")
+                                :description "Notes about this file.")
                               (make-incoming-rtype-attrs
                                 :name "mimetype"
                                 :description "The detected mime-type of this file.")
@@ -116,16 +116,22 @@
                                 :name "description"))))
     :relationships (list (make-incoming-rels :name "TAGS"
                                              :source-type "any"
-                                             :target-type "Tags")
+                                             :target-type "Tags"
+                                             :cardinality "many:many"
+                                             :description "Any resourcetype can be tagged.")
                          (make-incoming-rels :name "GROUPS"
                                              :source-type "any"
-                                             :target-type "Groups")
+                                             :target-type "Groups"
+                                             :cardinality "many:many"
+                                             :description "Any resourcetype can be assigned to a group.")
                          (make-incoming-rels :name "CREATOR"
                                              :source-type "any"
-                                             :target-type "People")
+                                             :target-type "People"
+                                             :description "In a coming upgrade, all resources will have a creator as part of the permissions-management system.")
                          (make-incoming-rels :name "PRONOUNS"
                                              :source-type "People"
-                                             :target-type "Pronouns")
+                                             :target-type "Pronouns"
+                                             :description "She/her, they/them, he/him and whatever others you choose to add. These are defined as a separate resourcetype partly because some people accept more than one set, and partly to make it easier to add more as necessary.")
                          (make-incoming-rels :name "MEMBERS"
                                              :source-type "Organisations"
                                              :target-type "People")
