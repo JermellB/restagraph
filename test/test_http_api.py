@@ -57,6 +57,8 @@ class TestResources(unittest.TestCase):
     restype = 'People'
     resuid = 'Sam Spade'
     result = None
+    invalidtype = 'interfaces'
+    invaliduid = 'eth0'
 
     @pytest.mark.dependency()
     def test_create_and_delete_single_resource(self):
@@ -87,6 +89,12 @@ class TestResources(unittest.TestCase):
         # Confirm it's gone
         assert requests.get('%s/%s/%s' % (
             API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 404
+    @pytest.mark.dependency()
+    def test_fail_to_create_invalid_resourcetype(self):
+        print('Test: Fail to create an instance of an invalid resourcetype')
+        assert requests.post('%s/%s' % (API_BASE_URL, self.invalidtype),
+                             data={'uid': self.invaliduid}).status_code == 400
+
 
 @pytest.mark.dependency(depends=["TestResources::test_create_and_delete_single_resource"])
 class TestDuplicateResistance(unittest.TestCase):

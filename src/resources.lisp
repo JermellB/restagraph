@@ -29,6 +29,9 @@ Return an error if
   (log-message :debug (format nil "Attempting to store a resource of type '~A' with attributes ~{~A~^, ~}"
                               resourcetype attributes))
   (cond
+    ;; Do we even have this resourcetype?
+    ((null (gethash resourcetype schema))
+     (error 'client-error :message "No such resourcetype."))
     ;; Catch any critical deficiencies in the definition asap
     ((or (null (assoc "uid" attributes :test 'equal))
          (equal "" (cdr (assoc "uid" attributes :test 'equal))))

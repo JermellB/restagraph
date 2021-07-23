@@ -17,65 +17,6 @@
                    (debug 3)))
 
 
-
-(fiveam:test
-  resources-basic
-  :depends-on 'authentication
-  "Basic operations on resources"
-  (let ((schema (restagraph::make-schema-hash-table))
-        (restype (restagraph::make-incoming-rtypes :name "routers"))
-        (uid "amchitka")
-        (invalid-type "interfaces")
-        (invalid-uid "eth0"))
-    ;; Set up the fixtures
-    (restagraph:log-message :info ";TEST Set up the fixtures")
-    (restagraph::add-resource-to-schema schema restype)
-    ;; Confirm the resource isn't already present
-    (restagraph:log-message :info ";TEST Confirm the resource isn't already present")
-    (fiveam:is (null (restagraph:get-resources
-                       *server* (format nil "/~A/~A"
-                                        (restagraph::incoming-rtypes-name restype)
-                                        uid))))
-    ;; Store the resource
-    (restagraph:log-message :info ";TEST Store the resource")
-    (fiveam:is (equal (restagraph::sanitise-uid uid)
-                      (restagraph:store-resource
-                        *server*
-                        (restagraph::incoming-rtypes-name restype)
-                        `(("uid" . ,uid))
-                        schema)))
-    ;; Confirm it's there
-    (restagraph:log-message :info ";TEST Confirm the resource is present")
-    (let ((result (restagraph:get-resources
-                    *server* (format nil "/~A/~A"
-                                     (restagraph::incoming-rtypes-name restype)
-                                     uid))))
-      (fiveam:is (assoc :UID result))
-      (fiveam:is (equal (restagraph:sanitise-uid uid)
-                        (cdr (assoc :UID result))))
-      (fiveam:is (assoc :ORIGINAL_UID result))
-      (fiveam:is (equal uid
-                        (cdr (assoc :ORIGINAL_UID result)))))
-    ;; Delete it
-    (restagraph:log-message :info ";TEST Delete the resource")
-    (multiple-value-bind (result code message)
-      (restagraph:delete-resource-by-path
-        *server*
-        (format nil "/~A/~A" (restagraph::incoming-rtypes-name restype) uid)
-        schema)
-      (declare (ignore result) (ignore message))
-      (fiveam:is (equal 200 code)))
-    ;; Confirm it's gone again
-    (restagraph:log-message :info ";TEST Confirm the resource is gone")
-    (fiveam:is (null (restagraph:get-resources
-                       *server* (format nil "/~A/~A"
-                                        (restagraph::incoming-rtypes-name restype) uid))))
-    ;; Ensure we can't create a dependent type
-    (restagraph:log-message :info ";TEST Ensure we can't create a dependent type")
-    (fiveam:signals
-      (restagraph:integrity-error "This is a dependent resource; it must be created as a sub-resource of an existing resource.")
-      (restagraph:store-resource *server* invalid-type `(("uid" . ,invalid-uid)) schema))))
-
 (fiveam:test
   character-encoding
   :depends-on 'resources-basic-attributes
