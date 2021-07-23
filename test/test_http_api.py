@@ -355,27 +355,27 @@ class TestSchemaBasic(unittest.TestCase):
                 "attributes": None,
                 "dependent": None,
                 #! pylint: disable=line-too-long
-                "description": "Special-case meta-resource, representing an instance of any type of resource.",
+                "description": "Special-case meta-resource, representing an instance of any type of resource. This is used for defining relationships where either the source or target could be, well, any resourcetype. The server refuses to create an instance of this resourcetype.",
                 "relationships": [
                     {
                         "name": "CREATOR",
                         "dependent": None,
                         "cardinality": "many:many",
-                        "description": None,
+                        "description": "In a coming upgrade, all resources will have a creator as part of the permissions-management system.",
                         "target-type": "People"
                         },
                     {
                         "name": "GROUPS",
                         "dependent": None,
                         "cardinality": "many:many",
-                        "description": None,
+                        "description": "Any resourcetype can be assigned to a group.",
                         "target-type": "Groups"
                         },
                     {
                         "name": "TAGS",
                         "dependent": None,
                         "cardinality": "many:many",
-                        "description": None,
+                        "description": "Any resourcetype can be tagged.",
                         "target-type": "Tags"
                         }
                     ]}
@@ -391,7 +391,7 @@ class TestSchemaBasic(unittest.TestCase):
                         }
                     ],
                 "dependent": None,
-                "description": "For categorising resources of any type.",
+                "description": "For categorising resources of any type. Useful in searches.",
                 "relationships": None
                 }
 
