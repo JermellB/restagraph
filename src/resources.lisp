@@ -77,14 +77,7 @@ Return an error if
                                     (neo4cl:title e)
                                     (neo4cl:message e))))
                   (log-message :error text)
-                  (error 'client-error :message text))))))
-        (client-error
-          (e)
-          (if (equal (message e) "No such resourcetype")
-            (error 'integrity-error
-                   :message "Requested resource type does not exist")
-            (error 'client-error
-                   :message (message e))))))))
+                  (error 'client-error :message text))))))))))
 
 
 (defgeneric store-dependent-resource (db schema uri attributes)
