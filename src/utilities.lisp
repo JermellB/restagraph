@@ -211,9 +211,12 @@
   (log-message :debug (format nil "Checking whether the database is running on ~A:~A"
                               (neo4cl:hostname server) (neo4cl:port server)))
   (handler-case
+    ;; First check whether the port is open
     (when (drakma:http-request
             (format nil "http://~A:~A" (neo4cl:hostname server) (neo4cl:port server)))
+      ;; Iff the port is open, then try to authenticate
       (ensure-db-passwd server))
+    ;; If the port isn't open, pause for a few seconds before trying again.
     (USOCKET:CONNECTION-REFUSED-ERROR
       (e)
       (declare (ignore e))

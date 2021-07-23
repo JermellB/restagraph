@@ -51,6 +51,7 @@
 (fiveam:test
   move-file)
 
-#+(or)
 (fiveam:test
-  confirm-db-is-running)
+  confirm-db-is-running
+  "Can we even log into the thing?"
+  (fiveam:is (restagraph::confirm-db-is-running *server*)))
