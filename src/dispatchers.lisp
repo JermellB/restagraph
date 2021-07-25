@@ -78,6 +78,20 @@
   (format nil "Service error: ~A"
           (or message logmessage)))
 
+(defun unauthorised ()
+  "Computer says no, and it doesn't care who you are"
+  (log-message :debug "Unauthorised")
+  (setf (tbnl:content-type*) "text/plain")
+  (setf (tbnl:return-code*) tbnl:+http-authorization-required+)
+  "Authorisation required")
+
+(defun forbidden ()
+  "Computer knows who you are, and says no."
+  (log-message :debug "Unauthorised")
+  (setf (tbnl:content-type*) "text/plain")
+  (setf (tbnl:return-code*) tbnl:+http-forbidden+)
+  "User is not authorised to perform this action")
+
 
 ;;; API dispatchers
 
