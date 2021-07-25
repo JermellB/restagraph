@@ -14,6 +14,16 @@
   "Hunchentoot dispatch function for the IPAM-specific REST API, version 1. Subnet subset."
   (handler-case
     (cond
+      ;; Access policies: dispatch "deny" as early as possible
+      ((and (equal :GET (tbnl:request-method*))
+            (equal :DENY (get-policy (access-policy *restagraph-acceptor*))))
+       (forbidden))
+      ((and (equal :POST (tbnl:request-method*))
+            (equal :DENY (post-policy (access-policy *restagraph-acceptor*))))
+       (forbidden))
+      ((and (equal :DELETE (tbnl:request-method*))
+            (equal :DENY (delete-policy (access-policy *restagraph-acceptor*))))
+       (forbidden))
       ;;
       ;; Create a subnet
       ((and (equal (tbnl:request-method*) :POST)
@@ -138,6 +148,16 @@
   "Hunchentoot dispatch function for the IPAM-specific REST API, version 1. Address subset."
   (handler-case
     (cond
+      ;; Access policies: dispatch "deny" as early as possible
+      ((and (equal :GET (tbnl:request-method*))
+            (equal :DENY (get-policy (access-policy *restagraph-acceptor*))))
+       (forbidden))
+      ((and (equal :POST (tbnl:request-method*))
+            (equal :DENY (post-policy (access-policy *restagraph-acceptor*))))
+       (forbidden))
+      ((and (equal :DELETE (tbnl:request-method*))
+            (equal :DENY (delete-policy (access-policy *restagraph-acceptor*))))
+       (forbidden))
       ;;
       ;; Create an address
       ((and (equal (tbnl:request-method*) :POST)
