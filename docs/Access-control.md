@@ -19,6 +19,13 @@ Each dispatcher implements the policies accordingly.
 
 # Elements involved
 
+## Resources
+
+### RgAdmin user
+
+As part of the `core-schema` injection, a `People` resource is created with the UID `RgAdmin`. This is the site-admin user, and the default owner of all objects. If the policy is "open", then `RgAdmin` is the owner of whatever is created.
+
+
 ## Objects
 
 ### access-policy

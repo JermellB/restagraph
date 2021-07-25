@@ -169,6 +169,29 @@
           ;; Return the new version ID
           version))
 
+(defun install-default-resources (db)
+  "Install a default set of resources, such as the admin user."
+  ;; Admin user
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           . ,(format nil "MERGE (a:People {uid: \"RgAdmin\", original_uid: \"RgAdmin\"}) ON CREATE SET a.createddate = ~D RETURN a.uid"
+                      (get-universal-time)))))))
+  ;; Default pronouns
+  (mapcar #'(lambda (pronounset)
+  (neo4cl:neo4j-transaction
+    db
+    `((:STATEMENTS
+        ((:STATEMENT
+           . ,(format nil "MERGE (p:Pronouns {uid: \"~A\", text: \"~A\"}) ON CREATE SET p.createddate = ~D RETURN p.uid"
+                      (car pronounset)
+                      (cdr pronounset)
+                      (get-universal-time))))))))
+          '(("they_them" . "They/them")
+            ("she_her" ."She/her")
+            ("he_him" . "He/him"))))
+
 (defun ensure-current-schema (db subschema)
   "Ensure there's a current schema in place, complete with uniqueness constraints.
   Return the timestamp of the current schema's created date, as its version identifier."
@@ -196,6 +219,8 @@
                 (create-new-schema-version db))))
         ;; Install the core schema
         (install-subschema db subschema version)
+        ;; Install the default resources
+        (install-default-resources db)
         ;; Install an additional schema, if specified and present
         (install-additional-schema db version))))
 
