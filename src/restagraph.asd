@@ -19,6 +19,7 @@
                (:file "logging")
                (:file "utilities")
                (:file "schema-structures")
+               (:file "access-control")
                (:file "schema-db")
                (:file "schema-queries")
                (:file "resources")
