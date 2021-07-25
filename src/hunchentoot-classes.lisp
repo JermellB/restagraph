@@ -45,7 +45,11 @@
    (schema :initarg :schema
            :accessor schema
            :initform (make-schema-hash-table)
-           :documentation "What to use for schema actions. Valid options are a hash-table or the datastore object, as methods are specialised on both."))
+           :documentation "What to use for schema actions. Valid options are a hash-table or the datastore object, as methods are specialised on both.")
+   (access-policy :initarg :access-policy
+                  :reader access-policy
+                  :initform (error "Required argument")
+                  :documentation "The access policy to be applied to each incoming request."))
   ;; Class defaults for initalising the superclass
   (:default-initargs :address "127.0.0.1")
   ;; Class documentation

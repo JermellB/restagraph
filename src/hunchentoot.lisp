@@ -59,7 +59,9 @@
                               :dbuser (or (sb-ext:posix-getenv "NEO4J_USER")
                                           (getf *config-vars* :dbusername))
                               :dbpasswd (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
-                                            (getf *config-vars* :dbpasswd)))))
+                                            (getf *config-vars* :dbpasswd)))
+                 :access-policy (define-policy (or (sb-ext:posix-getenv "ACCESS_POLICY")
+                                                   "open"))))
 
 
 ;;; Appserver startup/shutdown
