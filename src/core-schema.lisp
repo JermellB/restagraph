@@ -53,7 +53,9 @@
           (make-incoming-rtypes
             :name "Pronouns"
             :description "The pronouns by which a person prefers to be addressed."
-            :attributes ())
+            :attributes (list (make-incoming-rtype-attrs
+                                :name "text"
+                                :description "The full, non-URL-safe text of the pronoun set. E.g, They/them.")))
           (make-incoming-rtypes
             :name "Files"
             :description "Metadata about files uploaded by users. The files themselves are stored separately, using the sha3-256 checksum as the filename."
