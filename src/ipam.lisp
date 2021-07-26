@@ -221,7 +221,7 @@
          (find-parent-subnet db subnet org vrfgroup newpath))))))
 
 
-(defgeneric insert-subnet (db org vrf subnet schema)
+(defgeneric insert-subnet (db org vrf subnet schema policy)
   (:documentation "Insert a subnet under the specified organisation and VRF.
                    If the vrf argument is the empty string, create it directly, implying the default VRF.
                    Return t on success, and NIL if the subnet already exists."))
@@ -230,7 +230,9 @@
                           (org string)
                           (vrf string)
                           (subnet ipaddress:ip-subnet)
-                          (schema hash-table))
+                          (schema hash-table)
+                          (policy symbol))
+  (declare (type keyword policy))
   (log-message
     :debug
     (format nil "Attempting to insert subnet '~A' under organisation '~A' and VRF-group '~A'."
@@ -344,12 +346,14 @@
           :debug
           (format nil "Inserting the subnet ~A using the path ~A."
                   (ipaddress:as-cidr subnet) insert-path))
-        (store-dependent-resource db
-                                             schema
-                                             insert-path
-                                             `(("uid" . ,subnet-uid)
-                                               ("netaddress" . ,(ipaddress:as-string subnet))
-                                               ("prefixlength" . ,(ipaddress:prefix-length subnet))))
+        (store-dependent-resource
+          db
+          schema
+          insert-path
+          `(("uid" . ,subnet-uid)
+            ("netaddress" . ,(ipaddress:as-string subnet))
+            ("prefixlength" . ,(ipaddress:prefix-length subnet)))
+          (get-creator policy))
         ;; Using the list of candidates we retrieved earlier,
         ;; identify subnets of the one we just inserted, and move them under it.
         (if subnets
@@ -566,14 +570,16 @@
                                      :address (cdr (assoc :uid result)))))))))))
 
 
-(defgeneric insert-ipaddress (db schema address org vrf)
+(defgeneric insert-ipaddress (db schema address org vrf policy)
   (:documentation "Add an IP address to the IPAM section"))
 
 (defmethod insert-ipaddress ((db neo4cl:neo4j-rest-server)
                              (schema hash-table)
                              (address ipaddress:ip-address)
                              (org string)
-                             (vrf string))
+                             (vrf string)
+                             (policy symbol))
+  (declare (type keyword policy))
   (let ((parent-subnet-path (find-parent-subnet db address org vrf ())))
     (log-message
       :debug
@@ -616,7 +622,8 @@
                     ""
                     (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                   (mapcar #'make-subnet-uid parent-subnet-path))
-          `(("uid" . ,(ipaddress:as-string address))))
+          `(("uid" . ,(ipaddress:as-string address)))
+          (get-creator policy))
         ;; Return t to indicate success.
         t))))
 

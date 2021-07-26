@@ -67,9 +67,6 @@ class TestResources(unittest.TestCase):
         assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                           self.restype,
                                           (sanitise_uid(self.resuid)))).status_code == 404
-        # Ensure we have none of that kind of resource
-        assert requests.get('%s/%s' % (API_BASE_URL, self.restype)).status_code == 200
-        assert requests.get('%s/%s' % (API_BASE_URL, self.restype)).json() == []
         # Create it
         self.result = requests.post('%s/%s/' % (API_BASE_URL, self.restype),
                                     data={'uid': self.resuid})
@@ -144,40 +141,25 @@ class TestMultipleResources(unittest.TestCase):
         # Confirm we're starting with an empty set
         self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).status_code,
                          200)
-        self.assertEqual(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                         [])
+        self.assertEqual(len(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json()), 1)
         # Add the first resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resource1uid}).status_code,
                          201)
-        # Check that we now get a list containing exactly that resource
-        self.result = requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json()
-        self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resource1uid))
-        self.assertEqual(self.result[0]['uid'], self.resource1uid)
+        # Check that we now have two resources, including the site admin.
+        self.assertEqual(len(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json()), 2)
         # Add the second resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resource2uid}).status_code,
                          201)
         # Check that we now get a list containing exactly both resources
-        self.result = sorted(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                             key=lambda i: i['uid'])
-        self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resource1uid))
-        self.assertEqual(self.result[0]['uid'], self.resource1uid)
-        self.assertEqual(self.result[1]['original_uid'], sanitise_uid(self.resource2uid))
-        self.assertEqual(self.result[1]['uid'], self.resource2uid)
+        self.assertEqual(len(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json()), 3)
         # Add the third resource
         self.assertEqual(requests.post('%s/%s/' % (API_BASE_URL, self.resourcetype),
                                        data={'uid': self.resource3uid}).status_code,
                          201)
         # Check that we now get a list containing all three resources
-        self.result = sorted(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json(),
-                             key=lambda i: i['uid'])
-        self.assertEqual(self.result[0]['original_uid'], sanitise_uid(self.resource1uid))
-        self.assertEqual(self.result[0]['uid'], self.resource1uid)
-        self.assertEqual(self.result[1]['original_uid'], sanitise_uid(self.resource2uid))
-        self.assertEqual(self.result[1]['uid'], self.resource2uid)
-        self.assertEqual(self.result[2]['original_uid'], sanitise_uid(self.resource3uid))
-        self.assertEqual(self.result[2]['uid'], self.resource3uid)
+        self.assertEqual(len(requests.get('%s/%s' % (API_BASE_URL, self.resourcetype)).json()), 4)
         # Delete the resources
         print('Test: clean up afterward')
         self.assertEqual(requests.delete('%s/%s/%s' % (API_BASE_URL,
@@ -765,7 +747,7 @@ class TestIpv4SubnetsBasicNoVrf(unittest.TestCase):
                                          % (API_BASE_URL, self.organisation)).status_code,
                          204)
 
-@pytest.mark.dependency("TestDependentResources")
+@pytest.mark.dependency("TestIpv4SubnetsBasicNoVrf")
 class TestIpv4AddressesBasicNoVrf(unittest.TestCase):
     '''
     Basic CRD functions for Ipv4 addresses
@@ -773,7 +755,7 @@ class TestIpv4AddressesBasicNoVrf(unittest.TestCase):
     org = 'testco'
     subnet1 = '172.16.0.0/12'
     address1 = '172.16.23.4'
-    organisation = 'testco'
+    organisation = 'testcorp'
     def test_create_and_delete_single_address(self):
         print('Test: test_create_and_delete_single_address')
         # Create the organisation that it goes under

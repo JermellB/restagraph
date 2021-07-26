@@ -13,7 +13,7 @@
                    (debug 3)))
 
 
-(defgeneric store-resource (db schema resourcetype attributes)
+(defgeneric store-resource (db schema resourcetype attributes creator-uid)
   (:documentation "Store a resource in the database. Attributes argument is expected in the form of an alist.
 Return the UID on success.
 Return an error if
@@ -25,7 +25,8 @@ Return an error if
                            (resourcetype string)
                            ;; `attributes` is an alist, where the car is the name
                            ;; and the cdr is the value
-                           (attributes list))
+                           (attributes list)
+                           (creator-uid string))
   (log-message :debug (format nil "Attempting to store a resource of type '~A' with attributes ~{~A~^, ~}"
                               resourcetype attributes))
   (cond
@@ -43,53 +44,55 @@ Return an error if
        (error 'integrity-error :message message)))
     ;; OK so far: carry on
     (t
-      (handler-case
-        (let ((attributes (validate-resource-before-creating schema resourcetype attributes)))
-          ;; If we got this far, we have a valid resource type and valid attribute names.
-          ;; Make it happen
-          (log-message :debug (format nil "Creating a ~A resource with attributes ~A"
-                                      resourcetype attributes))
-          (handler-case
-            (progn
-              (neo4cl:neo4j-transaction
-                db
-                `((:STATEMENTS
-                    ((:STATEMENT . ,(format nil "CREATE (:~A $properties)"
-                                            (sanitise-uid resourcetype)))
-                     (:PARAMETERS . ((:PROPERTIES
-                                       . ,(append attributes
-                                                  `(("createddate" . ,(get-universal-time)))))))))))
-              ;; Return the UID
-              (cdr (assoc :|uid| attributes :test 'equal)))
-            ;; Catch selected errors as they come up
-            (neo4cl::client-error
-              (e)
-              (if (and
-                    ;; If it's specifically an integrity error, call this out
-                    (equal (neo4cl:category e) "Schema")
-                    (equal (neo4cl:title e) "ConstraintValidationFailed"))
-                (progn
-                  (log-message :error (format nil "~A.~A: ~A"
-                                              (neo4cl:category e)
-                                              (neo4cl:title e)
-                                              (neo4cl:message e)))
-                  (error 'integrity-error :message (neo4cl:message e)))
-                ;; Otherwise, just resignal it
-                (let ((text (format nil "Database error ~A.~A: ~A"
-                                    (neo4cl:category e)
-                                    (neo4cl:title e)
-                                    (neo4cl:message e))))
-                  (log-message :error text)
-                  (error 'client-error :message text))))))))))
+     (handler-case
+       (let ((attributes (validate-resource-before-creating schema resourcetype attributes)))
+         ;; If we got this far, we have a valid resource type and valid attribute names.
+         ;; Make it happen
+         (log-message :debug (format nil "Creating a ~A resource with attributes ~A"
+                                     resourcetype attributes))
+         (handler-case
+           (progn
+             (neo4cl:neo4j-transaction
+               db
+               `((:STATEMENTS
+                   ((:STATEMENT
+                      . ,(format nil "MATCH (c:People {uid: \"~A\"}) CREATE (:~A $properties)-[:CREATOR]->(c)"
+                                 creator-uid (sanitise-uid resourcetype)))
+                    (:PARAMETERS . ((:PROPERTIES
+                                      . ,(append attributes
+                                                 `(("createddate" . ,(get-universal-time)))))))))))
+             ;; Return the UID
+             (cdr (assoc :|uid| attributes :test 'equal)))
+           ;; Catch selected errors as they come up
+           (neo4cl::client-error
+             (e)
+             (if (and
+                   ;; If it's specifically an integrity error, call this out
+                   (equal (neo4cl:category e) "Schema")
+                   (equal (neo4cl:title e) "ConstraintValidationFailed"))
+                 (progn
+                   (log-message :error (format nil "~A.~A: ~A"
+                                               (neo4cl:category e)
+                                               (neo4cl:title e)
+                                               (neo4cl:message e)))
+                   (error 'integrity-error :message (neo4cl:message e)))
+                 ;; Otherwise, just resignal it
+                 (let ((text (format nil "Database error ~A.~A: ~A"
+                                     (neo4cl:category e)
+                                     (neo4cl:title e)
+                                     (neo4cl:message e))))
+                   (log-message :error text)
+                   (error 'client-error :message text))))))))))
 
 
-(defgeneric store-dependent-resource (db schema uri attributes)
+(defgeneric store-dependent-resource (db schema uri attributes creator-uid)
   (:documentation "Create a dependent resource, at the end of the path given by URI. Its parent resource must exist, and the relationship must be a valid dependent relationship."))
 
 (defmethod store-dependent-resource ((db neo4cl:neo4j-rest-server)
                                      (schema hash-table)
                                      (uri string)
-                                     (attributes list))
+                                     (attributes list)
+                                     (creator-uid string))
   (log-message :debug (format nil "Attempting to create a dependent resource at path ~A" uri))
   (let* ((uri-parts (get-uri-parts uri))
          (relationship (car (last (butlast uri-parts))))
@@ -130,7 +133,7 @@ Return an error if
          (error 'client-error :message message)))
       ;; Passed the initial sanity-checks; try to create it.
       (t
-        (log-message :debug "Sanity checks passed. Attempting to create the resource.")
+       (log-message :debug "Sanity checks passed. Attempting to create the resource.")
        ;; Validate the supplied attributes
        (let* ((validated-attributes
                 (validate-resource-before-creating
@@ -178,11 +181,12 @@ Return an error if
                   db
                   `((:STATEMENTS
                       ((:STATEMENT .
-                        ,(format nil "MATCH ~A CREATE (n)-[:~A]->(:~A $properties)"
+                        ,(format nil "MATCH ~A, (c:People {uid: \"~A\"}) CREATE (n)-[:~A]->(:~A $properties)-[:CREATOR]->(c)"
                                  (uri-node-helper parent-parts
                                                   :path ""
                                                   :marker "n"
                                                   :directional t)
+                                 creator-uid
                                  relationship
                                  dest-type))
                        (:PARAMETERS . ((:PROPERTIES

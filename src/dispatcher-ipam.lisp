@@ -48,7 +48,8 @@
                                   (if (ipaddress:ipv4-subnet-p (tbnl:post-parameter "subnet"))
                                     (ipaddress:make-ipv4-subnet (tbnl:post-parameter "subnet"))
                                     (ipaddress:make-ipv6-subnet (tbnl:post-parameter "subnet")))
-                                  (schema *restagraph-acceptor*))))
+                                  (schema *restagraph-acceptor*)
+                                  (post-policy (access-policy *restagraph-acceptor*)))))
              ;; Return it to the client for confirmation
              (log-message
                :debug
@@ -171,7 +172,8 @@
                                           'ipaddress:ipv6-address)
                                         :address (tbnl:post-parameter "address"))
                          (tbnl:post-parameter "org")
-                         (or (tbnl:post-parameter "vrf") ""))
+                         (or (tbnl:post-parameter "vrf") "")
+                         (post-policy (access-policy *restagraph-acceptor*)))
        ;; Return it to the client for confirmation
        (log-message :debug
                     (format nil "Stored address ~A. Now retrieving it for positive confirmation."

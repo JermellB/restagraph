@@ -85,7 +85,10 @@
                                           `(("uid" . ,(sanitise-uid requested-filename))
                                             ("title" . ,requested-filename)
                                             ("sha3256sum" . ,checksum)
-                                            ("mimetype" . ,mimetype))))))
+                                            ("mimetype" . ,mimetype))
+                                          (get-creator
+                                            (post-policy
+                                              (access-policy *restagraph-acceptor*)))))))
                ;; then if that succeeds move it to its new location.
                ;; Check whether this file already exists by another name
                (log-message :debug "Moving the file to its new home.")
