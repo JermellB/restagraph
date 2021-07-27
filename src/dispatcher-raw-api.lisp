@@ -289,24 +289,26 @@
         ;;
         ;; Delete a relationship on an arbitrary path
         ((and (equal (tbnl:request-method*) :DELETE)
-              (or (tbnl:post-parameter "resource")
-                  (tbnl:get-parameter "resource"))
+              (or (tbnl:post-parameter "target")
+                  (tbnl:get-parameter "target"))
               (equal (mod (length uri-parts) 3) 0))
-         (handler-case
-           (progn
-             (log-message :debug (format nil "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri))
-             (delete-relationship-by-path (datastore tbnl:*acceptor*)
-                                          sub-uri
-                                          (or (tbnl:post-parameter "resource")
-                                              (tbnl:get-parameter "resource"))
-                                          (schema tbnl:*acceptor*))
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-no-content+)
-             "")
-           ;; Attempted violation of db integrity
-           (integrity-error (e) (return-integrity-error (message e)))
-           ;; Generic client errors
-           (client-error (e) (return-client-error (message e)))))
+         ;; Reject any attempt to create a :CREATOR relationship
+         (if (equal "CREATOR" (car (last uri-parts)))
+             (forbidden)
+             (handler-case
+               (progn
+                 (log-message :debug (format nil "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri))
+                 (delete-relationship-by-path (datastore tbnl:*acceptor*)
+                                              sub-uri
+                                              (tbnl:parameter "target")
+                                              (schema tbnl:*acceptor*))
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-no-content+)
+                 "")
+               ;; Attempted violation of db integrity
+               (integrity-error (e) (return-integrity-error (message e)))
+               ;; Generic client errors
+               (client-error (e) (return-client-error (message e))))))
         ;;
         ;; Methods we don't support.
         ;; Take the whitelist approach
