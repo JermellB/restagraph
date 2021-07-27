@@ -126,34 +126,37 @@
                  (client-error (e) (return-client-error (message e)))))))
         ;;
         ;; Store a relationship
-        ((and
-           (equal (tbnl:request-method*) :POST)
-           (equal (mod (length uri-parts) 3) 0)
-           (tbnl:post-parameter "target"))
+        ((and (equal (tbnl:request-method*) :POST)
+              (equal (mod (length uri-parts) 3) 0)
+              (tbnl:post-parameter "target"))
          ;; Grab these once, as we'll be referring to them a few times
          (let ((dest-path (tbnl:post-parameter "target")))
            ;; Basic sanity check
            (log-message :debug (format nil "Creating a relationship from ~A to ~A" sub-uri dest-path))
-           (handler-case
-             (let ((new-uri (format nil "~{/~A~}/~A/~A"
-                                    uri-parts    ; Path down to the relationship
-                                    (car (last (get-uri-parts dest-path) 2)) ; Target resourcetype
-                                    (car (last (get-uri-parts dest-path))))))
-               (create-relationship-by-path (datastore tbnl:*acceptor*)
-                                            sub-uri
-                                            dest-path
-                                            (schema tbnl:*acceptor*))
-               ;; Report success to the client, plus the URI
-               (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               (setf (tbnl:header-out "Location") new-uri)
-               ;; Return the URI to the resource at the end of the newly-created relationship
-               new-uri) ; Target UID
-             ;; Attempted violation of db integrity
-             (integrity-error (e) (return-integrity-error (message e)))
-             ;; Generic client errors
-             (client-error (e) (return-client-error (message e)))
-             (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))
+           ;; Reject any attempt to create a :CREATOR relationship
+           (if (equal "CREATOR" (car (last uri-parts)))
+               (forbidden)
+               ;; Passed the sanity-checks; proceed.
+               (handler-case
+                 (let ((new-uri (format nil "~{/~A~}/~A/~A"
+                                        uri-parts    ; Path down to the relationship
+                                        (car (last (get-uri-parts dest-path) 2))  ; Target resourcetype
+                                        (car (last (get-uri-parts dest-path)))))) ; Target UID
+                   (create-relationship-by-path (datastore tbnl:*acceptor*)
+                                                sub-uri
+                                                dest-path
+                                                (schema tbnl:*acceptor*))
+                   ;; Report success to the client, plus the URI
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-created+)
+                   (setf (tbnl:header-out "Location") new-uri)
+                   ;; Return the URI to the resource at the end of the newly-created relationship
+                   new-uri) ; Target UID
+                 ;; Attempted violation of db integrity
+                 (integrity-error (e) (return-integrity-error (message e)))
+                 ;; Generic client errors
+                 (client-error (e) (return-client-error (message e)))
+                 (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))))
         ;;
         ;; Create a dependent resource
         ((and

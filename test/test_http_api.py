@@ -250,6 +250,19 @@ class TestRelationshipsBasic(unittest.TestCase):
         # Confirm teardown
         assert requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 404
         assert requests.get('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 404
+    def test_fail_to_set_creator(self):
+        # Setup
+        requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
+        requests.post('%s/Tags/' % (API_BASE_URL), data={"uid": self.tag1})
+        # Test
+        assert requests.post('%s/Tags/%s/CREATOR' % (API_BASE_URL, self.tag1),
+                             data={"target": '/People/%s' % (self.person1)}).status_code == 403
+        # Teardown
+        assert requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 204
+        assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
+        # Confirm teardown
+        assert requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 404
+        assert requests.get('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 404
 
 @pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
 class TestFilesApi(unittest.TestCase):
