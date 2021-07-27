@@ -17,6 +17,16 @@
   (log-message :debug (format nil "Handling files '~A' request with content-type '~A'"
                               (tbnl:request-method*) (tbnl:content-type*)))
   (cond
+    ;; Access policies: dispatch "deny" as early as possible
+    ((and (equal :GET (tbnl:request-method*))
+          (equal :DENY (get-policy (access-policy *restagraph-acceptor*))))
+     (forbidden))
+    ((and (equal :POST (tbnl:request-method*))
+          (equal :DENY (post-policy (access-policy *restagraph-acceptor*))))
+     (forbidden))
+    ((and (equal :DELETE (tbnl:request-method*))
+          (equal :DENY (delete-policy (access-policy *restagraph-acceptor*))))
+     (forbidden))
     ;; Client fails to upload a file
     ((and (equal (tbnl:request-method*) :POST)
           (or (null (tbnl:post-parameter "name"))
