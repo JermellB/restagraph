@@ -309,8 +309,11 @@ Returns the URI of the newly-created path through this relationship.
 
 ## Delete a relationship to another object
 ```
-DELETE /api/v1/<resource-type>/<Unique ID>/<relationship>/<Unique ID>
+DELETE /api/v1/<resource-type>/<Unique ID>/<relationship>/
+with parameter: 'target=/<resource-type>/<Unique ID>'
 ```
+
+The reason for doing it this way is that it's the only way to distinguish between deleting the relationship vs deleting the resource at the far end of it.
 
 
 ## Delete a dependent resource
