@@ -229,13 +229,14 @@ class TestAttributesBasic(unittest.TestCase):
         # Confirm the resource is gone
         assert requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 404
 
-@pytest.mark.dependency(depends=["TestAttributesBasic::test_add_and_remove_single_attribute"])
+#@pytest.mark.dependency(depends=["TestAttributesBasic::test_add_and_remove_single_attribute"])
 class TestRelationshipsBasic(unittest.TestCase):
     '''
     The most rudimentary of relationship testing
     '''
     person1 = 'Blake'
     tag1 = 'Idealist'
+    group1 = 'Seven'
     rgadmin = 'RgAdmin'
     def test_tag_a_person(self):
         # Setup
@@ -273,6 +274,28 @@ class TestRelationshipsBasic(unittest.TestCase):
         assert requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 204
         # Confirm teardown
         assert requests.get('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 404
+    def test_fail_to_create_invalid_relationship(self):
+        # Setup
+        requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
+        requests.post('%s/Groups/' % (API_BASE_URL), data={"uid": self.group1})
+        # Test
+        assert requests.post('%s/People/%s/MEMBER_OF' % (API_BASE_URL, self.person1),
+                             data={'target': '/Groups/%s' % (self.group1)}).status_code == 409
+        # Teardown
+        assert requests.delete('%s/Groups/%s' % (API_BASE_URL, self.group1)).status_code == 204
+        assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
+    def test_fail_to_delete_invalid_relationship(self):
+        # Setup
+        requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
+        requests.post('%s/Groups/' % (API_BASE_URL), data={"uid": self.group1})
+        # Test
+        response = requests.delete('%s/People/%s/MEMBER_OF' % (API_BASE_URL, self.person1),
+                                   data={'target': '/Groups/%s' % (self.group1)})
+        assert response.status_code == 400
+        assert response.text == "Client error: There is no relationship between these resource-types. Are you sure there's something here to delete?"
+        # Teardown
+        assert requests.delete('%s/Groups/%s' % (API_BASE_URL, self.group1)).status_code == 204
+        assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
 
 @pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
 class TestFilesApi(unittest.TestCase):

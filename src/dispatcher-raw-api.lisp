@@ -302,9 +302,9 @@
                (progn
                  (log-message :debug (format nil "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri))
                  (delete-relationship-by-path (datastore tbnl:*acceptor*)
+                                              (schema tbnl:*acceptor*)
                                               sub-uri
-                                              (tbnl:parameter "target")
-                                              (schema tbnl:*acceptor*))
+                                              (tbnl:parameter "target"))
                  (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-no-content+)
                  "")

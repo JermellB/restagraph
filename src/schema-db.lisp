@@ -554,7 +554,8 @@
             relationship source-type target-type))
   (first
     (remove-if-not #'(lambda (rel)
-                       (equal relationship (name rel)))
+                       (and (equal relationship (name rel))
+                            (equal target-type (name (target-type rel)))))
                    (relationships (gethash source-type db)))))
 
 (defmethod get-relationship ((db neo4cl:neo4j-rest-server)
