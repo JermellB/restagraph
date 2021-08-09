@@ -40,6 +40,8 @@
               (source-parts (butlast source-part-list)) ; Path to the source resource
               (source-type (nth (- (length source-parts) 2) source-parts))
               (dest-type (nth (- (length dest-parts) 2) dest-parts))
+              ;; Note that this enables an "any" relationship to be pre-empted
+              ;; by a more specific definition.
               (relationship-attrs
                 (or (get-relationship schema source-type relationship dest-type)
                     (get-relationship schema "any" relationship dest-type))))

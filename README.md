@@ -53,7 +53,7 @@ After short delay, it should be available on `http://10.255.0.1:4952/` (dependin
 
 To inspect the built-in schema: `curl http://10.255.0.1:4965/schema/v1`. It's output is not human-friendly, so you'll probably want to install the wonderful JSON-querying utility [jq](https://stedolan.github.io/jq/), and pipe the output through that for pretty-printing: `curl http://10.255.0.1:4965/schema/v1 | jq .` (don't forget the trailing dot, which tells `jq` to print everything from the document-root down). All the documentation for Restagraph assumes that you've installed `jq`, but it's not _necessary_ - it's just exceedingly helpful.
 
-When you look at the schema, pay attention to the `any` resourcetype. It's a special case: relationships from the `any` type can be created with, well, _any_ resourcetype as the source. E.g, you can link any resource in the database to a tag or a group.
+When you look at the schema, pay attention to the `any` resourcetype. It's a special case: relationships from the `any` type can be created with, well, _any_ resourcetype as the source. E.g, you can link any resource in the database to a tag or a group. It's useful to note that the server only checks for a relationship from the source type to the target type _after_ checking for one between those two resourcetypes, which means, you can override or pre-empt the relationship from `any` and use it as a catch-all fallback.
 
 You can change most of the details in `docker-compose.yml` to suit your own needs. There's nothing significant about the port numbers, volume names or network name, Restagraph doesn't _need_ to listen on all possible addresses, and it's always good practice to change the database password.
 
