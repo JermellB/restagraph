@@ -166,10 +166,7 @@
   (string-right-trim
     '(#\NewLine)
     (with-output-to-string (str)
-      (sb-ext:run-program "env"
-                          (list "file" "-b" "--mime-type" filepath)
-                          :search t
-                          :output str)
+      (sb-ext:run-program "file" (list "-b" "--mime-type" filepath) :search t :output str)
       str)))
 
 (defun move-file (old-path new-path)

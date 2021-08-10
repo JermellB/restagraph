@@ -303,11 +303,6 @@ Return an error if
                         target-type
                         target-uid))))))))))
 
-
-(defgeneric get-resources (db uri &key filters directional)
-  (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI.
-The optional 'filters parameter is for refining the search results."))
-
 ;; Helper function
 (defun process-filter (filter)
   "Process a single filter from a GET parameter.
@@ -394,6 +389,12 @@ The optional 'filters parameter is for refining the search results."))
           (log-message :debug (format nil "Output from process-filters: ~A." response))
           response)
         "")))
+
+
+(defgeneric get-resources (db uri &key filters directional)
+            (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI.
+                            The optional 'filters' parameter is for refining the search results.
+                            :directional is for resources with a particular relationship to this one."))
 
 (defmethod get-resources ((db neo4cl:neo4j-rest-server)
                           (uri string)
