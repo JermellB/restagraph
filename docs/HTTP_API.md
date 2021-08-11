@@ -88,7 +88,11 @@ The return value is a JSON object of this form:
 
 ## POST - upload a new schema
 
-`POST /schema/v1/` with a payload of a JSON-formatted file.
+`POST /schema/v1/` with a payload of name "schema" whose value is a JSON-formatted file. E.g:
+
+```
+curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
+```
 
 Expected format of the file
 
@@ -257,7 +261,22 @@ curl 'http://localhost:4950/raw/v1/People?displayname=Bla.*'
 Regular expressions can be negated by putting `!` at the start of the regex, e.g. `!.*foo.*` would filter for every string that does _not_ include the substring "foo".
 
 
-### Retrieve the type and UID of all resources to which this one has a specific relationship
+### Filtering the "retrieve all resources" request
+
+You can add filters to this request, as parameters in the URL.
+
+- Exact text match: `<attribute-name>=<text>`, e.g. `uid=foo`
+- Regular expression match: `<attribute-name>=<regex>`, e.g. `uid=f.*o.*`
+    - These follow [Java-style regex rules](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html).
+- Attribute exists/has a value: `<attribute-name>=exists`, e.g. `description=exists`
+- Resource has an outbound link to another resource: `outbound=</path/to/resource`, e.g. `outbound=/TAGS/Tags/fooTag`
+
+Each of these can be applied as a negation, by prepending `!`. E.g, `!uid=foo` means "UID is _not_ equal to 'foo'".
+
+Yes, these do have implications regarding attributes with a name of `outbound` or a value of `exists`. There's a workaround for the latter involving a regex, but I need to find a better solution for the `outbound` issue.
+
+
+## Retrieve the type and UID of all resources to which this one has a specific relationship
 
 This is essentially the extended version of retrieving all resources of a given type. Alternatively, the previous section is a special case of this feature:
 
