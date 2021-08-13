@@ -273,6 +273,8 @@ You can add filters to this request, as parameters in the URL.
 
 Each of these can be applied as a negation, by prepending `!`. E.g, `!uid=foo` means "UID is _not_ equal to 'foo'".
 
+Parameters are combined with AND, _not_ with OR.
+
 Yes, these do have implications regarding attributes with a name of `outbound` or a value of `exists`. There's a workaround for the latter involving a regex, but I need to find a better solution for the `outbound` issue.
 
 
