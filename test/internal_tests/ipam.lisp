@@ -22,13 +22,15 @@
   (let
     ((schema (restagraph::fetch-current-schema *server*))
      (org "internet")
-     (subnet1 (ipaddress:make-ipv4-subnet "172.16.0.0/12")))
+     (subnet1 (ipaddress:make-ipv4-subnet "172.16.0.0/12"))
+     (admin-user "RgAdmin")
+     (policy :ALLOW-ALL))
     ;; Confirm the fixtures aren't already present
     (fiveam:is (null (restagraph::get-resources *server* (format nil "/Organisations/~A" org))))
     ;; Add the fixtures
-    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)))
+    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)) admin-user)
     ;; Add a top-level subnet; this should return NIL.
-    (fiveam:is (restagraph::insert-subnet *server* org "" subnet1 schema))
+    (fiveam:is (restagraph::insert-subnet *server* org "" subnet1 schema policy))
     ;; Confirm the subnet is there
     (fiveam:is (restagraph::find-subnet *server* org "" subnet1))
     ;; Remove the subnet
@@ -48,18 +50,21 @@
     ((schema (restagraph::fetch-current-schema *server*))
      (org "internet")
      (vrf "red")
-     (subnet1 (ipaddress:make-ipv4-subnet "172.16.0.0/12")))
+     (subnet1 (ipaddress:make-ipv4-subnet "172.16.0.0/12"))
+     (admin-user "RgAdmin")
+     (policy :ALLOW-ALL))
     ;; Confirm the fixtures aren't already present
     (fiveam:is (null (restagraph::get-resources *server* (format nil "/Organisations/~A" org))))
     ;; Add the fixtures
-    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)))
+    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)) admin-user)
     (restagraph::store-dependent-resource
       *server*
       schema
       (format nil "/Organisations/~A/VRF_GROUPS/VrfGroups" org)
-      `(("uid" . ,vrf)))
+      `(("uid" . ,vrf))
+      admin-user)
     ;; Add a top-level subnet; this should return NIL.
-    (fiveam:is (restagraph::insert-subnet *server* org vrf subnet1 schema))
+    (fiveam:is (restagraph::insert-subnet *server* org vrf subnet1 schema policy))
     ;; Confirm the subnet is there
     (fiveam:is (restagraph::find-subnet *server* org vrf subnet1))
     ;; Remove the subnet
@@ -79,21 +84,23 @@
     ((schema (restagraph::fetch-current-schema *server*))
      (org "testco")
      (subnet1 (ipaddress:make-ipv4-subnet "172.16.0.0/12"))
-     (subnet2 (ipaddress:make-ipv4-subnet "172.18.0.0/23")))
+     (subnet2 (ipaddress:make-ipv4-subnet "172.18.0.0/23"))
+     (admin-user "RgAdmin")
+     (policy :ALLOW-ALL))
     ;; Confirm the fixtures aren't already present
     (fiveam:is (null (restagraph::get-resources *server* (format nil "/Organisations/~A" org))))
     ;; Add the fixtures
     (restagraph::log-message :debug "TEST Creating the fixtures.")
-    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)))
+    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)) admin-user)
     ;; Add a top-level subnet; this should return NIL.
     (restagraph::log-message :debug "TEST Add a top-level subnet.")
-    (fiveam:is (restagraph::insert-subnet *server* org "" subnet1 schema))
+    (fiveam:is (restagraph::insert-subnet *server* org "" subnet1 schema policy))
     ;; Confirm the subnet is there
     (restagraph::log-message :debug "TEST Confirm the top-level subnet is present.")
     (fiveam:is (restagraph::find-subnet *server* org "" subnet1))
     ;; Add another subnet
     (restagraph::log-message :debug "TEST Add a second-level subnet.")
-    (fiveam:is (restagraph::insert-subnet *server* org "" subnet2 schema))
+    (fiveam:is (restagraph::insert-subnet *server* org "" subnet2 schema policy))
     ;; Confirm that's also there
     (restagraph::log-message :debug "TEST Confirm the second-level subnet is present.")
     (fiveam:is (restagraph::find-subnet *server* org "" subnet2))
@@ -117,15 +124,17 @@
      (org "testco")
      (subnet1 (ipaddress:make-ipv4-subnet "172.16.0.0/12"))
      (subnet2 (ipaddress:make-ipv4-subnet "172.16.19.0/24"))
-     (subnet3 (ipaddress:make-ipv4-subnet "172.16.18.0/23")))
+     (subnet3 (ipaddress:make-ipv4-subnet "172.16.18.0/23"))
+     (admin-user "RgAdmin")
+     (policy :ALLOW-ALL))
     ;; Confirm the fixtures aren't already present
     (fiveam:is (null (restagraph::get-resources *server* (format nil "/Organisations/~A" org))))
     ;; Add the fixtures
     (restagraph::log-message :debug "TEST Creating the fixtures.")
-    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)))
+    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)) admin-user)
     ;; Add a top-level subnet; this should return NIL.
     (restagraph::log-message :debug "TEST Add a top-level subnet.")
-    (fiveam:is (restagraph::insert-subnet *server* org "" subnet1 schema))
+    (fiveam:is (restagraph::insert-subnet *server* org "" subnet1 schema policy))
     ;; Confirm the subnet is there
     (restagraph::log-message :debug "TEST Confirm the top-level subnet is present.")
     (fiveam:is (equal (list (restagraph::make-subnet-uid subnet1))
@@ -133,7 +142,7 @@
                               (restagraph::find-subnet *server* org "" subnet1))))
     ;; Add a second subnet
     (restagraph::log-message :debug "TEST Add a second-level subnet.")
-    (fiveam:is (restagraph::insert-subnet *server* org "" subnet2 schema))
+    (fiveam:is (restagraph::insert-subnet *server* org "" subnet2 schema policy))
     ;; Confirm that's also there
     (restagraph::log-message :debug "TEST Confirm the second-level subnet is present.")
     (fiveam:is (equal
@@ -143,7 +152,7 @@
                          (restagraph::find-subnet *server* org "" subnet2))))
     ;; Add a third subnet
     (restagraph::log-message :debug "TEST Add a third subnet between the first two.")
-    (fiveam:is (restagraph::insert-subnet *server* org "" subnet3 schema))
+    (fiveam:is (restagraph::insert-subnet *server* org "" subnet3 schema policy))
     ;; Confirm that's also there
     (restagraph::log-message :debug "TEST Confirm the new second-level subnet is present.")
     (fiveam:is (restagraph::find-subnet *server* org "" subnet3))
@@ -173,23 +182,26 @@
         (org "example")
         (address (ipaddress:make-ipv4-address "172.17.2.3"))
         (vrf "green")
-        (subnet (ipaddress:make-ipv4-subnet "172.17.2.0/24")))
+        (subnet (ipaddress:make-ipv4-subnet "172.17.2.0/24"))
+        (admin-user "RgAdmin")
+        (policy :ALLOW-ALL))
     ;; Ensure we're clear to start
     (fiveam:is (null (restagraph::get-resources *server* (format nil "/Organisations/~A" org))))
     ;; Create fixtures
     (restagraph::log-message :debug "Creating fixtures with one VRF")
-    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)))
+    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)) admin-user)
     (restagraph::store-dependent-resource
       *server*
       schema
       (format nil "/Organisations/~A/VRF_GROUPS/VrfGroups" org)
-      `(("uid" . ,vrf)))
-    (restagraph::insert-subnet *server* org vrf subnet schema)
+      `(("uid" . ,vrf))
+      admin-user)
+    (restagraph::insert-subnet *server* org vrf subnet schema policy)
     ;; Tests
     (restagraph::log-message :debug "TEST Address is absent")
     (fiveam:is (null (restagraph::find-ipaddress *server* address org vrf)))
     (restagraph::log-message :debug "TEST Insert address")
-    (fiveam:is (restagraph::insert-ipaddress *server* schema address org vrf))
+    (fiveam:is (restagraph::insert-ipaddress *server* schema address org vrf policy))
     (fiveam:is (equal (ipaddress:as-string address)
                       (car (last (restagraph::find-ipaddress *server* address org vrf)))))
     (restagraph::log-message :debug "TEST Delete address")
@@ -208,16 +220,18 @@
      (org "sample")
      (subnet1 (ipaddress:make-ipv4-subnet "192.168.0.0/16"))
      (subnet2 (ipaddress:make-ipv4-subnet "192.168.32.0/23"))
-     (address (ipaddress:make-ipv4-address "192.168.32.3")))
+     (address (ipaddress:make-ipv4-address "192.168.32.3"))
+     (admin-user "RgAdmin")
+     (policy :ALLOW-ALL))
     ;; Confirm the fixtures aren't already present
     (fiveam:is (null (restagraph::get-resources *server* (format nil "/Organisations/~A" org))))
     ;; Add the fixtures
     (restagraph::log-message :info "TEST Creating the fixtures.")
-    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)))
-    (restagraph::insert-subnet *server* org "" subnet1 schema)
+    (restagraph::store-resource *server* schema "Organisations" `(("uid" . ,org)) admin-user)
+    (restagraph::insert-subnet *server* org "" subnet1 schema policy)
     ;; Add the IP address
     (restagraph::log-message :info "TEST Add the IP address")
-    (fiveam:is (restagraph::insert-ipaddress *server* schema address org ""))
+    (fiveam:is (restagraph::insert-ipaddress *server* schema address org "" policy))
     ;; Confirm the address is there
     (restagraph::log-message :info "TEST Confirm the address is present.")
     (fiveam:is (restagraph::find-ipaddress *server* address org ""))
@@ -225,7 +239,7 @@
                       (car (last (restagraph::find-ipaddress *server* address org "")))))
     ;; Add another subnet
     (restagraph::log-message :info "TEST Add a second-level subnet.")
-    (fiveam:is (restagraph::insert-subnet *server* org "" subnet2 schema))
+    (fiveam:is (restagraph::insert-subnet *server* org "" subnet2 schema policy))
     ;; Confirm that's also there
     (restagraph::log-message :info "TEST Confirm the second-level subnet is present.")
     (fiveam:is (equal (mapcar #'ipaddress:as-cidr (list subnet1 subnet2))

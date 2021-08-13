@@ -30,6 +30,7 @@
         (uid "Cally")
         (invalid-type "interfaces")
         (invalid-uid "eth0")
+        (admin-user "RgAdmin")
         (schema (restagraph::fetch-current-schema *server*)))
     ;; Confirm the resource isn't already present
     (restagraph::log-message :info ";TEST Confirm the resource isn't already present")
@@ -37,7 +38,7 @@
     ;; Store the resource
     (restagraph::log-message :info ";TEST Store the resource")
     (fiveam:is (equal (restagraph::sanitise-uid uid)
-                      (restagraph::store-resource *server* schema restype `(("uid" . ,uid)))))
+                      (restagraph::store-resource *server* schema restype `(("uid" . ,uid)) admin-user)))
     ;; Confirm it's there
     (restagraph::log-message :info ";TEST Confirm the resource is present")
     (let ((result (restagraph::get-resources *server* (format nil "/~A/~A" restype uid))))
@@ -60,4 +61,4 @@
     (restagraph::log-message :info ";TEST Ensure we can't create an invalid type")
     (fiveam:signals
       (restagraph::client-error "No such resourcetype.")
-      (restagraph::store-resource *server* schema invalid-type `(("uid" . ,invalid-uid))))))
+      (restagraph::store-resource *server* schema invalid-type `(("uid" . ,invalid-uid)) admin-user))))
