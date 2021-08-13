@@ -303,11 +303,11 @@ Return an error if
                         target-type
                         target-uid))))))))))
 
-;; Helper function
 (defun process-filter (filter)
-  "Process a single filter from a GET parameter.
-   Assumes uri-node-helper was called with its default marker, which is 'n'.
-   Returns NIL when the cdr of the filter is NIL."
+  "Process a single filter from a GET parameter, expecting a dotted cons.
+  Assumes uri-node-helper was called with its default marker, which is 'n'.
+  Returns NIL when the cdr of the filter is NIL.
+  Helper-function for `process-filters`."
   (log-message :debug (format nil "Attempting to process filter ~A" filter))
   ;; Sanity-check: is this an empty filter expression?
   ;; These can legitimately be sent via badly-written search pages, for example.
@@ -323,64 +323,63 @@ Return an error if
           (cdr filter)
           (stringp (cdr filter)))
      (log-message :debug (format nil "Filter ~A looks OK; attempting to process it" (car filter)))
-     (let ((name (car filter))
-           ;; Does the value start with "!" to indicate negation?
-           (negationp (string= "!" (cdr filter) :end2 1)))
+     (let* ((name (car filter))
+            ;; Does the value start with "!" to indicate negation?
+            (negationp (string= "!" (cdr filter) :end2 1))
+            ;; Get the value of the expression.
+            ;; If it's negated, drop the leading `!`.
+            (value (escape-neo4j (if negationp
+                                   (subseq (cdr filter) 1)
+                                   (cdr filter)))))
+       (log-message :debug (format nil "De-negated value: '~A'" value))
        ;; Log whether negation was detected
        (if negationp
-           (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
-           (log-message :debug "Negation not detected. Double-negative in progress."))
-       ;; Prepend negation if applicable
-       (let ((value (escape-neo4j (if negationp
-                                      (subseq (cdr filter) 1)
-                                      (cdr filter)))))
-         (format
-           nil
-           "~A~A"
-           ;; Are we negating it?
-           (if negationp "NOT " "")
-           ;; Infer the operator
-           (cond
-             ;; Outbound links
-             ;; Simple format: relationship/path/to/target
-             ((equal name "outbound")
-              (let* ((parts (remove-if #'(lambda (n)
-                                           (or (null n)
-                                               (equal n "")))
-                                       (cl-ppcre:split "/" value)))
-                     (relationship (sanitise-uid (first parts)))
-                     (target-type (sanitise-uid (second parts)))
-                     (target-uid (sanitise-uid (third parts))))
-                (log-message :debug (format nil "Outbound link detected: ~A" value))
-                (format nil "(n)-[:~A]-(:~A {uid: '~A'})" relationship target-type target-uid)))
-             ;; Regex match
-             ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
-             ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
-              (let ((offset (if negationp 1 0)))
-                (log-message
-                  :debug
-                  (format nil "Regex detected. Extracting the value from a starting offset of ~d." offset))
-                (format
-                  nil "n.~A =~~ '~A'"
-                  (escape-neo4j name)
-                  ;; Drop the first character if we're negating the match,
-                  ;; otherwise use the whole string.
-                  (escape-neo4j (subseq value offset)))))
-             ;;
-             ;; Simple existence check
-             ((string= "exists" (escape-neo4j value))
-              (format nil "exists(n.~A)" (escape-neo4j name)))
-             ;;
-             ;; Default case: exact text match
-             (t
-              (format nil "n.~A = '~A'" (escape-neo4j name) (escape-neo4j value))))))))
+         (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
+         (log-message :debug "Negation not detected. Double-negative in progress."))
+       (format
+         nil
+         "~A~A"
+         ;; Are we negating it?
+         (if negationp "NOT " "")
+         ;; Infer the operator
+         (cond
+           ;; Outbound links
+           ;; Simple format: relationship/path/to/target
+           ((equal name "RGoutbound")
+            (let* ((parts (get-uri-parts value))
+                   (relationship (escape-neo4j (first parts))))
+              (log-message :debug (format nil "Outbound link detected: ~A" value))
+              (format nil "(n)-[:~A]->~A" relationship (uri-node-helper (cdr parts) :marker ""))))
+           ;; Inbound links
+           ;; Simple format: /path/to/source/relationship
+           ((equal name "RGinbound")
+            (log-message :debug (format nil "Inbound link detected: ~A" value))
+            (uri-node-helper (get-uri-parts value) :marker "n"))
+           ;; Regex match
+           ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
+           ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
+            (format
+                nil "n.~A =~~ '~A'"
+                (escape-neo4j name)
+                ;; Drop the first character if we're negating the match,
+                ;; otherwise use the whole string.
+                (escape-neo4j value)))
+           ;;
+           ;; Simple existence check
+           ((string= "exists" (escape-neo4j value))
+            (format nil "exists(n.~A)" (escape-neo4j name)))
+           ;;
+           ;; Default case: exact text match
+           (t
+             (format nil "n.~A = '~A'" (escape-neo4j name) (escape-neo4j value)))))))
     (t
       (log-message :warn "Invalid filter")
       nil)))
 
 ;; Helper function
 (defun process-filters (filters)
-  "Take GET parameters, and turn them into a string of Neo4j WHERE clauses."
+  "Take GET parameters, and turn them into a string of Neo4j WHERE clauses.
+  Expects an alist, as returned by `tbnl:get-parameters*`"
   (log-message :debug (format nil "Attempting to process filters ~A" filters))
   (let ((result (remove-if #'null (mapcar #'process-filter filters))))
     (log-message :debug (format nil "Result of filter processing: ~A" result))
