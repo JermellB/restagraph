@@ -269,7 +269,12 @@ You can add filters to this request, as parameters in the URL.
 - Regular expression match: `<attribute-name>=<regex>`, e.g. `uid=f.*o.*`
     - These follow [Java-style regex rules](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html).
 - Attribute exists/has a value: `<attribute-name>=exists`, e.g. `description=exists`
-- Resource has an outbound link to another resource: `outbound=</path/to/resource`, e.g. `outbound=/TAGS/Tags/fooTag`
+- Resource has an outbound link to another resource: `RGoutbound=</RELATIONSHIP/Resourcetype/uid>`, e.g. `RGoutbound=/TAGS/Tags/fooTag`
+    - You can drop the UID, to filter for resources with an outbound connection to _any_ resource of a given type, e.g. `RGoutbound=/TAGS/Tags" will require that the resource is tagged, without specifying a particular tag.
+    - The target path can be of any length; you just need to remember that you're following a path outward from the target resource, and relationships need to be present in that direction. E.g, you can link to this IPv4 address on that interface of this router via `RGoutbound=/CONNECTS_TO/Ipv4Addresses/192.168.1.1/CONFIGURED_ON/EthernetInterface/eth0/PRESENT_ON/Devices/thisRouter`
+- Enum attributes can be filtered on multiple values, by supplying a comma-separated list.
+    - E.g, `priority=high,medium`
+    - Note that the separater is a comma, _not_ a comma plus a space.
 
 Each of these can be applied as a negation, by prepending `!`. E.g, `!uid=foo` means "UID is _not_ equal to 'foo'".
 
