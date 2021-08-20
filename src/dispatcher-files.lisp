@@ -174,7 +174,6 @@
             ;; Get the search result
             (result (get-resources (datastore tbnl:*acceptor*)
                                    (format nil "/Files/~A" filename)
-                                   :directional nil
                                    :filters nil)))
        (log-message :debug (format nil "Retrieved resource details ~A" result))
        ;; Return the file to the client if it's present
@@ -205,7 +204,6 @@
        ;; Check whether the file is present.
        (let ((result (get-resources (datastore tbnl:*acceptor*)
                                     (format nil "/Files/~A" filename)
-                                    :directional nil
                                     :filters nil)))
          (log-message :debug (format nil "Got result '~A'" result))
          (if result

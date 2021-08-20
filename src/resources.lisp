@@ -167,8 +167,7 @@ Return an error if
                                .  ,(format nil "MATCH ~A<-[r {dependent: 'true'}]-() RETURN count(r)"
                                            (uri-node-helper parent-parts
                                                             :path ""
-                                                            :marker "n"
-                                                            :directional t))))))))
+                                                            :marker "n"))))))))
                     0))
                 (error 'integrity-error :message
                        (format nil"~{~A~^/~} already has a ~A ~A relationship with a resource of type ~A"
@@ -184,8 +183,7 @@ Return an error if
                         ,(format nil "MATCH ~A, (c:People {uid: \"~A\"}) CREATE (n)-[:~A]->(:~A $properties)-[:CREATOR]->(c)"
                                  (uri-node-helper parent-parts
                                                   :path ""
-                                                  :marker "n"
-                                                  :directional t)
+                                                  :marker "n")
                                  creator-uid
                                  relationship
                                  dest-type))
@@ -210,8 +208,7 @@ Return an error if
          (dest-parts (get-uri-parts newparent))
          (current-parent-path (uri-node-helper (butlast uri-parts 3)
                                                :path ""
-                                               :marker "b"
-                                               :directional t))
+                                               :marker "b"))
          ;; It's a dependent resource, so the length of this path
          ;; will always be longer than 2:
          (current-relationship (car (last (butlast uri-parts 2))))
@@ -268,8 +265,7 @@ Return an error if
                                          target-type
                                          target-uid))
                                  :path ""
-                                 :marker "t"
-                                 :directional t))
+                                 :marker "t"))
               (destpath (format nil "~A-[:~A]->(:~A {uid: '~A'})"
                                 new-parent-path
                                 new-relationship-type
@@ -390,15 +386,14 @@ Return an error if
         "")))
 
 
-(defgeneric get-resources (db uri &key filters directional)
+(defgeneric get-resources (db uri schema &key filters)
             (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI.
-                            The optional 'filters' parameter is for refining the search results.
-                            :directional is for resources with a particular relationship to this one."))
+                            The optional 'filters' parameter is for refining the search results."))
 
 (defmethod get-resources ((db neo4cl:neo4j-rest-server)
                           (uri string)
-                          &key filters
-                          directional)
+                          (schema  hash-table)
+                          &key filters)
   (log-message :debug (format nil "Fetching resources for URI ~A" uri))
   (let ((uri-parts (get-uri-parts uri)))
     (cond
@@ -408,9 +403,8 @@ Return an error if
        (let ((query (format nil "MATCH ~A~A RETURN n"
                             (uri-node-helper uri-parts
                                              :path ""
-                                             :marker "n"
-                                             :directional directional)
-                            (process-filters filters))))
+                                             :marker "n")
+                            (process-filters filters schema (car (last uri-parts))))))
          (log-message :debug (concatenate 'string "Querying database: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))
          (mapcar #'car
@@ -425,42 +419,16 @@ Return an error if
        (let ((query (format nil "MATCH ~A RETURN n"
                             (uri-node-helper uri-parts
                                              :path ""
-                                             :marker "n"
-                                             :directional directional))))
+                                             :marker "n"))))
          (log-message :debug (concatenate 'string "Using query-string: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))
          (neo4cl:extract-data-from-get-request
            (neo4cl:neo4j-transaction
              db
              `((:STATEMENTS ((:STATEMENT . ,query))))))))
-      ;; All resources with a particular relationship to this one
+      ;; There really isn't a sensible reason to handle GET requests for paths to a relationship.
       (t
-       (log-message
-         :debug
-         (format nil "Fetching all resources with relationship ~A to resource ~{/~A~}"
-                 (car (last uri-parts))
-                 (butlast uri-parts)))
-       ;; Get the raw data
-       (let ((query (format nil "MATCH ~A~A RETURN labels(n), n"
-                            (uri-node-helper uri-parts
-                                             :path ""
-                                             :marker "n"
-                                             :directional directional)
-                            (process-filters filters))))
-         (log-message :debug (concatenate 'string "Querying database: "
-                                          (cl-ppcre:regex-replace "\~" query "~~")))
-         (let ((response
-                 (neo4cl:extract-rows-from-get-request
-                   (neo4cl:neo4j-transaction
-                     db
-                     `((:STATEMENTS
-                         ((:STATEMENT . ,query))))))))
-           (log-message
-             :debug
-             (format nil "Retrieved results: ~A" response))
-           ;; Reformat it so that (:type <type>) appears at the start of the list
-           (mapcar (lambda (r) (cons (cons :type (caar r)) (cadr r)))
-                   response)))))))
+       (return-client-error "Paths to a relationship are not valid.")))))
 
 
 (defgeneric get-dependent-resources (db schema sourcepath)
@@ -480,11 +448,9 @@ The returned list contains 3-element lists of relationship, type and UID."))
                                                            schema))))))
     (when dependent-types
       (let ((query-string (format nil "MATCH ~A-[r]->(b) WHERE type(r) IN [~{\"~A\"~^, ~}] RETURN type(r), labels(b), b.uid"
-
                                   (uri-node-helper sourcepath
                                                    :path ""
-                                                   :marker "n"
-                                                   :directional t)
+                                                   :marker "n")
                                   dependent-types)))
         (log-message :debug (format nil "Generated query-string '~A'" query-string))
         ;; We should probably return the result
@@ -523,7 +489,7 @@ The returned list contains 3-element lists of relationship, type and UID."))
         :debug
         (format nil "Applying the attributes ~{~A~^, ~} to resource ~{/~A~}" attrs path))
       (let ((query (format nil "MATCH ~A SET ~{~A~^, ~}"
-                           (uri-node-helper path :path "" :marker "n" :directional t)
+                           (uri-node-helper path :path "" :marker "n")
                            (mapcar #'(lambda (a)
                                        (let ((attrname (car a))
                                              (attrvalue (cdr a)))
@@ -608,5 +574,5 @@ The returned list contains 3-element lists of relationship, type and UID."))
     `((:STATEMENTS
         ((:STATEMENT
            . ,(format nil "MATCH ~A REMOVE ~{n.~A~^, ~};"
-                      (uri-node-helper path :path "" :marker "n" :directional t)
+                      (uri-node-helper path :path "" :marker "n")
                       attributes)))))))

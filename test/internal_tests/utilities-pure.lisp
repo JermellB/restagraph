@@ -30,7 +30,7 @@
   get-sub-uri
   (fiveam:is (equal "/People/TestPerson"
                     (restagraph::get-sub-uri
-                      "/raw/v1/People/TestPerson?directional=false"
+                      "/raw/v1/People/TestPerson"
                       "/raw/v1"))))
 
 (fiveam:test

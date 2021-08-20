@@ -45,11 +45,7 @@
                 ;; Get the search result
                 (result (get-resources (datastore tbnl:*acceptor*)
                                        sub-uri
-                                       :directional (when (tbnl:get-parameter "directional") t)
-                                       :filters (remove-if
-                                                          #'(lambda (par)
-                                                              (equal (car par) "directional"))
-                                                          (tbnl:get-parameters*)))))
+                                       :filters (tbnl:get-parameters*))))
            (log-message :debug (format nil "Fetched content ~A" result))
            ;; Return what we found
            (setf (tbnl:content-type*) "application/json")

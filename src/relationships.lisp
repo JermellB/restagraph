@@ -91,8 +91,7 @@
                            .  ,(format nil "MATCH ~A-[:~A]->(b:~A) RETURN count(b)"
                                        (uri-node-helper source-parts
                                                         :path ""
-                                                        :marker "a"
-                                                        :directional t)
+                                                        :marker "a")
                                        relationship
                                        dest-type)))))))
                 0))
@@ -109,12 +108,10 @@
                       .  ,(format nil "MATCH ~A, ~A MERGE (a)-[:~A]->(b)"
                                   (uri-node-helper source-parts
                                                    :path ""
-                                                   :marker "a"
-                                                   :directional t)
+                                                   :marker "a")
                                   (uri-node-helper dest-parts
                                                    :path ""
-                                                   :marker "b"
-                                                   :directional t)
+                                                   :marker "b")
                                   relationship)))))))))))))
 
 
@@ -135,13 +132,11 @@
             ,(format nil "MATCH ~A-[r:~A]->~A RETURN labels(a), a.uid, r, labels(b), b.uid"
                      (uri-node-helper (get-uri-parts sourcepath)
                                       :path ""
-                                      :marker "a"
-                                      :directional t)
+                                      :marker "a")
                      relationship
                      (uri-node-helper (get-uri-parts destpath)
                                       :path ""
-                                      :marker "b"
-                                      :directional nil)))))))))
+                                      :marker "b")))))))))
 
 
 (defgeneric delete-relationship-by-path (db schema relationship-uri target-resource)
@@ -200,8 +195,7 @@
                                            (uri-node-helper
                                              (append rel-parts dest-parts)
                                              :path ""
-                                             :marker "n"
-                                             :directional t))))))))))
+                                             :marker "n"))))))))))
            (log-message :debug (format nil "Found ~D other incoming relationships to the target resource"
                                        (length others)))
            ;; Either there are no others to check...
@@ -226,7 +220,7 @@
               ((:STATEMENT
                  .
                  ,(format nil "MATCH ~A-[r:~A]->(:~A {uid: '~A'}) DELETE r"
-                          (uri-node-helper (butlast rel-parts) :path "" :marker "n" :directional t)
+                          (uri-node-helper (butlast rel-parts) :path "" :marker "n")
                           relationship
                           dest-type
                           dest-uid))))))))))

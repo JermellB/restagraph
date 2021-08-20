@@ -39,12 +39,11 @@
   (mapcar #'sanitise-uid
           (cdr (ppcre:split "/" uri))))
 
-(defun uri-node-helper (uri-parts &key (path "") (marker "n") (directional t))
+(defun uri-node-helper (uri-parts &key (path "") (marker "n"))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."
   (declare (type (or null cons) uri-parts)
-           (type (string) path marker)
-           (type (boolean) directional))
+           (type (string) path marker))
   (cond
     ((null uri-parts)
      (format nil "~A(~A)" path (escape-neo4j marker)))
@@ -54,31 +53,27 @@
      (format nil "~A(~A:~A { uid: '~A' })"
              path (escape-neo4j marker) (first uri-parts) (second uri-parts)))
     ((equal (length uri-parts) 3)
-     (format nil "~A(:~A { uid: '~A' })-[:~A]~A(~A)"
+     (format nil "~A(:~A { uid: '~A' })-[:~A]->(~A)"
              path
              (sanitise-uid (first uri-parts))
              (sanitise-uid (second uri-parts))
              (sanitise-uid (third uri-parts))
-             (if directional "->" "-")
              (escape-neo4j marker)))
     (t
       (uri-node-helper
         (cdddr uri-parts)
-        :path (format nil "~A(:~A { uid: '~A' })-[:~A]~A"
+        :path (format nil "~A(:~A { uid: '~A' })-[:~A]->"
                       path
                       (sanitise-uid (first uri-parts))
                       (sanitise-uid (second uri-parts))
-                      (sanitise-uid (third uri-parts))
-                      (if directional "->" "-"))
-        :marker marker
-        :directional directional))))
+                      (sanitise-uid (third uri-parts)))
+        :marker marker))))
 
-(defun uri-rel-helper (uri-parts &key (path "") (marker "n") (directional t))
+(defun uri-rel-helper (uri-parts &key (path "") (marker "n"))
   "Build a Cypher path ending in a relationship variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."
   (declare (type (cons) uri-parts)
-           (type (string) path marker)
-           (type (boolean) directional))
+           (type (string) path marker))
   ;; Path-length must be a multiple of 3
   (if (= (mod (length uri-parts) 3) 0)
     ;; Path length is OK.
@@ -87,14 +82,12 @@
       ;; More path to come
       (uri-rel-helper
         (cdddr uri-parts)
-        :path (format nil "~A(:~A {uid: '~A'})-[:~A]~A"
+        :path (format nil "~A(:~A {uid: '~A'})-[:~A]->"
                       path
                       (sanitise-uid (first uri-parts))
                       (sanitise-uid (second uri-parts))
-                      (sanitise-uid (third uri-parts))
-                      (if directional "->" "-"))
-        :marker (escape-neo4j marker)
-        :directional directional)
+                      (sanitise-uid (third uri-parts)))
+        :marker (escape-neo4j marker))
       ;; End of the path.
       ;; Return this along with whatever came before.
       (format nil "~A(:~A {uid: '~A'})-[~A:~A]"
