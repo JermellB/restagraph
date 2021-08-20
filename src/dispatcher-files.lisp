@@ -173,8 +173,7 @@
             ;; Do it separately because we use it again later in this function.
             ;; Get the search result
             (result (get-resources (datastore tbnl:*acceptor*)
-                                   (format nil "/Files/~A" filename)
-                                   :filters nil)))
+                                   (format nil "/Files/~A" filename))))
        (log-message :debug (format nil "Retrieved resource details ~A" result))
        ;; Return the file to the client if it's present
        (cond
@@ -203,8 +202,7 @@
        (log-message :debug (format nil "Client requested deletion of file '~A'" filename))
        ;; Check whether the file is present.
        (let ((result (get-resources (datastore tbnl:*acceptor*)
-                                    (format nil "/Files/~A" filename)
-                                    :filters nil)))
+                                    (format nil "/Files/~A" filename))))
          (log-message :debug (format nil "Got result '~A'" result))
          (if result
            ;; If it is, delete its metadata and then (conditionally) the file itself.
@@ -217,10 +215,14 @@
                (schema tbnl:*acceptor*)
                :recursive nil)
              ;; Now delete the file itself
-             (when (null (get-resources (datastore *restagraph-acceptor*)
-                                        "/Files"
-                                        :filters '(("sha3256sum" .
-                                                    (cdr (assoc :SHA3256SUM (cdr result)))))))
+             (when (null (get-resources
+                           (datastore *restagraph-acceptor*)
+                           "/Files"
+                           :filters (process-filters
+                                      '(("sha3256sum" .
+                                         (cdr (assoc :SHA3256SUM (cdr result)))))
+                                      (schema tbnl:*acceptor*)
+                                      "Files")))
                (let* ((source-path (digest-to-filepath
                                      (make-pathname :defaults (files-location tbnl:*acceptor*))
                                      (cdr (assoc :sha3256sum result)))))

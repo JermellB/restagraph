@@ -299,11 +299,14 @@ Return an error if
                         target-type
                         target-uid))))))))))
 
-(defun process-filter (filter)
+(defun process-filter (filter schema rtype)
   "Process a single filter from a GET parameter, expecting a dotted cons.
-  Assumes uri-node-helper was called with its default marker, which is 'n'.
-  Returns NIL when the cdr of the filter is NIL.
-  Helper-function for `process-filters`."
+   Assumes uri-node-helper was called with its default marker, which is 'n'.
+   Returns NIL when the cdr of the filter is NIL.
+   Helper-function for `process-filters`."
+  (declare (type list filter)
+           (type hash-table schema) ; Specific to checking enums
+           (type string rtype))     ; Specific to checking enums
   (log-message :debug (format nil "Attempting to process filter ~A" filter))
   ;; Sanity-check: is this an empty filter expression?
   ;; These can legitimately be sent via badly-written search pages, for example.
@@ -325,13 +328,13 @@ Return an error if
             ;; Get the value of the expression.
             ;; If it's negated, drop the leading `!`.
             (value (escape-neo4j (if negationp
-                                   (subseq (cdr filter) 1)
-                                   (cdr filter)))))
+                                     (subseq (cdr filter) 1)
+                                     (cdr filter)))))
        (log-message :debug (format nil "De-negated value: '~A'" value))
        ;; Log whether negation was detected
        (if negationp
-         (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
-         (log-message :debug "Negation not detected. Double-negative in progress."))
+           (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
+           (log-message :debug "Negation not detected. Double-negative in progress."))
        (format
          nil
          "~A~A"
@@ -345,6 +348,13 @@ Return an error if
             (let* ((parts (get-uri-parts value))
                    (relationship (escape-neo4j (first parts))))
               (log-message :debug (format nil "Outbound link detected: ~A" value))
+              ;; FIXME: needs sanity-checking that (not (equal (mod (length parts) 3) 1))
+              ;; because that would be an outbound relationship to a relationship,
+              ;; which makes no sense on the face of it.
+              ;; Strictly, we could allow this by appending `->()` to it, for a test that it has
+              ;; that kind of relationship to _anything_, which _does_ make sense.
+              ;; In fact, `uri-node-helper` may well do  this automatically for us, so there may be
+              ;; nothing to do beyond documenting the behaviour.
               (format nil "(n)-[:~A]->~A" relationship (uri-node-helper (cdr parts) :marker ""))))
            ;; Inbound links
            ;; Simple format: /path/to/source/relationship
@@ -353,47 +363,60 @@ Return an error if
             (uri-node-helper (get-uri-parts value) :marker "n"))
            ;; Regex match
            ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
-           ((cl-ppcre:all-matches "[\\.\\*\\+[]" value)
+           ((regex-p value)
             (format
-                nil "n.~A =~~ '~A'"
-                (escape-neo4j name)
-                ;; Drop the first character if we're negating the match,
-                ;; otherwise use the whole string.
-                (escape-neo4j value)))
+              nil "n.~A =~~ '~A'"
+              (escape-neo4j name)
+              ;; Drop the first character if we're negating the match,
+              ;; otherwise use the whole string.
+              (escape-neo4j value)))
            ;;
            ;; Simple existence check
            ((string= "exists" (escape-neo4j value))
             (format nil "exists(n.~A)" (escape-neo4j name)))
            ;;
+           ;; Enum attribute
+           ((and
+              (get-attribute (gethash rtype schema) (escape-neo4j name))
+              (attr-values (get-attribute (gethash rtype schema) (escape-neo4j name))))
+            (format nil "n.~A IN [~{\"~A\"~^, ~}]"
+                    (escape-neo4j name)
+                    (mapcar #'escape-neo4j (cl-ppcre:split "," value))))
+           ;;
            ;; Default case: exact text match
            (t
-             (format nil "n.~A = '~A'" (escape-neo4j name) (escape-neo4j value)))))))
+            (format nil "n.~A = '~A'" (escape-neo4j name) (escape-neo4j value)))))))
     (t
       (log-message :warn "Invalid filter")
       nil)))
 
-;; Helper function
-(defun process-filters (filters)
+(defun process-filters (filters schema rtype)
   "Take GET parameters, and turn them into a string of Neo4j WHERE clauses.
   Expects an alist, as returned by `tbnl:get-parameters*`"
+  (declare (type list filters)
+           (type hash-table schema)
+           (type string rtype))
   (log-message :debug (format nil "Attempting to process filters ~A" filters))
-  (let ((result (remove-if #'null (mapcar #'process-filter filters))))
+  (let ((result (remove-if #'null (mapcar #'(lambda (filter)
+                                              (process-filter filter schema rtype))
+                                          filters))))
     (log-message :debug (format nil "Result of filter processing: ~A" result))
     (if result
-        (let ((response (format nil " WHERE ~{ ~A~^ AND~}" result)))
-          (log-message :debug (format nil "Output from process-filters: ~A." response))
-          response)
-        "")))
+      (let ((response (format nil " WHERE ~{ ~A~^ AND~}" result)))
+        (log-message :debug (format nil "Output from process-filters: ~A." response))
+        response)
+      "")))
 
 
-(defgeneric get-resources (db uri schema &key filters)
-            (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI.
-                            The optional 'filters' parameter is for refining the search results."))
+(defgeneric get-resources (db uri &key filters)
+  (:documentation "Adaptable method to search for resources in a manner deterined by the modulo-3 length of the URI.
+                   The optional 'filters' parameter is for refining the search results. Its expected value is a string, as returned by `process-filters`.
+                   Return value: list."))
 
 (defmethod get-resources ((db neo4cl:neo4j-rest-server)
                           (uri string)
-                          (schema  hash-table)
                           &key filters)
+  (declare (type (or null string) filters))
   (log-message :debug (format nil "Fetching resources for URI ~A" uri))
   (let ((uri-parts (get-uri-parts uri)))
     (cond
@@ -404,7 +427,7 @@ Return an error if
                             (uri-node-helper uri-parts
                                              :path ""
                                              :marker "n")
-                            (process-filters filters schema (car (last uri-parts))))))
+                            (or filters ""))))
          (log-message :debug (concatenate 'string "Querying database: "
                                           (cl-ppcre:regex-replace "\~" query "~~")))
          (mapcar #'car

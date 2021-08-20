@@ -39,42 +39,41 @@
            (format nil "No resources found for ~A" uri-parts)))
         ;;
         ;; GET -> Retrieve something
-        ((equal (tbnl:request-method*) :GET)
+        ;;
+        ;; Single resource was requested
+        ;; ...or a dangling relationship, which may or may not go the way we expect
+        ((and (equal (tbnl:request-method*) :GET)
+              (member (mod (length uri-parts) 3)
+                      '(2 3)))
          (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
-         (let* (;; Do it separately because we use it again later in this function.
-                ;; Get the search result
-                (result (get-resources (datastore tbnl:*acceptor*)
-                                       sub-uri
-                                       :filters (tbnl:get-parameters*))))
+         (let ((result (get-resources (datastore tbnl:*acceptor*) sub-uri)))
            (log-message :debug (format nil "Fetched content ~A" result))
-           ;; Return what we found
+           (if result
+             (progn
+               (setf (tbnl:content-type*) "application/json")
+               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               (cl-json:encode-json-alist-to-string result))
+             (progn
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-not-found+)
+               "Resource not found."))))
+        ;;
+        ;; Class of resources was requested
+        ((and (equal (tbnl:request-method*) :GET)
+              (= (mod (length uri-parts) 3) 1))
+         (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
+         (let ((result (get-resources (datastore tbnl:*acceptor*)
+                                      sub-uri
+                                      :filters (process-filters
+                                                 (tbnl:get-parameters*)
+                                                 (schema tbnl:*acceptor*)
+                                                 (car (last uri-parts))))))
+           (log-message :debug (format nil "Fetched content ~A" result))
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
-           (cond
-             ;; Single resource was requested, and nothing was found.
-             ((and (= (mod (length uri-parts) 3) 2)
-                   (or (null result)
-                       (equal result "")))
-              (progn
-                (setf (tbnl:content-type*) "text/plain")
-                (setf (tbnl:return-code*) tbnl:+http-not-found+)
-                "Resource not found."))
-             ;; Single resource was requested, and something was found.
-             ((= (mod (length uri-parts) 3) 2)
-              (progn
-                (setf (tbnl:content-type*) "application/json")
-                (setf (tbnl:return-code*) tbnl:+http-ok+)
-                (cl-json:encode-json-alist-to-string result)))
-             ;; Class of resources was requested, and nothing was found.
-             ((or (null result)
-                  (equal result ""))
-              (progn
-                (setf (tbnl:content-type*) "application/json")
-                (setf (tbnl:return-code*) tbnl:+http-ok+)
-                "[]"))
-             ;; Class of resources was requested, and something was found.
-             (t
-              (cl-json:encode-json-to-string result)))))
+           (if result
+             (cl-json:encode-json-to-string result)
+             "[]")))
         ;; POST -> Store something
         ;;
         ;; Resource
@@ -91,38 +90,38 @@
            (if (get-resources
                  (datastore tbnl:*acceptor*)
                  (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
-               ;; It's already there; return 304 "Not modified"
-               (progn
-                 (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
-                                             resourcetype (sanitise-uid uid)))
+             ;; It's already there; return 304 "Not modified"
+             (progn
+               (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
+                                           resourcetype (sanitise-uid uid)))
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-not-modified+)
+               (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
+             ;; We don't already have one of these; store it
+             ;; But first, do we have a valid user to store it under?
+             (handler-case
+               (let ((uri (format
+                            nil
+                            "/~A/~A"
+                            resourcetype
+                            (store-resource (datastore tbnl:*acceptor*)
+                                            (schema tbnl:*acceptor*)
+                                            resourcetype
+                                            (tbnl:post-parameters*)
+                                            (get-creator
+                                              (post-policy
+                                                (access-policy *restagraph-acceptor*)))))))
+                 ;; Return 201 and the URI
+                 (log-message :debug (format nil "Stored the new resource with URI '~A'" uri))
                  (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-not-modified+)
-                 (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
-               ;; We don't already have one of these; store it
-               ;; But first, do we have a valid user to store it under?
-               (handler-case
-                 (let ((uri (format
-                              nil
-                              "/~A/~A"
-                              resourcetype
-                              (store-resource (datastore tbnl:*acceptor*)
-                                              (schema tbnl:*acceptor*)
-                                              resourcetype
-                                              (tbnl:post-parameters*)
-                                              (get-creator
-                                                (post-policy
-                                                  (access-policy *restagraph-acceptor*)))))))
-                   ;; Return 201 and the URI
-                   (log-message :debug (format nil "Stored the new resource with URI '~A'" uri))
-                   (setf (tbnl:content-type*) "text/plain")
-                   (setf (tbnl:return-code*) tbnl:+http-created+)
-                   (setf (tbnl:header-out "Location") uri)
-                   ;; Return the URI to the newly-created resource
-                   uri)
-                 ;; Handle integrity errors
-                 (integrity-error (e) (return-integrity-error (message e)))
-                 ;; Handle general client errors
-                 (client-error (e) (return-client-error (message e)))))))
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 (setf (tbnl:header-out "Location") uri)
+                 ;; Return the URI to the newly-created resource
+                 uri)
+               ;; Handle integrity errors
+               (integrity-error (e) (return-integrity-error (message e)))
+               ;; Handle general client errors
+               (client-error (e) (return-client-error (message e)))))))
         ;;
         ;; Store a relationship
         ((and (equal (tbnl:request-method*) :POST)
@@ -134,28 +133,28 @@
            (log-message :debug (format nil "Creating a relationship from ~A to ~A" sub-uri dest-path))
            ;; Reject any attempt to create a :CREATOR relationship
            (if (equal "CREATOR" (car (last uri-parts)))
-               (forbidden)
-               ;; Passed the sanity-checks; proceed.
-               (handler-case
-                 (let ((new-uri (format nil "~{/~A~}/~A/~A"
-                                        uri-parts    ; Path down to the relationship
-                                        (car (last (get-uri-parts dest-path) 2))  ; Target resourcetype
-                                        (car (last (get-uri-parts dest-path)))))) ; Target UID
-                   (create-relationship-by-path (datastore tbnl:*acceptor*)
-                                                sub-uri
-                                                dest-path
-                                                (schema tbnl:*acceptor*))
-                   ;; Report success to the client, plus the URI
-                   (setf (tbnl:content-type*) "text/plain")
-                   (setf (tbnl:return-code*) tbnl:+http-created+)
-                   (setf (tbnl:header-out "Location") new-uri)
-                   ;; Return the URI to the resource at the end of the newly-created relationship
-                   new-uri) ; Target UID
-                 ;; Attempted violation of db integrity
-                 (integrity-error (e) (return-integrity-error (message e)))
-                 ;; Generic client errors
-                 (client-error (e) (return-client-error (message e)))
-                 (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))))
+             (forbidden)
+             ;; Passed the sanity-checks; proceed.
+             (handler-case
+               (let ((new-uri (format nil "~{/~A~}/~A/~A"
+                                      uri-parts    ; Path down to the relationship
+                                      (car (last (get-uri-parts dest-path) 2))  ; Target resourcetype
+                                      (car (last (get-uri-parts dest-path)))))) ; Target UID
+                 (create-relationship-by-path (datastore tbnl:*acceptor*)
+                                              sub-uri
+                                              dest-path
+                                              (schema tbnl:*acceptor*))
+                 ;; Report success to the client, plus the URI
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 (setf (tbnl:header-out "Location") new-uri)
+                 ;; Return the URI to the resource at the end of the newly-created relationship
+                 new-uri) ; Target UID
+               ;; Attempted violation of db integrity
+               (integrity-error (e) (return-integrity-error (message e)))
+               ;; Generic client errors
+               (client-error (e) (return-client-error (message e)))
+               (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))))
         ;;
         ;; Create a dependent resource
         ((and
@@ -166,38 +165,38 @@
          (if (get-resources
                (datastore tbnl:*acceptor*)
                (format nil "~{/~A~}/~A" uri-parts (tbnl:post-parameter "uid")))
-             ;; It's already there; return 200/OK
-             (progn
-               (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
-                                           (car uri-parts) (tbnl:post-parameter "uid")))
+           ;; It's already there; return 200/OK
+           (progn
+             (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
+                                         (car uri-parts) (tbnl:post-parameter "uid")))
+             (setf (tbnl:content-type*) "text/plain")
+             (setf (tbnl:return-code*) tbnl:+http-ok+)
+             (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
+           ;; We don't already have one of these; store it
+           (handler-case
+             (let ((newtype (car (last uri-parts)))
+                   (uid (tbnl:post-parameter "uid"))
+                   (new-uri (format nil "~{/~A~}/~A"
+                                    uri-parts
+                                    (sanitise-uid (tbnl:post-parameter "uid")))))
+               (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
+                                           newtype uid sub-uri))
+               (store-dependent-resource
+                 (datastore tbnl:*acceptor*)
+                 (schema tbnl:*acceptor*)
+                 sub-uri
+                 (tbnl:post-parameters*)
+                 (get-creator (post-policy (access-policy *restagraph-acceptor*))))
                (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-ok+)
-               (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
-             ;; We don't already have one of these; store it
-             (handler-case
-               (let ((newtype (car (last uri-parts)))
-                     (uid (tbnl:post-parameter "uid"))
-                     (new-uri (format nil "~{/~A~}/~A"
-                                      uri-parts
-                                      (sanitise-uid (tbnl:post-parameter "uid")))))
-                 (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
-                                             newtype uid sub-uri))
-                 (store-dependent-resource
-                   (datastore tbnl:*acceptor*)
-                   (schema tbnl:*acceptor*)
-                   sub-uri
-                   (tbnl:post-parameters*)
-                   (get-creator (post-policy (access-policy *restagraph-acceptor*))))
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 (setf (tbnl:header-out "Location") new-uri)
-                 ;; Return the URI to the resource at the end of the newly-created resource
-                 new-uri)
-               ;; Attempted violation of db integrity
-               (integrity-error (e) (return-integrity-error (message e)))
-               ;; Generic client errors
-               (client-error (e) (return-client-error (message e)))
-               (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))
+               (setf (tbnl:return-code*) tbnl:+http-created+)
+               (setf (tbnl:header-out "Location") new-uri)
+               ;; Return the URI to the resource at the end of the newly-created resource
+               new-uri)
+             ;; Attempted violation of db integrity
+             (integrity-error (e) (return-integrity-error (message e)))
+             ;; Generic client errors
+             (client-error (e) (return-client-error (message e)))
+             (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))
         ;;
         ;; Re-home a dependent resource
         ((and
@@ -293,21 +292,21 @@
               (equal (mod (length uri-parts) 3) 0))
          ;; Reject any attempt to create a :CREATOR relationship
          (if (equal "CREATOR" (car (last uri-parts)))
-             (forbidden)
-             (handler-case
-               (progn
-                 (log-message :debug (format nil "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri))
-                 (delete-relationship-by-path (datastore tbnl:*acceptor*)
-                                              (schema tbnl:*acceptor*)
-                                              sub-uri
-                                              (tbnl:parameter "target"))
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-no-content+)
-                 "")
-               ;; Attempted violation of db integrity
-               (integrity-error (e) (return-integrity-error (message e)))
-               ;; Generic client errors
-               (client-error (e) (return-client-error (message e))))))
+           (forbidden)
+           (handler-case
+             (progn
+               (log-message :debug (format nil "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri))
+               (delete-relationship-by-path (datastore tbnl:*acceptor*)
+                                            (schema tbnl:*acceptor*)
+                                            sub-uri
+                                            (tbnl:parameter "target"))
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-no-content+)
+               "")
+             ;; Attempted violation of db integrity
+             (integrity-error (e) (return-integrity-error (message e)))
+             ;; Generic client errors
+             (client-error (e) (return-client-error (message e))))))
         ;;
         ;; Methods we don't support.
         ;; Take the whitelist approach

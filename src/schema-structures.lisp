@@ -110,6 +110,15 @@
                 :type (or null list)))
   (:documentation "Attributes of resource-types"))
 
+
+(defgeneric get-attribute (attr attr-name)
+  (:documentation "Fetch the attribute with a given name, from a schema-rtypes instance."))
+
+(defmethod get-attribute ((attr schema-rtypes) (attr-name string))
+  (car
+    (remove-if-not #'(lambda (att) (equal attr-name (name att)))
+                   (attributes attr))))
+
 (defmethod a-listify ((obj schema-rtype-attrs))
   `((:name . ,(name obj))
     (:description . ,(description obj))

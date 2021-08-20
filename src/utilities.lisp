@@ -39,6 +39,10 @@
   (mapcar #'sanitise-uid
           (cdr (ppcre:split "/" uri))))
 
+(defun regex-p (str)
+  "Test whether a string contains a Java-style regex."
+  (cl-ppcre:all-matches "[\\.\\*\\+[]" str))
+
 (defun uri-node-helper (uri-parts &key (path "") (marker "n"))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
   Accepts a list of strings and returns a single string."

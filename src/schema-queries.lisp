@@ -149,3 +149,13 @@
                                resourcetype (first results) (second results)))))))
       ;; No such resourcetype
       (signal 'client-error :message "No such resourcetype")))
+
+(defgeneric get-attribute (resourcetype attr-name)
+  (:documentation "Extract a named attribute from a schema-rtypes instance.
+                   If that instance has an attribute by that name, return the corresponding `schema-rtype-attrs` instance.
+                   If not, return NIL."))
+
+(defmethod get-attribute ((resourcetype schema-rtypes) (attr-name string))
+  (remove-if-not #'(lambda (attr)
+                     (equal attr-name (name attr)))
+                 (attributes resourcetype)))
