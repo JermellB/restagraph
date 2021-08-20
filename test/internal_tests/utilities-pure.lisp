@@ -47,10 +47,6 @@
 
 #+(or)
 (fiveam:test
-  uri-rel-helper)
-
-#+(or)
-(fiveam:test
   build-cypher-path)
 
 #+(or)
