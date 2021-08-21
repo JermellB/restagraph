@@ -627,6 +627,31 @@ class TestDependentResources(unittest.TestCase):
     # Check that dependent relationships _cannot_ be created to existing resources, whether dependent or not. Positively confirm both cases.
     # Check that the `recursive` parameter really does work in both GET- and POST-styles.
 
+class TestFilters(unittest.TestCase):
+    tag1 = 'foo'
+    tag2 = 'bar'
+    person1 = 'RgAdmin'
+    person2 = 'Bruce'
+    def test_filter_for_tags_in_use(self):
+        # Create and link the resources
+        requests.post('%s/Tags' % (API_BASE_URL), data={'uid': self.tag1})
+        requests.post('%s/Tags' % (API_BASE_URL), data={'uid': self.tag2})
+        requests.post('%s/People' % (API_BASE_URL), data={'uid': self.person2})
+        requests.post('%s/People/%s/TAGS' % (API_BASE_URL, self.person2),
+                      data={'target': '/Tags/%s' % (self.tag1)})
+        # Confirm both tags are there
+        assert requests.get('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 200
+        assert requests.get('%s/Tags/%s' % (API_BASE_URL, self.tag2)).status_code == 200
+        # Test the filtering
+        response1 = requests.get('%s/Tags?RGinbound=/People/*/TAGS' % API_BASE_URL)
+        assert response1.status_code == 200
+        assert len(response1.json()) == 1
+        assert response1.json()[0]['uid'] == self.tag1
+        # Delete the resources
+        requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1))
+        requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag2))
+        requests.delete('%s/People/%s' % (API_BASE_URL, self.person2))
+
 @pytest.mark.skip()
 class TestDependentResources_ignoreme(unittest.TestCase):
     res1type = 'brands'

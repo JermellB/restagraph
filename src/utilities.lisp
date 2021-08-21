@@ -45,33 +45,47 @@
 
 (defun uri-node-helper (uri-parts &key (path "") (marker "n"))
   "Build a Cypher path ending in a node variable, which defaults to 'n'.
-  Accepts a list of strings and returns a single string."
+   Accepts a list of strings and returns a single string."
   (declare (type (or null cons) uri-parts)
            (type (string) path marker))
   (cond
+    ;; End of the list; terminate the path with the marker.
     ((null uri-parts)
      (format nil "~A(~A)" path (escape-neo4j marker)))
+    ;; 1-element URI; terminate the path with the marker identifying a resourcetype.
     ((equal (length uri-parts) 1)
      (format nil "~A(~A:~A)" path (escape-neo4j marker) (first uri-parts)))
+    ;; 2-element URI; terminate the path with the marker identifying a specific resource.
     ((equal (length uri-parts) 2)
      (format nil "~A(~A:~A { uid: '~A' })"
              path (escape-neo4j marker) (first uri-parts) (second uri-parts)))
+    ;; 3-element URI; terminate the path with a relationship from a resource to the marker.
     ((equal (length uri-parts) 3)
-     (format nil "~A(:~A { uid: '~A' })-[:~A]->(~A)"
+     (format nil "~A(:~A~A)-[:~A]->(~A)"
              path
+             ;; Resourcetype
              (sanitise-uid (first uri-parts))
-             (sanitise-uid (second uri-parts))
+             ;; UID
+             ;; Allow for a wildcard.
+             (if (equal "*" (second uri-parts))
+                 ""
+                 (format nil " { uid: '~A' }" (sanitise-uid (second uri-parts))))
+             ;; Relationship to target
              (sanitise-uid (third uri-parts))
+             ;; Target
              (escape-neo4j marker)))
+    ;; The URI is longer than 3 elements.
+    ;; Extend the path with its first 3 elements, then recurse through this function
+    ;; with whatever is left over.
     (t
-      (uri-node-helper
-        (cdddr uri-parts)
-        :path (format nil "~A(:~A { uid: '~A' })-[:~A]->"
-                      path
-                      (sanitise-uid (first uri-parts))
-                      (sanitise-uid (second uri-parts))
-                      (sanitise-uid (third uri-parts)))
-        :marker marker))))
+     (uri-node-helper
+       (cdddr uri-parts)
+       :path (format nil "~A(:~A { uid: '~A' })-[:~A]->"
+                     path
+                     (sanitise-uid (first uri-parts))
+                     (sanitise-uid (second uri-parts))
+                     (sanitise-uid (third uri-parts)))
+       :marker marker))))
 
 (defun build-cypher-path (uri-parts &optional (path "") (marker "m"))
   "Build a Cypher path from the list of strings supplied.
