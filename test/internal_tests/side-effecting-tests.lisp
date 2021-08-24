@@ -40,6 +40,7 @@
     (fiveam:is (equal (restagraph::sanitise-uid uid)
                       (restagraph::store-resource *server* schema restype `(("uid" . ,uid)) admin-user)))
     ;; Confirm it's there
+    ;; (Test get-resources with mod/3 == 2)
     (restagraph::log-message :info ";TEST Confirm the resource is present")
     (let ((result (restagraph::get-resources *server* (format nil "/~A/~A" restype uid))))
       (fiveam:is (assoc :UID result))
@@ -48,6 +49,13 @@
       (fiveam:is (assoc :ORIGINAL_UID result))
       (fiveam:is (equal uid
                         (cdr (assoc :ORIGINAL_UID result)))))
+    ;; Confirm that there are two people (RgAdmin should be the other)
+    ;; (Test get-resources with mod/3 == 1)
+    (fiveam:is (equal 2 (length (restagraph::get-resources *server* (format nil "/~A" restype)))))
+    ;; While we're here, confirm that we get an error for this.
+    ;; (Test get-resources with mod/3 == 0)
+    (fiveam:signals restagraph::client-error
+                    (restagraph::get-resources *server* (format nil "/~A/~A/BLAH" restype uid)))
     ;; Delete it
     (restagraph::log-message :info ";TEST Delete the resource")
     (multiple-value-bind (result code message)

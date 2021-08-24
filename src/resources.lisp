@@ -451,7 +451,7 @@ Return an error if
              `((:STATEMENTS ((:STATEMENT . ,query))))))))
       ;; There really isn't a sensible reason to handle GET requests for paths to a relationship.
       (t
-       (return-client-error "Paths to a relationship are not valid.")))))
+       (error 'client-error :message "Paths to a relationship are not valid.")))))
 
 
 (defgeneric get-dependent-resources (db schema sourcepath)

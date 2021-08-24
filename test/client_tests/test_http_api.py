@@ -80,6 +80,11 @@ class TestResources(unittest.TestCase):
         print('Found resource: {}'.format(self.result))
         assert self.result['original_uid'] == self.resuid
         assert self.result['uid'] == sanitise_uid(self.resuid)
+        # Confirm we have two people,
+        # Testing the mod/3 == 1 case in the process
+        assert len(requests.get('%s/%s' % (API_BASE_URL, self.restype)).json())
+        # Test the mod/3 == 0 case while we're here
+        assert requests.get('%s/%s/%s/FOO' % (API_BASE_URL, self.restype, self.resuid)).status_code == 400
         # Delete it
         assert requests.delete('%s/%s/%s' % (
             API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 204
