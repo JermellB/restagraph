@@ -38,7 +38,7 @@
             :name "bar"
             :dependent nil
             :description "For testing attribute validation"
-            :attributes (list (restagraph::make-incoming-rtype-attrs
+            :attributes (list (restagraph::make-schema-rtype-attrs
                                 :name "baz"
                                 :description "Valid attribute."))))
     ;; Confirm it isn't dependent

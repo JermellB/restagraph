@@ -464,11 +464,13 @@ The returned list contains 3-element lists of relationship, type and UID."))
   (log-message :debug (format nil "Searching for resources dependent on parent ~{/~A~}" sourcepath))
   ;; Get all dependent relationships outbound from this resourcetype
   ;; Get all nodes to which this node has outbound relationships of those types
-  (let ((dependent-types (mapcar #'name
-                                 (remove-if-not
-                                   #'dependent
-                                   (relationships (gethash (car (last sourcepath 2))
-                                                           schema))))))
+  (let ((dependent-types (map 'list
+                              #'name
+                              (remove-if-not
+                                #'dependent
+                                (relationships (gethash (car (last sourcepath 2))
+                                                        schema))))))
+    (log-message :debug (format nil "Got list of dependent types: ~A" dependent-types))
     (when dependent-types
       (let ((query-string (format nil "MATCH ~A-[r]->(b) WHERE type(r) IN [~{\"~A\"~^, ~}] RETURN type(r), labels(b), b.uid"
                                   (uri-node-helper sourcepath

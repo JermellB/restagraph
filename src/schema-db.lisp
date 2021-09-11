@@ -554,11 +554,10 @@
     :debug
     (format nil "Retrieving the relationship ~A from ~A to ~A."
             relationship source-type target-type))
-  (first
-    (remove-if-not #'(lambda (rel)
-                       (and (equal relationship (name rel))
-                            (equal target-type (name (target-type rel)))))
-                   (relationships (gethash source-type db)))))
+  (find-if #'(lambda (rel)
+               (and (equal relationship (name rel))
+                    (equal target-type (name (target-type rel)))))
+           (relationships (gethash source-type db))))
 
 (defmethod get-relationship ((db neo4cl:neo4j-rest-server)
                              (source-type string)
