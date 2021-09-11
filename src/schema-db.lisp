@@ -645,6 +645,7 @@
 
 (defgeneric get-resourcetype-attributes (db resourcetype)
   (:documentation "Extract the attributes from resource definitions from the database, and return them as a list of schema-rtype-attrs structs."))
+
 (defmethod get-resourcetype-attributes ((db neo4cl:neo4j-rest-server)
                                         (resourcetype string))
   (log-message :debug (format nil "Getting attributes for resourcetype '~A'" resourcetype))
@@ -659,6 +660,10 @@
                   ((:STATEMENT
                      . ,(format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: \"~A\"})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a.name, a.description, a.values"
                                 resourcetype)))))))))
+
+
+(defgeneric get-resourcetype-relationships (db resourcetype)
+  (:documentation "Extract the relationships for a resourcetype from the database, and return them as a list of alists."))
 
 (defmethod get-resourcetype-relationships ((db neo4cl:neo4j-rest-server)
                                            (resourcetype string))
