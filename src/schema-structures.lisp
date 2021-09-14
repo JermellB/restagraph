@@ -73,10 +73,10 @@
       (setf (slot-value rtype 'attributes) attributes)
       (error "Invalid type for schema-rtypes attributes slot.")))
 
-(defmethod set-relationships ((obj schema-rtypes) (rels list))
+(defmethod set-relationships ((rtype schema-rtypes) (rels list))
   (if (every #'(lambda (rel) (typep rel 'schema-rels))
              rels)
-      (setf (slot-value obj 'relationships)
+      (setf (slot-value rtype 'relationships)
             (make-array
               (length rels) ; 1-dimensional array, i.e. a vector
               :element-type 'schema-rels
