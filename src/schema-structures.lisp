@@ -37,7 +37,7 @@
           :reader description
           :type (or null string))
    (attributes :reader attributes
-               :type (or null list)
+               :type (or null sequence)
                :initform nil))
   (:documentation "Parent class for resourcetype subclasses. Not to be instantiated directly."))
 
@@ -58,20 +58,20 @@
   `((:name . ,(name obj))
     (:dependent . ,(dependent obj))
     (:description . ,(description obj))
-    (:attributes
-      . ,(mapcar #'a-listify
-                 (sort (attributes obj)
-                       #'string<
-                       :key #'name)))
-    (:relationships
-      . ,(map 'list #'a-listify (relationships obj)))))
+    (:attributes .  ,(map 'list #'a-listify (attributes obj)))
+    (:relationships . ,(map 'list #'a-listify (relationships obj)))))
 
 
 (defmethod set-attributes ((rtype schema-rtypes) (attributes list))
   (if (every #'(lambda (attr) (typep attr 'schema-rtype-attrs))
              attributes)
-      (setf (slot-value rtype 'attributes) attributes)
-      (error "Invalid type for schema-rtypes attributes slot.")))
+    (setf (slot-value rtype 'attributes)
+          (make-array
+            (length attributes) ; 1-dimensional array, i.e. a vector
+            :element-type 'schema-rtype-attrs
+            :initial-contents   ; Supply the data
+            (sort attributes #'string< :key #'name)))
+    (error "Invalid type for schema-rtypes attributes slot.")))
 
 (defmethod set-relationships ((rtype schema-rtypes) (rels list))
   (if (every #'(lambda (rel) (typep rel 'schema-rels))
@@ -123,9 +123,8 @@
   (:documentation "Fetch the attribute with a given name, from a schema-rtypes instance. Return a `schema-rtype-attrs` instance if it's present, or NIL otherwise."))
 
 (defmethod get-attribute ((attr schema-rtypes) (attr-name string))
-  (car
-    (remove-if-not #'(lambda (att) (equal attr-name (name att)))
-                   (attributes attr))))
+  (find-if #'(lambda (att) (equal attr-name (name att)))
+           (attributes attr)))
 
 (defmethod a-listify ((obj schema-rtype-attrs))
   `((:name . ,(name obj))
