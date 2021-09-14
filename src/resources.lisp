@@ -378,7 +378,7 @@ Return an error if
            ;; Enum attribute
            ((and
               (get-attribute (gethash rtype schema) (escape-neo4j name))
-              (attr-values (car (get-attribute (gethash rtype schema) (escape-neo4j name)))))
+              (attr-values (get-attribute (gethash rtype schema) (escape-neo4j name))))
             (format nil "n.~A IN [~{\"~A\"~^, ~}]"
                     (escape-neo4j name)
                     (mapcar #'escape-neo4j (cl-ppcre:split "," value))))
