@@ -33,12 +33,12 @@
   - invalid attributes (attributes whose name is not defined for this resourcetype)
   - attributes for which an invalid value was provided"
   (declare (type (or cons null) requested)  ; alist, where the car is the name and the cdr is the value
-           (type (or cons null) defined)    ; Should have the outer layer of conses stripped
+           (type (or sequence null) defined)
            (type (or cons null) invalid)
            (type (or cons null) badvalue))
   (log-message :debug (format nil "validate-attributes requested attrs: ~A" requested))
   (log-message :debug (format nil "validate-attributes defined attrs: ~{~A~^, ~}"
-                              (mapcar #'a-listify defined)))
+                              (map 'list #'a-listify defined)))
   ;; Are we at the end of the list of requested attributes?
   (if (null requested)
     ;; If we are, return what's been accumulated
@@ -52,8 +52,7 @@
       ;; If this attribute is invalid, add it to that accumulator.
       ;; Pull the list of attribute-names from the 'defined parameter, and test whether it's a member.
       :invalid (if (not (member (caar requested)
-                                (mapcar #'(lambda (attr) (name attr))
-                                        defined)
+                                (map 'list #'(lambda (attr) (name attr)) defined)
                                 :test #'equal))
                  ;; Invalid attribute. Log it and add it to the `invalid` accumulator.
                  (progn
@@ -65,16 +64,12 @@
                   ;; Is it a valid attribute? (yes, we have to test this again)
                   (if (member (caar requested)
                               ;; Remember this was parsed from JSON
-                              (mapcar #'(lambda (attr) (name attr))
-                                      defined)
+                              (map 'list #'(lambda (attr) (name attr)) defined)
                               :test #'equal)
                     ;; Is this an enum attribute?
-                    (let ((enums
-                            (attr-values
-                              (car (remove-if-not #'(lambda (attr)
-                                                      (equal (caar requested)
-                                                             (name attr)))
-                                                  defined)))))
+                    (let ((enums (attr-values
+                                   (find-if #'(lambda (attr) (equal (caar requested) (name attr)))
+                                            defined))))
                       (if (and enums
                                (not (null enums)))
                         ;; If so, is it a valid value?
@@ -149,13 +144,3 @@
                                resourcetype (first results) (second results)))))))
       ;; No such resourcetype
       (signal 'client-error :message "No such resourcetype")))
-
-(defgeneric get-attribute (resourcetype attr-name)
-  (:documentation "Extract a named attribute from a schema-rtypes instance.
-                   If that instance has an attribute by that name, return the corresponding `schema-rtype-attrs` instance.
-                   If not, return NIL."))
-
-(defmethod get-attribute ((resourcetype schema-rtypes) (attr-name string))
-  (remove-if-not #'(lambda (attr)
-                     (equal attr-name (name attr)))
-                 (attributes resourcetype)))

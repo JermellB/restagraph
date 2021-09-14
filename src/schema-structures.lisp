@@ -120,7 +120,7 @@
 
 
 (defgeneric get-attribute (attr attr-name)
-  (:documentation "Fetch the attribute with a given name, from a schema-rtypes instance."))
+  (:documentation "Fetch the attribute with a given name, from a schema-rtypes instance. Return a `schema-rtype-attrs` instance if it's present, or NIL otherwise."))
 
 (defmethod get-attribute ((attr schema-rtypes) (attr-name string))
   (car
