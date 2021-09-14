@@ -199,9 +199,9 @@
            (type incoming-subschema-version subschema))
   ;; Ensure we have a uniqueness constraint on resource-types
   (handler-case
-    (ensure-uniqueness-constraint db "RgResource" "name")
+    (ensure-uniqueness-constraint db "RgResourceType" "name")
     (error (e)
-           (log-message :fatal "Failed to ensure uniqueness constraint on RgResource label.")
+           (log-message :fatal "Failed to ensure uniqueness constraint on RgResourceType label.")
            (log-message :fatal (message e))
            (sb-ext:exit)))
   (or (current-schema-version db)
