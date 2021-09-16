@@ -449,9 +449,29 @@ Return an error if
            (neo4cl:neo4j-transaction
              db
              `((:STATEMENTS ((:STATEMENT . ,query))))))))
-      ;; There really isn't a sensible reason to handle GET requests for paths to a relationship.
+      ;; All resources with a particular relationship to this one
       (t
-       (error 'client-error :message "Paths to a relationship are not valid.")))))
+        (log-message :debug (format nil "Fetching all resources on the path '~A'" uri))
+        ;; Get the raw data
+        (let ((query (format nil "MATCH ~A~A RETURN labels(n), n"
+                             (uri-node-helper uri-parts
+                                              :path ""
+                                              :marker "n")
+                             (or filters ""))))
+          (log-message :debug (concatenate 'string "Using query-string: "
+                                           (cl-ppcre:regex-replace "\~" query "~~")))
+          (let ((response
+                  (neo4cl:extract-rows-from-get-request
+                    (neo4cl:neo4j-transaction
+                      db
+                      `((:STATEMENTS
+                          ((:STATEMENT . ,query))))))))
+            (log-message
+              :debug
+              (format nil "Retrieved results: ~A" response))
+            ;; Reformat it so that (:type <type>) appears at the start of the list
+            (mapcar (lambda (r) (cons (cons :type (caar r)) (cadr r)))
+                    response)))))))
 
 
 (defgeneric get-dependent-resources (db schema sourcepath)

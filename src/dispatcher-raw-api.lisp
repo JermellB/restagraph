@@ -44,7 +44,7 @@
         ;; ...or a dangling relationship, which may or may not go the way we expect
         ((and (equal (tbnl:request-method*) :GET)
               (member (mod (length uri-parts) 3)
-                      '(2 3)))
+                      '(2 0)))
          (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
          (let ((result (get-resources (datastore tbnl:*acceptor*) sub-uri)))
            (log-message :debug (format nil "Fetched content ~A" result))
@@ -52,7 +52,9 @@
              (progn
                (setf (tbnl:content-type*) "application/json")
                (setf (tbnl:return-code*) tbnl:+http-ok+)
-               (cl-json:encode-json-alist-to-string result))
+               (if (equal (mod (length uri-parts) 3) 2)
+                 (cl-json:encode-json-alist-to-string result)
+                 (cl-json:encode-json-to-string result)))
              (progn
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-not-found+)
