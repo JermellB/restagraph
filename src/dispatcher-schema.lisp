@@ -107,6 +107,14 @@
                  "This version doesn't exist")))))
         ((equal (tbnl:request-method*) :POST)
          (progn
+           ;; Log diagnostic stuff first
+           (log-message :debug (format nil "Content-type: ~A" (tbnl:header-in* "Content-type")))
+           (log-message :debug (format nil "Received POST parameters ~A"
+                                       (mapcar #'car (tbnl:post-parameters*))))
+           (log-message :debug (format nil "Length of schema parameter: ~D"
+                                       (length (tbnl:post-parameter "schema"))))
+           (log-message :debug (format nil "Type of schema parameter: ~D"
+                                       (type-of (tbnl:post-parameter "schema"))))
            ;; Create a new schema-version
            (when (equal "true" (tbnl:post-parameter "create"))
              (progn
@@ -120,19 +128,10 @@
                  (install-subschema (datastore tbnl:*acceptor*) *core-schema* version))
                ;; Reload the in-memory schema
                (fetch-current-schema (datastore tbnl:*acceptor*))))
-           (log-message :debug (format nil "Content-type: ~A" (tbnl:header-in* "Content-type")))
-           (log-message :debug (format nil "Received POST parameters ~A"
-                                       (mapcar #'car (tbnl:post-parameters*))))
-           (log-message :debug (format nil "Length of schema parameter: ~D"
-                                       (length (tbnl:post-parameter "schema"))))
-           (log-message :debug (format nil "Type of schema parameter: ~D"
-                                       (type-of (tbnl:post-parameter "schema"))))
            ;; Upload a schema to install in the db
            ;; Expects URL-encoded file upload, as in this example:
            ;; curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
            (when (tbnl:post-parameter "schema")
-             ;(and (equal (tbnl:request-method*) :POST)
-             ;     (tbnl:post-parameter "schema"))
              (log-message :info "Received schema for upload.")
              (let ((schemasource (tbnl:post-parameter "schema")))
                (if
