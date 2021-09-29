@@ -14,7 +14,8 @@
 
 
 (defgeneric create-relationship-by-path (db sourcepath destpath schema)
-  (:documentation "Create a relationship between two arbitrary, pre-existing resources. The last element of the sourcepath must be the relationship type."))
+  (:documentation "Create a relationship between two arbitrary, pre-existing resources.
+                  The last element of the sourcepath must be the relationship type."))
 
 (defmethod create-relationship-by-path ((db neo4cl:neo4j-rest-server)
                                         (sourcepath string)
