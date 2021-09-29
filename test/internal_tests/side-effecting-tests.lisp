@@ -90,3 +90,51 @@
     (fiveam:signals
       (restagraph::client-error "No such resourcetype.")
       (restagraph::store-resource *server* schema invalid-type `(("uid" . ,invalid-uid)) admin-user))))
+
+(fiveam:test
+  relationships-to-any
+  :depends-on 'resources-basic
+  "Confirm that we can create relationships with a defined target of 'any',
+  but can't create 'just any' relationship."
+  (let ((source-type "Test")
+        (newrel "FROBS")
+        (source-uid "Whoomp")
+        (target-type "Tags")
+        (target-uid "ThereItIs")
+        ;(invalid-sourcetype "People")
+        (admin-user "RgAdmin")
+        (schema-version (restagraph::current-schema-version *server*)))
+    ;; Define a relationship with a target-resource of "any".
+    ;; To keep things simple, create a new type altogether as its source-type.
+    (restagraph::install-subschema-resourcetype
+      *server*
+      (restagraph::make-incoming-rtypes :name source-type :dependent nil)
+      schema-version)
+    (restagraph::install-subschema-relationship
+      *server*
+      (restagraph::make-incoming-rels :name newrel
+                                      :source-type source-type
+                                      :target-type target-type
+                                      :cardinality "many:many"
+                                      :dependent nil
+                                      :description "Test relationship to 'any'")
+      schema-version)
+    (let ((schema (restagraph::fetch-current-schema *server*)))
+      ;; Create test instances
+      (restagraph::store-resource *server* schema source-type `(("uid" . ,source-uid)) admin-user)
+      (restagraph::store-resource *server* schema target-type `(("uid" . ,target-uid)) admin-user)
+      ;; Create a relationship from the instance
+      (fiveam:is (restagraph::create-relationship-by-path *server*
+                                                          (format nil "/~A/~A/~A" source-type source-uid newrel)
+                                                          (format nil "/~A/~A" target-type target-uid)
+                                                          schema))
+      ;; Fail to create an invalid relationship from another resourcetype
+      (fiveam:signals
+        restagraph::integrity-error
+        (restagraph::create-relationship-by-path *server*
+                                                 (format nil "/~A/~A/~A" source-type source-uid newrel)
+                                                 (format nil "/~A/~A" target-type target-uid)
+                                                 schema))
+      ;; Delete the test instances
+      (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" source-type source-uid) schema)
+      (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" target-type target-uid) schema))))

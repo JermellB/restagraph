@@ -45,6 +45,10 @@
           "values": ["True", "False"]
         }
       ]
+    },
+    {
+      "name": "Thingy",
+      "description": "For testing relationships to 'any'"
     }
   ],
   "relationships": [
@@ -71,6 +75,14 @@
       "cardinality": "many:many",
       "dependent": false,
       "description": null
+    },
+    {
+      "source-type": "Thingy",
+      "name": "DISCOMBOBULATES",
+      "target-type": "any",
+      "cardinality": "many:many",
+      "dependent": false,
+      "description": "For testing relationships to 'any'"
     }
   ]
 }

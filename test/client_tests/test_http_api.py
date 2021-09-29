@@ -632,6 +632,27 @@ class TestDependentResources(unittest.TestCase):
     # Check that dependent relationships _cannot_ be created to existing resources, whether dependent or not. Positively confirm both cases.
     # Check that the `recursive` parameter really does work in both GET- and POST-styles.
 
+@pytest.mark.dependency(["TestSchemaUpdates::test_schema_upload"])
+class TestRelationshipsToAny(unittest.TestCase):
+    sourceType = 'Thingy'
+    sourceUid = 'Whatsit'
+    targetType = 'Tags'
+    targetUid = 'fluffy'
+    relationship = 'DISCOMBOBULATES'
+    invalidSourceType = 'People'
+    invalidSourceUid = 'Wrongun'
+    def test_create_valid_rel_to_any(self):
+        # Create the resources
+        requests.post('%s/%s' % (API_BASE_URL, self.sourceType), data={'uid': self.sourceUid})
+        requests.post('%s/%s' % (API_BASE_URL, self.targetType), data={'uid': self.targetUid})
+        # Create the relationship we're testing for
+        requests.post('%s/%s/%s/%s' % (API_BASE_URL, self.sourceType, self.sourceUid, self.relationship),
+                      data={'target': '/%s/%s' % (self.targetType, self.targetUid)})
+        # Delete the resources
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.sourceType, self.sourceUid))
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.targetType, self.targetUid))
+    #def test_fail_invalid_rel_to_any(self):
+
 class TestFilters(unittest.TestCase):
     tag1 = 'foo'
     tag2 = 'bar'
