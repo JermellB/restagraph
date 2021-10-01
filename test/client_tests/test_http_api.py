@@ -59,6 +59,7 @@ class TestResources(unittest.TestCase):
     result = None
     invalidtype = 'interfaces'
     invaliduid = 'eth0'
+    adminuser = 'RgAdmin'
 
     @pytest.mark.dependency()
     def test_create_and_delete_single_resource(self):
@@ -84,7 +85,13 @@ class TestResources(unittest.TestCase):
         # Testing the mod/3 == 1 case in the process
         assert len(requests.get('%s/%s' % (API_BASE_URL, self.restype)).json())
         # Test the mod/3 == 0 case while we're here
-        assert requests.get('%s/%s/%s/FOO' % (API_BASE_URL, self.restype, self.resuid)).status_code == 404
+        creators = requests.get('%s/%s/%s/CREATOR' % (API_BASE_URL,
+                                                      self.restype,
+                                                      sanitise_uid(self.resuid)))
+        assert creators.status_code == 200
+        assert len(creators.json()) == 1
+        assert creators.json()[0]['uid'] == self.adminuser
+        assert creators.json()[0]['type'] == 'People'
         # Delete it
         assert requests.delete('%s/%s/%s' % (
             API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 204
