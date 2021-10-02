@@ -51,9 +51,16 @@
       (fiveam:is (assoc :ORIGINAL_UID result))
       (fiveam:is (equal uid
                         (cdr (assoc :ORIGINAL_UID result)))))
+    ;; Confirm we can't create a duplicate
+    (restagraph::log-message :info ";TEST Confirm refusal to create duplicate resources")
+    (fiveam:signals
+      (restagraph::integrity-error "Path already exists; refusing to create a duplicate.")
+      (restagraph::store-resource *server* schema restype `(("uid" . ,uid)) admin-user))
     ;; Confirm that there are two people (RgAdmin should be the other)
     ;; (Test get-resources with mod/3 == 1)
-    (fiveam:is (equal 2 (length (restagraph::get-resources *server* (format nil "/~A" restype)))))
+    (let ((people-list (restagraph::get-resources *server* (format nil "/~A" restype))))
+      (restagraph::log-message :info (format nil ";TEST-INFO fetched list of people: ~A" people-list))
+    (fiveam:is (equal 2 (length people-list))))
     ;; Confirm that we get all resource at the end of a relationship
     ;; First, create the tags.
     (restagraph::store-resource *server* schema "Tags" `(("uid" . ,tag1)) admin-user)
