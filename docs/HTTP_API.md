@@ -88,7 +88,14 @@ The return value is a JSON object of this form:
 
 ## POST - upload a new schema
 
-`POST /schema/v1/` with a payload of name "schema" whose value is a JSON-formatted file. E.g:
+You can add resourcetypes and relationships to an existing schema, or add new attributes to resourcetypes in an existing schema. To do this, make a POST request to the URI `/schema/v1/`, with a payload of name "schema" whose value is a JSON-formatted file. The server returns `201/Created` on success.
+
+The contents of that JSON document will be added to the schema, as long as they add new things; any existing resourcetypes, resourcetype-attributes and relationships will not be updated. This is a progressive, succeed-where-possible process, not an atomic operation; any duplicates will be discarded without warning to the client.
+
+The intent of this feature is to enable clients to build on top of the core schema, and to mix-and-match subschemas from different sources, so users working in the same problem domain can share the common elements of their schemas for better interoperability.
+
+
+To do this via `curl`, for example:
 
 ```
 curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
@@ -149,16 +156,25 @@ Duplicate relationships will simply be ignored.
 - The `values` attribute on an attribute is optional, and should only be used when you have a specific reason to constrain it to a fixed set of values. If you're considering using it, think about whether it makes more sense to use a separate resourcetype, enabling you to add/remove values in future.
 
 
-## Create a new schema version
+## Schema versioning
 
-If you add the parameter `create=true` to a POST request to this API, the server will create a new schema version and pre-populate it with the core schema.
+Restagraph has a built-in system for versioning schemas, so you can test new ideas, roll back to a previous version if the new one didn't work out, and garbage-collect old versions when you're sure they're no longer needed.
 
-If you upload a subschema in the same request, as described in the previous section, the server will install it as a follow-up step.
+Version IDs are just timestamps of the date/time when that version was created (not when it was last updated) in Unix epoch time: seconds since midnight, 1970/01/01.
 
 
-## PUT - change the current schema version
+### Create a new schema version
 
-If there's more than one schema version in the database, you can roll back or forward between them with a GET request, using the `version=<version number>` argument, e.g:
+This works in both senses, via POST requests.
+
+If you add the parameter `create=true` to a POST request to this API, the server will create a new schema version and pre-populate it with the core schema. The parameter is expected in the body of the request, POST-style, not in the URL as with GET requests. This can be done without uploading a new subschema, so can be used to create a fresh start with just the core schema.
+
+If you do upload a subschema in the same request, as described in the previous section, the server will create the new schema-version and then apply the uploaded schema to it, without touching the previously-current version.
+
+
+### Switch between schema versions
+
+If there's more than one schema version in the database, you can roll back or forward between them with a PUT request, using the `version=<version number>` argument, e.g:
 
 ```
 curl -X PUT http://localhost:4950/schema/v1?version=3835709407
@@ -172,7 +188,7 @@ Server responses:
 - If the requested version doesn't exist: 404/Not Found
 
 
-## DELETE - remove a schema version
+### DELETE - remove a schema version
 
 To remove a schema version, use an HTTP GET request against the Schema API, with the argument `version=<integer>`, e.g:
 
