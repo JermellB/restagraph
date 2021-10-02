@@ -62,18 +62,26 @@
   "Remove a schema version from the database"
   (declare (type neo4cl:neo4j-rest-server db)
            (type integer version))
-  (log-message :info (format nil "Atempting to delete schema version ~D from the database"
-                             version))
-  (let ((versions (list-schema-versions db)))
+  (log-message :info (format nil "Atempting to delete schema version ~D from the database" version))
+  ;; Pre-flight checks
+  (let* ((versions (list-schema-versions db))
+         (current-version (cdr (assoc :current-version versions))))
     ;; Sanity check: do we have that version in the database?
     (unless (member version (cdr (assoc :versions versions)) :test #'equal)
-      (error "There is no schema with that version identifier."))
-    ;; Pre-flight check: is it the current version?
-    ;; - If so, set the current version to be the newest remaining version
-    (when (equal version (cdr (assoc :current-version versions)))
-      (set-current-schema-version
-        db
-        (apply #'max (cdr (assoc :versions versions))))))
+      (error 'client-error "There is no schema with that version identifier."))
+    ;; Have we been asked to delete the current version?
+    (if (equal version current-version)
+        ;; If so, set the current version to be the newest remaining version
+        (let ((new-current-version (apply #'max (remove-if #'(lambda (candidate) (equal version candidate))
+                                                           (cdr (assoc :versions versions))))))
+          (log-message :debug (format nil "Requested version is the current one. Setting current version to ~A."
+                                      new-current-version))
+          (set-current-schema-version db new-current-version))
+        ;; Not trying to delete the current version. Log the fact for operator reassurance, and carry on.
+        (log-message
+          :debug
+          (format nil "Requested version ~A is not current version ~A. Taking no action regaring current-version."
+                  version current-version))))
   ;; If we've made it this far, we're good to go.
   ;; Delete all relationships within this version
   (neo4cl:neo4j-transaction
