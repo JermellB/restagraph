@@ -70,20 +70,15 @@
              ;; Do we have that version in the database?
              (if (member new-version (cdr (assoc :versions versions))
                          :test #'equal)
-               ;; It's there. Try to update it.
+               ;; It's there; ensure it's current.
                (handler-case
-                 (if (set-current-schema-version (datastore tbnl:*acceptor*) new-version)
-                   ;; Updated
-                   (progn
-                     ;; Reload the working schema
-                     (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*)))
-                     ;; Return a success message
-                     (setf (tbnl:return-code*) tbnl:+http-ok+)
-                     "OK")
-                   ;; It was already the current version
-                   (progn
-                     (setf (tbnl:return-code*) tbnl:+http-not-modified+)
-                     "That is already the current version"))
+                 (progn
+                   (when (set-current-schema-version (datastore tbnl:*acceptor*) new-version)
+                     ;; If there was an update, reload the working schema
+                     (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*))))
+                   ;; Return a success message
+                   (setf (tbnl:return-code*) tbnl:+http-ok+)
+                   "OK")
                  (neo4cl:database-error
                    (e)
                    (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
