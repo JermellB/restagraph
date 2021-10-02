@@ -257,7 +257,29 @@
                                         (format nil ", description: \"~A\"" (description rtype))
                                         ""))))
                  (log-message :debug (format nil "Resourcetype doesn't exist. Attempting to create with query: ~A" query))
+                 ;; Add the resourcetype
                  (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
+                 ;; Ensure we have a uniqueness constraint for that resourcetype
+                 (handler-case
+                   (ensure-uniqueness-constraint db (name rtype) "name")
+                   (neo4cl:client-error
+                     (e)
+                     ;; If we already have this constraint, catch the error and move on.
+                     (if (and
+                           (equal "Schema" (neo4cl:category e))
+                           (equal "EquivalentSchemaRuleAlreadyExists" (neo4cl:title e)))
+                         nil
+                         ;; If anything else went wrong, log it and pass it on up the stack
+                         (progn
+                           (log-message :debug (format nil "Received error '~A.~A ~A'"
+                                                       (neo4cl:category e)
+                                                       (neo4cl:title e)
+                                                       (neo4cl:message e)))
+                           (return-database-error
+                             (format nil "~A.~A: ~A"
+                                     (neo4cl:category e)
+                                     (neo4cl:title e)
+                                     (neo4cl:message e)))))))
                  ;; Return the null list of attributes
                  '()))))
     ;; Identify any attributes not already present, and add them
