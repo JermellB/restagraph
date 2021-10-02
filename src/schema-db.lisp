@@ -20,13 +20,15 @@
   "Fetch a list of schema versions, plus the current version"
   (declare (type neo4cl:neo4j-rest-server db))
   `((:versions
-      . ,(mapcar #'car
-                 (neo4cl:extract-rows-from-get-request
-                   (neo4cl:neo4j-transaction
-                     db
-                     `((:STATEMENTS
-                         ((:STATEMENT
-                            .  "MATCH (c:RgSchema { name: 'root' })-[:VERSION]->(v:RgSchemaVersion) RETURN v.createddate AS version"))))))))
+      . ,(sort
+           (mapcar #'car
+                   (neo4cl:extract-rows-from-get-request
+                     (neo4cl:neo4j-transaction
+                       db
+                       `((:STATEMENTS
+                           ((:STATEMENT
+                              .  "MATCH (c:RgSchema { name: 'root' })-[:VERSION]->(v:RgSchemaVersion) RETURN v.createddate AS version")))))))
+           #'<))
     (:current-version . ,(current-schema-version db))))
 
 ;; FIXME: wrap this in a transaction
