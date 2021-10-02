@@ -1,0 +1,18 @@
+# Script to ensure we have a fresh instance of the RG-test Neo4j Docker image
+
+# Check for an existing instance
+DOCKER_ID=`docker ps --all --filter name=rgtest | grep rgtest | awk '{ print $1 }'`
+
+# If there's already an instance running, shut it down
+if [ "$DOCKER_ID" ]
+then
+  echo "Killing docker instance $DOCKER_ID"
+  docker stop $DOCKER_ID && docker rm $DOCKER_ID
+else
+  echo "No instance found"
+fi
+
+
+# Start up the new one
+echo "Starting test instance of Neo4j for Restagraph"
+docker run -d --env NEO4J_AUTH=neo4j/wallaby -p 7687:7687 -p 7474:7474 --name rgtest neo4j:4.3.2
