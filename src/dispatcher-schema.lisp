@@ -25,7 +25,7 @@
            (equal "list" (tbnl:get-parameter "version")))
          (setf (tbnl:content-type*) "application/json")
          (setf (tbnl:return-code*) tbnl:+http-ok+)
-         (cl-json:encode-json-to-string
+         (cl-json:encode-json-alist-to-string
            (list-schema-versions (datastore tbnl:*acceptor*))))
         ;; Get the description of a single resource-type
         ((and
