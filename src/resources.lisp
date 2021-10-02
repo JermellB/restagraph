@@ -29,60 +29,71 @@ Return an error if
                            (creator-uid string))
   (log-message :debug (format nil "Attempting to store a resource of type '~A' with attributes ~{~A~^, ~}"
                               resourcetype attributes))
-  (cond
-    ;; Do we even have this resourcetype?
-    ((null (gethash resourcetype schema))
-     (error 'client-error :message "No such resourcetype."))
-    ;; Catch any critical deficiencies in the definition asap
-    ((or (null (assoc "uid" attributes :test 'equal))
-         (equal "" (cdr (assoc "uid" attributes :test 'equal))))
-     (error 'client-error :message "The UID must be a non-empty string"))
-    ;; If this is a dependent resource, bail out now
-    ((dependent (gethash resourcetype schema))
-     (let ((message "This is a dependent resource; it must be created as a sub-resource of an existing resource."))
-       (log-message :warn message)
-       (error 'integrity-error :message message)))
-    ;; OK so far: carry on
-    (t
-     (handler-case
-       (let ((attributes (validate-resource-before-creating schema resourcetype attributes)))
-         ;; If we got this far, we have a valid resource type and valid attribute names.
-         ;; Make it happen
-         (log-message :debug (format nil "Creating a ~A resource with attributes ~A"
-                                     resourcetype attributes))
-         (handler-case
-           (progn
-             (neo4cl:neo4j-transaction
-               db
-               `((:STATEMENTS
-                   ((:STATEMENT
-                      . ,(format nil "MATCH (c:People {uid: \"~A\"}) CREATE (:~A $properties)-[:CREATOR]->(c)"
-                                 creator-uid (sanitise-uid resourcetype)))
-                    (:PARAMETERS . ((:PROPERTIES
-                                      . ,(append attributes
-                                                 `(("createddate" . ,(get-universal-time)))))))))))
-             ;; Return the UID
-             (cdr (assoc :|uid| attributes :test 'equal)))
-           ;; Catch selected errors as they come up
-           (neo4cl::client-error
-             (e)
-             (if (and
-                   ;; If it's specifically an integrity error, call this out
-                   (equal (neo4cl:category e) "Schema")
-                   (equal (neo4cl:title e) "ConstraintValidationFailed"))
-                 (progn
-                   (log-message :error (format nil "~A.~A: ~A"
-                                               (neo4cl:category e)
-                                               (neo4cl:title e)
-                                               (neo4cl:message e)))
-                   (error 'integrity-error :message (neo4cl:message e)))
-                 ;; Otherwise, just resignal it
-                 (let ((text (format nil "Database error ~A.~A: ~A"
-                                     (neo4cl:category e)
-                                     (neo4cl:title e)
-                                     (neo4cl:message e))))
-                   (log-message :error text)
-                   (error 'client-error :message text))))))))))
+  ;; Initial sanity-check
+  (if (null (assoc "uid" attributes :test 'equal))
+    (error 'client-error :message "UID must be specified")
+    ;; More sanity-checks.
+    ;; Also derive the requested UID once, to save lots of repeated code.
+    (let ((uid (cdr (assoc "uid" attributes :test 'equal))))
+      (cond
+        ;; Do we even have this resourcetype?
+        ((null (gethash resourcetype schema))
+         (error 'client-error :message "No such resourcetype."))
+        ;; Did the client provide a non-empty UID?
+        ((equal "" (cdr (assoc "uid" attributes :test 'equal)))
+         (error 'client-error :message "The UID must be a non-empty string"))
+        ;; If this is a dependent resource, bail out now
+        ((dependent (gethash resourcetype schema))
+         (let ((message "This is a dependent resource; it must be created as a sub-resource of an existing resource."))
+           (log-message :warn message)
+           (error 'integrity-error :message message)))
+        ;; Do we already have one of these?
+        ((get-resources db (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
+         (let ((message (format nil "/~A/~A already exists; refusing to create a duplicate."
+                                resourcetype (sanitise-uid uid))))
+           (log-message :warn message)
+           (error 'integrity-error :message message)))
+        ;; OK so far: carry on
+        (t
+          (handler-case
+            (let ((attributes (validate-resource-before-creating schema resourcetype attributes)))
+              ;; If we got this far, we have a valid resource type and valid attribute names.
+              ;; Make it happen
+              (log-message :debug (format nil "Creating a ~A resource with attributes ~A"
+                                          resourcetype attributes))
+              (handler-case
+                (progn
+                  (neo4cl:neo4j-transaction
+                    db
+                    `((:STATEMENTS
+                        ((:STATEMENT
+                           . ,(format nil "MATCH (c:People {uid: \"~A\"}) CREATE (:~A $properties)-[:CREATOR]->(c)"
+                                      creator-uid (sanitise-uid resourcetype)))
+                         (:PARAMETERS . ((:PROPERTIES
+                                           . ,(append attributes
+                                                      `(("createddate" . ,(get-universal-time)))))))))))
+                  ;; Return the UID
+                  (cdr (assoc :|uid| attributes :test 'equal)))
+                ;; Catch selected errors as they come up
+                (neo4cl::client-error
+                  (e)
+                  (if (and
+                        ;; If it's specifically an integrity error, call this out
+                        (equal (neo4cl:category e) "Schema")
+                        (equal (neo4cl:title e) "ConstraintValidationFailed"))
+                    (progn
+                      (log-message :error (format nil "~A.~A: ~A"
+                                                  (neo4cl:category e)
+                                                  (neo4cl:title e)
+                                                  (neo4cl:message e)))
+                      (error 'integrity-error :message (neo4cl:message e)))
+                    ;; Otherwise, just resignal it
+                    (let ((text (format nil "Database error ~A.~A: ~A"
+                                        (neo4cl:category e)
+                                        (neo4cl:title e)
+                                        (neo4cl:message e))))
+                      (log-message :error text)
+                      (error 'client-error :message text))))))))))))
 
 
 (defgeneric store-dependent-resource (db schema uri attributes creator-uid)
