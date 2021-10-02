@@ -197,13 +197,6 @@
   Return the timestamp of the current schema's created date, as its version identifier."
   (declare (type neo4cl:neo4j-rest-server db)
            (type incoming-subschema-version subschema))
-  ;; Ensure we have a uniqueness constraint on resource-types
-  (handler-case
-    (ensure-uniqueness-constraint db "RgResourceType" "name")
-    (error (e)
-           (log-message :fatal "Failed to ensure uniqueness constraint on RgResourceType label.")
-           (log-message :fatal (message e))
-           (sb-ext:exit)))
   (or (current-schema-version db)
       (let ((version
               ;; No current schema found; install one.
