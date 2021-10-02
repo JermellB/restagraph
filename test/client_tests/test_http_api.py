@@ -448,22 +448,69 @@ class TestSchemaBasic(unittest.TestCase):
 #@pytest.mark.skip()
 class TestSchemaUpdates(unittest.TestCase):
     @pytest.mark.dependency()
-    def test_schema_upload(self):
+    def test_schema_atomic_upload_and_delete(self):
+        # Check the existing list of versions
+        versions_existing = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        assert isinstance(versions_existing['versions'], list)
+        assert isinstance(versions_existing['current-version'], int)
+        # Upload the file
         assert requests.post(SCHEMA_BASE_URL,
-                files={'schema': open('test_schema.json', 'rb')}).status_code == 201
-        # Request the schema and inspect it.
+                             files={'schema': open('test_schema.json', 'rb')},
+                             data={'create': 'true'}).status_code == 201
+        # Confirm that the list of versions has gained a newer one, and that the new one is current
+        versions_after_create = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        assert len(versions_after_create['versions']) == (len(versions_existing['versions']) + 1)
+        assert versions_after_create['current-version'] > versions_existing['current-version']
+        # Request the schema and inspect it
         schema = requests.get(SCHEMA_BASE_URL).json()
         assert list(filter(lambda x: x['name'] == 'Buildings', schema))[0]['dependent'] is None
+        # Delete the schema
+        assert requests.delete('%s?version=%s' % (SCHEMA_BASE_URL,
+                                                  versions_after_create['current-version'])).status_code == 200
+        # Confirm that things are back the way they were
+        versions_after_delete = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        assert versions_after_delete['current-version'] == versions_existing['current-version']
+        assert sorted(versions_after_delete['versions']) == sorted(versions_existing['versions'])
+    def test_schema_stepwise_upload_and_delete(self):
+        # Check the existing list of versions
+        versions_existing = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        assert isinstance(versions_existing['versions'], list)
+        assert isinstance(versions_existing['current-version'], int)
+        # Create a new schema-version, without adding anything to it
+        assert requests.post(SCHEMA_BASE_URL, data={'create': 'true'}).status_code == 201
+        # Confirm that the list of versions has gained a newer one, and that the new one is current
+        versions_after_create = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        assert len(versions_after_create['versions']) == (len(versions_existing['versions']) + 1)
+        assert versions_after_create['current-version'] > versions_existing['current-version']
+        # Upload the file
+        assert requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}).status_code == 201
+        # Request the schema and inspect it
+        schema = requests.get(SCHEMA_BASE_URL).json()
+        assert list(filter(lambda x: x['name'] == 'Buildings', schema))[0]['dependent'] is None
+        # Set the current-version back to the previous current, and confirm
+        assert requests.put('%s?version=%s' % (SCHEMA_BASE_URL,
+                                               versions_existing['current-version'])).status_code == 200
+        versions_after_current_change = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        assert versions_after_current_change['current-version'] == versions_existing['current-version']
+        assert sorted(versions_after_current_change['versions']) == sorted(versions_after_create['versions'])
+        # Delete the schema we created
+        assert requests.delete('%s?version=%s' % (SCHEMA_BASE_URL,
+                                                  versions_after_create['current-version'])).status_code == 200
+        # Confirm that things are back the way they were
+        versions_after_delete = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        assert versions_after_delete['current-version'] == versions_existing['current-version']
+        assert sorted(versions_after_delete['versions']) == sorted(versions_existing['versions'])
 
-@pytest.mark.dependency(["TestSchemaUpdates"])
+@pytest.mark.dependency(["TestSchemaUpdates::test_schema_upload"])
 class TestAttributeValues(unittest.TestCase):
     res1type = "People"
     res1uid = "Dorian"
     res1attrname = "Real"
-    res1attrval_valid = "True"
+    res1attrval_valid = True
     res1attrval_invalid = "Banana"
-    @pytest.mark.dependency(["TestSchemaUpdates::test_schema_upload"])
     def test_attribute_values(self):
+        # Add the test schema
+        requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
         # Create the resource
         assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
                              data={"uid": self.res1uid}).status_code == 201
@@ -474,10 +521,11 @@ class TestAttributeValues(unittest.TestCase):
         # Fail to add an invalid attribute
         assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
                             data={self.res1attrname: self.res1attrval_invalid}).status_code == 400
-        # Clean up
-        assert requests.delete('%s/%s/%s' % (API_BASE_URL,
-                                             self.res1type,
-                                             self.res1uid)).status_code == 204
+        # Clean up the resource
+        assert requests.delete('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid)).status_code == 204
+        # Clean up the schema we added
+        versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
     # - new relationships from an existing resourcetype to a new one.
     # Test robustness against
     # - duplicate attributes in new subschemas
@@ -496,6 +544,8 @@ class TestDependentResources(unittest.TestCase):
     depres2type = "Rooms"
     depres2uid = "Toolshed"
     def test_dependent_resourcetypes_basic(self):
+        # Add the test schema
+        requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
         # Create the parent resource
         assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
                              data={"uid": self.res1uid}).status_code == 201
@@ -534,8 +584,13 @@ class TestDependentResources(unittest.TestCase):
         assert requests.delete('%s/%s/%s' % (API_BASE_URL,
                                              self.res1type,
                                              self.res1uid)).status_code == 204
+        # Clean up the schema we added
+        versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
     # Check for recursive deletion, from the parent down 1 level.
     def test_dependent_resourcetypes_recursive_1(self):
+        # Add the test schema
+        requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
         # Create the parent resource
         assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
                              data={"uid": self.res1uid}).status_code == 201
@@ -566,10 +621,15 @@ class TestDependentResources(unittest.TestCase):
                                                 self.depres1uid)).status_code == 404
         # Confirm the parent is gone
         assert requests.get('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid)).status_code == 404
+        # Clean up the schema we added
+        versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
     # Create a grandchild resource, and check recursive deletion from the parent.
     # - check for orphaned grandchildren.
     # Check for recursive deletion, from the parent down 2 levels.
     def test_dependent_resourcetypes_recursive_2(self):
+        # Add the test schema
+        requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
         # Create the parent resource
         assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
                              data={"uid": self.res1uid}).status_code == 201
@@ -633,6 +693,9 @@ class TestDependentResources(unittest.TestCase):
         assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                           self.depres1type,
                                           self.depres1uid)).status_code == 404
+        # Clean up the schema we added
+        versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
     # Check that `recursive=true` _only_ deletes dependent resources,
     # and _doesn't_ go on a rampage.
     # Check that _only_ dependent resources can be created with a dependent relationship.
@@ -649,6 +712,8 @@ class TestRelationshipsToAny(unittest.TestCase):
     invalidSourceType = 'People'
     invalidSourceUid = 'Wrongun'
     def test_create_valid_rel_to_any(self):
+        # Add the test schema
+        requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
         # Create the resources
         requests.post('%s/%s' % (API_BASE_URL, self.sourceType), data={'uid': self.sourceUid})
         requests.post('%s/%s' % (API_BASE_URL, self.targetType), data={'uid': self.targetUid})
@@ -658,6 +723,9 @@ class TestRelationshipsToAny(unittest.TestCase):
         # Delete the resources
         requests.delete('%s/%s/%s' % (API_BASE_URL, self.sourceType, self.sourceUid))
         requests.delete('%s/%s/%s' % (API_BASE_URL, self.targetType, self.targetUid))
+        # Clean up the schema we added
+        versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
     #def test_fail_invalid_rel_to_any(self):
 
 class TestFilters(unittest.TestCase):
