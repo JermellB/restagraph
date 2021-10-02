@@ -1,0 +1,13 @@
+[MASTER]
+
+max-line-length=120
+
+## Disable section
+# I'd have done this with multiple declarations with their own explanatory comments,
+# but that's not how `pylint` rolls.
+#
+# Explanations:
+# invalid-name: For tests that have been renamed while disabled
+# consider-using-with: Maybe we should, as an optimisation. For now, I don't care.
+#
+disable=no-self-use, invalid-name, consider-using-with
