@@ -64,7 +64,7 @@
   "Remove a schema version from the database"
   (declare (type neo4cl:neo4j-rest-server db)
            (type integer version))
-  (log-message :info (format nil "Atempting to delete schema version ~D from the database" version))
+  (log-message :info (format nil "Attempting to delete schema version ~D from the database" version))
   ;; Pre-flight checks
   (let* ((versions (list-schema-versions db))
          (current-version (cdr (assoc :current-version versions))))
@@ -85,26 +85,26 @@
           (format nil "Requested version ~A is not current version ~A. Taking no action regaring current-version."
                   version current-version))))
   ;; If we've made it this far, we're good to go.
-  ;; Delete all relationships within this version
+  (log-message :debug (format nil "Deleting relationships in schema version ~A" version))
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
         ((:STATEMENT
            .  ,(format nil "MATCH (:RgSchema { name: 'root' })-[:VERSION]->(:RgSchemaVersion { createddate: ~D })-[:HAS]->(:RgResourceType)<-[:SOURCE]-(r:RgRelationship) DETACH DELETE r" version))))))
-  ;; Delete all resourcetype attributes
+  (log-message :debug (format nil "Deleting resourcetype attributes in schema version ~A" version))
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
         ((:STATEMENT
            .  ,(format nil "MATCH (:RgSchema { name: 'root' })-[:VERSION]->(:RgSchemaVersion { createddate: ~D })-[:HAS]->(:RgResourceType)-[:HAS]->(a:RgResourceTypeAttribute) DETACH DELETE a" version))))))
-  ;; Delete all resourcetypes
+  (log-message :debug (format nil "Deleting resourcetypes in schema version ~A" version))
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
         ((:STATEMENT
            .  ,(format nil "MATCH (:RgSchema { name: 'root' })-[:VERSION]->(:RgSchemaVersion { createddate: ~D })-[:HAS]->(t:RgResourceType)
                             DETACH DELETE t" version))))))
-  ;; Delete the version identifier
+  (log-message :debug (format nil "Deleting version identifier for schema version ~A" version))
   (neo4cl:neo4j-transaction
     db
     `((:STATEMENTS
