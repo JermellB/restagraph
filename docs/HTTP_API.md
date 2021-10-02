@@ -190,20 +190,22 @@ Server responses:
 
 ### DELETE - remove a schema version
 
-To remove a schema version, use an HTTP GET request against the Schema API, with the argument `version=<integer>`, e.g:
+To remove a schema version, use an HTTP GET request against the Schema API, with the argument `version=<integer>`. On success, the server will respond with 200/OK.
+
+Example with `curl`:
 
 ```
 curl -X PUT http://localhost:4950/schema/v1?version=3835709407
 ```
 
-If the requested version is the current version, the newest of the remaining versions will be set as the current version before the server begins deleting this one.
+If the requested version is the current version, the highest remaining version will be automatically set as the new current version.
 
 
 # The Raw API (resources)
 
 This is where you perform most CRUD operations on resources in the database. It´s called "raw" because it doesn´t have any domain-specific logic, like you find in the `files` API (described in the next section). It's expected to serve the majority of your interactions with a Restagraph system.
 
-This API operates on resources, and on the relationships between them. You can create and delete resources, fetch their current state, and update their attributes, and you can create and delete relationships between them. Which attributes are applicable to a given resource depends on its type, which is defined in the schema. Likewise, the schema determines what relationships can be created between any two resource-types.
+This API operates on resources ("things"), and on the relationships between them. You can create and delete resources, fetch their current state, and update their attributes, and you can create and delete relationships between them. Which attributes are applicable to a given resource depends on its type, which is defined in the schema. Likewise, the schema determines what relationships can be created between any two resource-types.
 
 HTTP return codes are used according to RFC7231, and the Content-type header is set according to whether text or JSON is being returned. As a rule, JSON will be returned on success, and plain text for anything else. The one salient exception is when deleting a resource or relationship, where the MIME-type is "text/plain" and the return code is `NO CONTENT`.
 
