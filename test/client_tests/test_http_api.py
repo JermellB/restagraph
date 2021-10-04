@@ -543,12 +543,23 @@ class TestDependentResources(unittest.TestCase):
     depres2rel = "ROOMS"
     depres2type = "Rooms"
     depres2uid = "Toolshed"
+    owner1type = "People"
+    owner1uid = "Frank"
     def test_dependent_resourcetypes_basic(self):
         # Add the test schema
         requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
         # Create the parent resource
-        assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
-                             data={"uid": self.res1uid}).status_code == 201
+        requests.post('%s/%s' % (API_BASE_URL, self.res1type), data={"uid": self.res1uid})
+        # Create the owner
+        requests.post('%s/%s' % (API_BASE_URL, self.owner1type), data={"uid": self.owner1uid})
+        # Connect the building to its owner
+        assert requests.post('%s/%s/%s/OWNER' % (API_BASE_URL, self.res1type, self.res1uid),
+                             data={"target": '/%s/%s' % (self.owner1type, self.owner1uid)}).status_code == 201
+        # Fail to connect the owner to the building because it isn't dependent
+        assert requests.post('%s/%s/%s/OWNS' % (API_BASE_URL, self.owner1type, self.owner1uid),
+                             data={"target": '/%s/%s' % (self.res1type, self.res1uid)}).status_code == 409
+        # Delete the owner
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.owner1type, self.owner1uid))
         # Create the dependent resource
         assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
                                               self.res1type,

@@ -3,7 +3,6 @@
   "resourcetypes": [
     {
       "name": "Buildings",
-      "dependent": "false",
       "description": "Individual buildings.",
       "attributes": [
         {
@@ -75,6 +74,14 @@
       "cardinality": "many:many",
       "dependent": false,
       "description": null
+    },
+    {
+      "source-type": "People",
+      "name": "OWNS",
+      "target-type": "People",
+      "cardinality": "many:many",
+      "dependent": true,
+      "description": "For testing whether resourcetypes default to non-dependent."
     },
     {
       "source-type": "Thingy",
