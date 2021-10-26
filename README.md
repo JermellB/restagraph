@@ -100,36 +100,78 @@ The core schema contains the essential resources and relationships on which the 
 
 ### Resource-types
 
-The types of things you can create via the API. If you're familiar with Object-Oriented Programming, resourcetypes are classes and resources are instances.
+The types of things you can create via the API. If you're familiar with Object-Oriented Programming, resourcetypes correspond to classes and resources equate to instances.
 
 The UID is a required attribute for all resourcetypes; you can't create a resource without one, so it isn't explicitly mentioned in the schema.
 
-Attributes built into every resource:
+Attributes built into every resourcetype:
 
-- the UID (Unique IDentifier).
-  - This is how the resource is addressed via the API, so it needs to be UID-safe. Restagraph automatically sanitises these on the way in.
-- whether it's a dependent type.
-  - Dependent types only exist in relation to another resource. E.g, a room only exists in the context of a building.
-- notes about the resource-type, i.e. what kind of thing it represents, and how it's intended to be used.
+- The name
+    - This is how the resourcetype is addressed via the API, so it needs to be UID-safe.
+    - Following the [Neo4j naming conventions](https://neo4j.com/docs/cypher-manual/current/syntax/naming/), resourcetype names should be in PascalCase.
+- Whether it's a dependent type
+    - Dependent types only exist in relation to another resource. E.g, a room only exists in the context of a building.
+- Notes about the resource-type, i.e. what kind of thing it represents, and how it's intended to be used.
 
-Resourcetypes can have any number of user-defined attributes. Each attribute is defined with three characteristics:
+Resourcetypes can have any number of user-defined attributes. Each of these is defined with three characteristics:
 - `name`
+    - These are not specified in the Neo4j conventions, so I've gone with lowercase.
 - `description`
-  - This only appears in the schema. It's for clarifying what the attribute is for, or how it's to be used.
+    - This only appears in the schema. It's for clarifying what the attribute is for, or how it's to be used.
 - `values` is an optional list of acceptable values for an attribute. If it's not set, it has no effect.
-  - It's a comma-separated list of values, which turns the attribute into a kind of enum. If it's defined, the API will only accept values in this list when setting the attribute's value.
+    - It's a comma-separated list of values, which turns the attribute into a kind of enum. If it's defined, the API will only accept values in this list when setting the attribute's value.
 
 
 ### Relationships between resource-types
 
-These define the relationships that the API will allow you to create from one resourcetype to another.
+These define the relationships that the API will allow you to create from one resourcetype to another. Note that they're directional.
 
-These are directional, and the `dependent` attribute determines whether they can be used to create a dependent resourcetype.
+Mandatory attributes, which must be specified when defining one of these:
+
+- `name` = the name used when referring to this relationship in a URI.
+    - Following the [Neo4j naming conventions](https://neo4j.com/docs/cypher-manual/current/syntax/naming/), relationship names should be in `SCREAMING_SNAKE_CASE`.
+        - This has nothing to do with it being the coolest case-name in the history of case-names, but it's a pleasing coincidence.
+- `sourcetype` = the resourcetype that the relationship is _from_.
+- `target-type` = the resourcetype it connects _to_.
+- `cardinality` = how many relationships of this kind are to be permitted from an instance of the `sourcetype`, and how many to an instance of the `target-type`. Valid options are
+    - `many:many`
+    - `1:many`
+    - `many:1`
+    - `1:1`
+
+Optional attributes:
+
+- `dependent` = whether this relationship is from a parent resource to a dependent one.
+    - default is `false`
+- `notes` = descriptive text, clarifying the intended meaning/purpose of this relationship.
+    - default is `null`
 
 
-## Naming conventions
+### Resources
 
-The names of resourcetypes and relationships follow the [Neo4j naming conventions](https://neo4j.com/docs/cypher-manual/current/syntax/naming/), which recommends PascalCase for labels (RG uses labels to identify the resourcetype of resources) and `SCREAMING_SNAKE_CASE` for relationships. The convention says nothing about attributes, so all lower-case is used here.
+That is, instances of a resourcetype. Their attributes are:
+
+- The UID (Unique IDentifier)
+    - This is how the resource is addressed via the API, so it needs to be UID-safe. Restagraph automatically sanitises these on the way in.
+    - This is the only attribute you're _required_ to specify, when you create a resource.
+- Original UID
+    - The un-sanitised version of the requested UID, regardless of whether it's different from the sanitised version.
+    - This is autogenerated, so you don't need to (or get to) specify it.
+- Creation date/time
+    - A datestamp in Unix epoch time, i.e. seconds since midnight at the start of January 01 1970, recording the time at which this resource was created.
+    - Another autogenerated attribute.
+- Last-modified date/time
+    - Also a datestamp, in the same format as `createddate`. This records the last time this resource was changed.
+- User-defined attributes
+    - Whatever attributes are defined in the schema.
+    - These can be set when you create the resource with a POST request, or via PUT at any time after that.
+
+
+### Relationships between resources
+
+The simplest of the lot, because they have no user-serviceable attributes inside.
+
+Created via POST, as long as they meet the constraints defined in the schema _at that moment in time_.
 
 
 # Test suite
