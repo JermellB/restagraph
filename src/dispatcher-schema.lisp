@@ -101,62 +101,86 @@
                  (setf (tbnl:return-code*) tbnl:+http-not-found+)
                  "This version doesn't exist")))))
         ((equal (tbnl:request-method*) :POST)
-         (progn
-           ;; Log diagnostic stuff first
-           (log-message :debug (format nil "Content-type: ~A" (tbnl:header-in* "Content-type")))
-           (log-message :debug (format nil "Received POST parameters ~A"
-                                       (mapcar #'car (tbnl:post-parameters*))))
-           (log-message :debug (format nil "Length of schema parameter: ~D"
-                                       (length (tbnl:post-parameter "schema"))))
-           (log-message :debug (format nil "Type of schema parameter: ~D"
-                                       (type-of (tbnl:post-parameter "schema"))))
-           ;; Create a new schema-version
-           (when (equal "true" (tbnl:post-parameter "create"))
-             (progn
-               (log-message :info "Received request to create new schema")
-               ;; Create the new version-root
-               (let ((version (create-new-schema-version (datastore tbnl:*acceptor*))))
-                 ;; Install the core schema
-                 (log-message
-                   :info
-                   (format nil "Created new schema version ~D. Installing core schema."version))
-                 (install-subschema (datastore tbnl:*acceptor*) *core-schema* version))
-               ;; Reload the in-memory schema
-               ;; Do this even if a new subschema has been uploaded, for robustness:
-               ;; if the upload fails, the server should still have a working schema.
-               (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*)))))
-           ;; Upload a schema to install in the db
-           ;; Expects URL-encoded file upload, as in this example:
-           ;; curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
-           (when (tbnl:post-parameter "schema")
-             (log-message :info "Received schema for upload.")
-             (let ((schemasource (tbnl:post-parameter "schema")))
-               (if
-                 (install-uploaded-schema
-                   ;; Adapt to either file or inline data (string)
-                   (if (stringp schemasource) (cl-json:decode-json-from-string schemasource)
-                     (cl-json:decode-json-from-source (first schemasource)))
-                   (datastore tbnl:*acceptor*))
-                 (progn
-                   (log-message :info "Successfull installed uploaded schema; reloading.")
-                   (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*))))
-                 (progn
-                   (setf (tbnl:content-type*) "text/plain")
-                   (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
-                   "That... did not go as planned."))))
-           ;; Return an appropriate response code
-           (if (or (equal "true" (tbnl:post-parameter "create"))
-                   (tbnl:post-parameter "schema"))
-             ;; If there was something to do and we got this far, report success
-             (progn
-               (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               "Created")
-             ;; Nothing to do; we're good
-             (progn
-               (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-ok+)
-               "OK"))))
+         (handler-case
+           (progn
+             ;; Log diagnostic stuff first
+             (log-message :debug (format nil "Content-type: ~A" (tbnl:header-in* "Content-type")))
+             (log-message :debug (format nil "Received POST parameters ~A"
+                                         (mapcar #'car (tbnl:post-parameters*))))
+             (log-message :debug (format nil "Length of schema parameter: ~D"
+                                         (length (tbnl:post-parameter "schema"))))
+             (log-message :debug (format nil "Type of schema parameter: ~D"
+                                         (type-of (tbnl:post-parameter "schema"))))
+             ;; Create a new schema-version
+             (when (equal "true" (tbnl:post-parameter "create"))
+               (progn
+                 (log-message :info "Received request to create new schema")
+                 ;; Create the new version-root
+                 (let ((version (create-new-schema-version (datastore tbnl:*acceptor*))))
+                   ;; Install the core schema
+                   (log-message
+                     :info
+                     (format nil "Created new schema version ~D. Installing core schema."version))
+                   (install-subschema (datastore tbnl:*acceptor*) *core-schema* version))
+                 ;; Reload the in-memory schema
+                 ;; Do this even if a new subschema has been uploaded, for robustness:
+                 ;; if the upload fails, the server should still have a working schema.
+                 (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*)))))
+             ;; Upload a schema to install in the db
+             ;; Expects URL-encoded file upload, as in this example:
+             ;; curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
+             (when (tbnl:post-parameter "schema")
+               (log-message :info "Received schema for upload.")
+               (let ((schemasource (tbnl:post-parameter "schema")))
+                 (if
+                   (install-uploaded-schema
+                     ;; Adapt to either file or inline data (string)
+                     (if (stringp schemasource) (cl-json:decode-json-from-string schemasource)
+                       (cl-json:decode-json-from-source (first schemasource)))
+                     (datastore tbnl:*acceptor*))
+                   (progn
+                     (log-message :info "Successfull installed uploaded schema; reloading.")
+                     (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*))))
+                   (progn
+                     (setf (tbnl:content-type*) "text/plain")
+                     (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                     "That... did not go as planned."))))
+             ;; Return an appropriate response code
+             (if (or (equal "true" (tbnl:post-parameter "create"))
+                     (tbnl:post-parameter "schema"))
+               ;; If there was something to do and we got this far, report success
+               (progn
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 "Created")
+               ;; Nothing to do; we're good
+               (progn
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-ok+)
+                 "OK")))
+           (neo4cl:database-error
+             (e)
+             (let ((message (format nil "~A.~A: ~A"
+                                    (neo4cl:category e)
+                                    (neo4cl:title e)
+                                    (neo4cl:message e))))
+               (log-message :error message)
+               (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+               message))
+           (neo4cl:client-error
+             (e)
+             (let ((message (format nil "~A.~A: ~A"
+                                    (neo4cl:category e)
+                                    (neo4cl:title e)
+                                    (neo4cl:message e))))
+               (log-message :error message)
+               (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+               message))
+           (error (e)
+                  (let ((message (format nil "~A" e)))
+                    (log-message :error message)
+                    (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
+                    message))))
         ;; Delete a schema-version
         ((and (equal (tbnl:request-method*) :DELETE)
               (integerp (parse-integer (tbnl:parameter "version") :junk-allowed t)))
