@@ -195,6 +195,6 @@ There's more in the `docs` folder in this repo.
 
 - For more detail about the HTTP API, read [docs/HTTP_API.md](docs/HTTP_API.md).
 - The IPAM API (IP Address Management) gets a separate file: [docs/IPAM_API.md](docs/IPAM_API.md).
-- For information aobut the access-control mechanism, read [Access-control.md](Access-control.md).
+- For information aobut the access-control mechanism, read [docs/Access-control.md](docs/Access-control.md).
 
 You may also want to look over the core schema (`src/core-schema.lisp`) to see what's installed by default before you add anything else.
