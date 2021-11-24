@@ -15,15 +15,16 @@ There is explicit support for dependent resources, i.e. resources that only make
 
 ## Benefits, a.k.a. the point of this thing
 
-- Data integrity: it ensures that the data that goes _in_ to a Neo4j database has a consistent structure.
+- Consistent data structure: it ensures that the data that goes _in_ to a Neo4j database follows a consistent and predictable structure.
 - Language independence: the REST API means that any language can be used to build applications on top of this structure.
+- Development speed: with a single JSON file, you define both the database schema and the API.
 
 
 ## Why use a graph database?
 
 Referential flexibility, in short: this is built for a type of problem for which graph databases are perfectly suited, and for which relational databases are not well suited at all.
 
-The author is very fond of relational databases, but found one of their natural limitations while developing [Syscat](https://github.com/equill/syscat): if you want to be able to link one type of thing to any number of other types of things without giving up referential integrity, you start drowning in many-to-many tables and the DBMS starts grinding to a halt.
+Relational databases are a great fit for many use-cases, but I found one of their natural limitations while developing [Syscat](https://github.com/equill/syscat): if you want to be able to link one type of thing to any number of other types of things without giving up referential integrity, you start drowning in many-to-many tables and the DBMS starts grinding to a halt.
 
 
 ## Where to get it
@@ -35,7 +36,9 @@ Docker images are [Docker hub](https://hub.docker.com/repository/docker/equill/r
 
 ## License
 
-Not yet chosen, but the short version: you're free to use it, and you're free to build on it. If you extend the code itself, I expect you to share your changes.
+GPLv3.
+
+My intention: you're free to use it, and you're free to build on it. If you extend the code itself, I expect you to share your changes.
 
 
 # Quick start
@@ -43,15 +46,21 @@ Not yet chosen, but the short version: you're free to use it, and you're free to
 It's a Docker system, comprising two images: the database and the application server.
 
 - Download `https://github.com/equill/restagraph/blob/develop/scripts/docker/docker-compose.yml`
+- Check what address you've configured Docker to listen on. This documentation asssumes 192.0.2.1, so if your system uses a different address, remember to make that change as you follow along.
+    - To make sure of it, create a file at `/etc/docker/daemon.json` with the contents `{ "bip": "192.0.2.1/24" }`
+    - Why this subnet? It's reserved for testing and documentation, per [RFC5727](https://datatracker.ietf.org/doc/html/rfc5737) so it's unlikely to collide with anything you're actually using. It actually specifies three subnets for this purpose, so you can take your pick:
+        - 192.0.2.0/24 (TEST-NET-1)
+        - 198.51.100.0/24 (TEST-NET-2)
+        - 203.0.113.0/24 (TEST-NET-3)
 - Create two local Docker volumes, one for the database and one for storing uploaded files:
     - `docker volume create -d local rgtestfiles`
     - `docker volume create -d local rgtestdata`
 - If your Docker tooling doesn't do this for you, pre-download the latest docker images for `equill/restagraph` (the application itself) and `neo4j` (the database server). Use the versions referrred to in `docker-compose.yml`, because that's the definitive reference.
 - Start it up with this command: `docker stack deploy -c docker-compose.yml rgtest`
 
-After short delay, it should be available on `http://10.255.0.1:4952/` (depending on your computer's Docker network configs).
+After short delay, it should be available on `http://192.0.2.1:4952/` (depending on your computer's Docker network configs).
 
-To inspect the built-in schema: `curl http://10.255.0.1:4965/schema/v1`. It's output is not human-friendly, so you'll probably want to install the wonderful JSON-querying utility [jq](https://stedolan.github.io/jq/), and pipe the output through that for pretty-printing: `curl http://10.255.0.1:4965/schema/v1 | jq .` (don't forget the trailing dot, which tells `jq` to print everything from the document-root down). All the documentation for Restagraph assumes that you've installed `jq`, but it's not _necessary_ - it's just exceedingly helpful.
+To inspect the built-in schema: `curl http://192.0.2.1:4950/schema/v1`. It's output is not human-friendly, so you'll probably want to install the wonderful JSON-querying utility [jq](https://stedolan.github.io/jq/), and pipe the output through that for pretty-printing: `curl http://192.0.2.1:4950/schema/v1 | jq .` (don't forget the trailing dot, which tells `jq` to print everything from the document-root down). All the documentation for Restagraph assumes that you've installed `jq`, but it's not _necessary_ - it's just exceedingly helpful.
 
 When you look at the schema, pay attention to the `any` resourcetype. It's a special case: relationships from the `any` type can be created with, well, _any_ resourcetype as the source. E.g, you can link any resource in the database to a tag or a group. It's useful to note that the server only checks for a relationship from the source type to the target type _after_ checking for one between those two resourcetypes, which means, you can override or pre-empt the relationship from `any` and use it as a catch-all fallback.
 
@@ -60,29 +69,103 @@ You can change most of the details in `docker-compose.yml` to suit your own need
 
 ## Demo session
 
-The following sequence gives you an overview of what you can do with Restagraph. The one shortcoming is that it sticks within the core schema, which doesn't include any dependent resources.
+The following sequence gives you an overview of what you can do with Restagraph, using the familiar arena of movies, actors and directors.
 
-Create a person: `curl -X POST -d 'uid=James' http://10.255.0.1:4965/raw/v1/People`
+This uses two command-line tools:
 
-Look at the person you created: `curl http://10.255.0.1:4965/raw/v1/People/James`
+- `curl` - the canonical tool for using HTTP from the CLI.
+- `jq` - an incredibly useful tool for filtering JSON and presenting it in human-readable form. You'll see the output of each HTTP GET request piped through `jq` in this example, because it's just so much more readable.
+    - It's _useful_, not _required_, so you'll probably want to leave it out when you're piping the output into some other utility, unless you're using it for filtering.
+    - It's the reason for using `curl -s`, where the `-s` flag means "don't print out extra information about the HTTP request.
+    - The trailing dot in `jq .` _is_ significant: it tells `jq` to print out everything it receives, without filtering its input.
 
-Check all the characteristics of a `People` resource: `curl http://10.255.0.1:4965/raw/v1/People | jq .`
+A core schema is automatically installed, which includes people. You'll need to install the movies demo schema, though. Assuming it's listening on port 4950 on address 192.0.2.1, you can `cd` to the top of the repo, and upload it with the following command:
 
-Create a tag: `curl -X POST -d 'uid=developer' http://10.255.0.1:4965/raw/v1/Tags`
+    curl -X POST --data-urlencode schema@schemas/movies_demo.json http://192.0.2.1:4950/schema/v1
 
-Create another tag: `curl -X POST -d 'uid=sysadmin' http://10.255.0.1:4965/raw/v1/Tags`
+This demonstrates one of Restagraph's features: you can augment the schema and API at any time, by uploading more definitions.
 
-List all the tags in the database: `curl http://10.255.0.1:4965/raw/v1/Tags`
+Create a person:
 
-Tag the person: `curl -X POST -d 'target=/Tags/developer` http://10.255.0.1:4965/raw/v1/People/James/TAGS`
+    curl -X POST -d 'uid=Keanu Reeves' http://192.0.2.1:4950/raw/v1/People
 
-Take another look at the person you created: `curl http://10.255.0.1:4965/raw/v1/People/James | jq.`
+Look at the person you created:
 
-Give him another tag: `curl -X POST -d 'target=/Tags/sysadmin` http://10.255.0.1:4965/raw/v1/People/James/TAGS`
+    curl -s http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves | jq .
 
-List his tags: `curl http://10.255.0.1:4965/raw/v1/People/James/TAGS/Tags | jq.`
+Note that the space in his UID has become an underscore. Restagraph does this automatically, so that everything can be referred to by its URL, with as few issues as possible. You'll also see the UID that was originally requested, and the date and time at which this entry was created in seconds since 01 January 1970.
 
-List anything to which he has a TAGS relationship: `curl http://10.255.0.1:4965/raw/v1/People/James/TAGS | jq.` - note that each object in the result now shows its type. This may seem like a subtle distinction at first glance, but it demonstrates something fundamental to the way Restagraph works: you can define the same relationship from the same resourcetype to any number of target resourcetypes. As a trivial example, an organisation can have a CUSTOMERS relationship to people _and_ to other organisations.
+Check all the characteristics of a `People` resource:
+
+    curl http://192.0.2.1:4950/schema/v1/People | jq .
+
+We can add a display-name and a note to a person. We use PUT for this, because we're updating an attribute on an existing resource:
+
+    curl -X PUT -d 'displayname=Keanu Reeves' -d 'notes=May or may not be married to Winona Ryder.' http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves
+
+Look at him again, and now we see the extra details we just added:
+
+    curl -s http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves | jq .
+
+Now there's also an `updateddate` timestamp, so you can see when a resource was last changed, separately from when it was created.
+
+Add a movie he acted in:
+
+    curl -X POST -d 'uid=Dracula' -d 'year_released=1992' http://192.0.2.1:4950/raw/v1/Movies
+
+Now link them together, in both directions. Why _both_ directions? Because Restagraph enables you to trace paths through the graph with URLs, and I didn't see a practical way of embedding "follow this link backwards" in a URL.
+
+    curl -X POST -d 'target=/Movies/Dracula' http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves/ACTED_IN
+    curl -X POST -d 'target=/People/Keanu_Reeves' http://192.0.2.1:4950/raw/v1/Movies/Dracula/ACTORS
+
+OK, so what can we find out about movies? What does the schema say we can record about them?
+
+    curl -s http://192.0.2.1:4950/schema/v1/Movies | jq .
+
+That's a little more information than I really wanted. Let's use `jq` to filter out only the information about what relationships you can create from movies to other things:
+
+    curl -s http://192.0.2.1:4950/schema/v1/Movies | jq .relationships
+
+Actors and directors. OK, let's see who we already know acted in that movie?
+
+    curl -s http://192.0.2.1:4950/raw/v1/Movies/Dracula/ACTORS | jq .
+
+Keanu - what a surprise. But we already know he's a person (or a people), and right now we're only interested in the human actors in that movie anyway, so we have two reasons to ask for just the _people_ who acted in it:
+
+    curl -s http://192.0.2.1:4950/raw/v1/Movies/Dracula/ACTORS/People | jq .
+
+Ah, that's a little more compact. This seems kinda verbose either way, though, compared to a REST query. It's because Restagraph allows you to create the same kind of relationship to different things (a person might direct a movie, a TV show, or a music video). So it tells you explicitly about the type of each thing at the far end of the link, and you can ask for all the things of one particular type that this thing has some relationship to. It makes for some extra typing when you're doing this by hand, but who the heck does this kind of thing by hand when you can put a web page in front of it, or write a script to do it?
+
+Let's add another actor for that movie. This time, we'll include all the details while creating it, instead of adding them afterward:
+
+    curl -X POST -d 'uid=Winona Ryder' -d 'displayname=Winona Ryder' -d 'notes=May or may not be married to Keanu Reeves' http://192.0.2.1:4950/raw/v1/People
+    curl -X POST -d 'target=/Movies/Dracula' http://192.0.2.1:4950/raw/v1/People/Winona_Ryder/ACTED_IN
+    curl -X POST -d 'target=/People/Winona_Ryder' http://192.0.2.1:4950/raw/v1/Movies/Dracula/ACTORS
+
+Now she's in that movie, right?
+
+    curl -s http://192.0.2.1:4950/raw/v1/Movies/Dracula/ACTORS/People | jq .
+
+OK, we're looking good.
+
+But that's not all Winona's done, is it? She's been in other movies, and on TV as well:
+
+    curl -X POST -d 'uid=Beetlejuice' http://192.0.2.1:4950/raw/v1/Movies
+    curl -X POST -d 'target=/Movies/Beetlejuice' http://192.0.2.1:4950/raw/v1/People/Winona_Ryder/ACTED_IN
+    curl -X POST -d 'uid=Stranger Things' http://192.0.2.1:4950/raw/v1/TvSeries
+    curl -X POST -d 'target=/TvSeries/Stranger_Things' http://192.0.2.1:4950/raw/v1/People/Winona_Ryder/ACTED_IN
+
+OK, now let's look at what she's acted in:
+
+    curl -s http://192.0.2.1:4950/raw/v1/People/Winona_Ryder/ACTED_IN | jq .
+
+We see both movies and TV series, and now it becomes a little more clear just why these URLs include both the relationship _and_ the type of thing there's a relationship to. Let's see just the movies she's been in:
+
+    curl -s http://192.0.2.1:4950/raw/v1/People/Winona_Ryder/ACTED_IN/Movies | jq .
+
+Now just the TV series:
+
+    curl -s http://192.0.2.1:4950/raw/v1/People/Winona_Ryder/ACTED_IN/TvSeries | jq .
 
 
 # The schema - how it works

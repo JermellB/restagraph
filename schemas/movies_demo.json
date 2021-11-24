@@ -1,0 +1,57 @@
+{
+  "name": "movies_demo",
+  "resourcetypes": [
+    {
+      "name": "Movies",
+      "dependent": "false",
+      "notes": "Moving picture, usually including sound.",
+      "attributes": [
+        {
+          "name": "year_released",
+          "description": "The year in which this movie was first released.",
+          "values": null
+        }
+      ]
+    },
+    {
+      "name": "TvSeries",
+      "dependent": "false",
+      "notes": "Several episodes, sometimes even with seasons.",
+      "attributes": null
+    }
+  ],
+  "relationships": [
+    {
+      "source-type": "People",
+      "name": "ACTED_IN",
+      "target-type": "Movies",
+      "cardinality": "many:many",
+      "dependent": false,
+      "notes": "This person acted in that movie."
+    },
+    {
+      "source-type": "Movies",
+      "name": "ACTORS",
+      "target-type": "People",
+      "cardinality": "many:many",
+      "dependent": false,
+      "notes": "That person acted in this movie."
+    },
+    {
+      "source-type": "People",
+      "name": "ACTED_IN",
+      "target-type": "TvSeries",
+      "cardinality": "many:many",
+      "dependent": false,
+      "notes": "That person appeared in this series, at least once."
+    },
+    {
+      "source-type": "TvSeries",
+      "name": "ACTORS",
+      "target-type": "People",
+      "cardinality": "many:many",
+      "dependent": false,
+      "notes": "One of the characters in this series was played by that person."
+    }
+  ]
+}
