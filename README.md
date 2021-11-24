@@ -174,6 +174,14 @@ The simplest of the lot, because they have no user-serviceable attributes inside
 Created via POST, as long as they meet the constraints defined in the schema _at that moment in time_.
 
 
+### Inspect the schema
+
+For a graphic view of the current schema in the Neo4j browser, use this query:
+```
+MATCH (:RgSchema {name: "root"})-[:CURRENT_VERSION]->(:RgSchemaVersion)-[:HAS]->(s:RgResourceType)<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN s, t, r;
+```
+
+
 # Test suite
 
 Two test suites are included:
@@ -185,7 +193,8 @@ Two test suites are included:
 
 There's more in the `docs` folder in this repo.
 
-- For more detail about the HTTP API, read `docs/HTTP_API.md`.
-- The IPAM API (IP Address Management) gets a separate file: `docs/IPAM_API.md`.
+- For more detail about the HTTP API, read [docs/HTTP_API.md](docs/HTTP_API.md).
+- The IPAM API (IP Address Management) gets a separate file: [docs/IPAM_API.md](docs/IPAM_API.md).
+- For information aobut the access-control mechanism, read [Access-control.md](Access-control.md).
 
 You may also want to look over the core schema (`src/core-schema.lisp`) to see what's installed by default before you add anything else.
