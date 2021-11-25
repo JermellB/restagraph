@@ -254,10 +254,20 @@ class TestRelationshipsBasic(unittest.TestCase):
         # Setup
         requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
         requests.post('%s/Tags/' % (API_BASE_URL), data={"uid": self.tag1})
-        # Test
+        # Tag the person
         assert requests.post('%s/People/%s/TAGS' % (API_BASE_URL, self.person1),
                 data={"target": "/Tags/{tag}".format(tag=self.tag1)}).status_code == 201
-        # Teardown
+        # Confirm they've been tagged
+        assert len(requests.get('{base}/People/{person}/TAGS/Tags'.format(
+                base=API_BASE_URL, person=self.person1)).json()) == 1
+        # Remove the tag
+        assert requests.delete('{base}/People/{person}/TAGS'.format(
+                base=API_BASE_URL, person=self.person1),
+                data={"target": "/Tags/{tag}".format(tag=self.tag1)}).status_code == 204
+        # Confirm it's gone
+        assert len(requests.get('{base}/People/{person}/TAGS/Tags'.format(
+                base=API_BASE_URL, person=self.person1)).json()) == 0
+        # Teardown: delete the person and the tag
         assert requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 204
         assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
         # Confirm teardown

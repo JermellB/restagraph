@@ -80,7 +80,14 @@
                                              schema)
     ;; Confirm we get both tags back
     (fiveam:is (equal 2 (length (restagraph::get-resources *server* (format nil "/~A/~A/TAGS" restype uid)))))
-    ;; Delete the tags
+    ;; Remove the _relationship_ to one of the tags
+    (fiveam:is (restagraph::delete-relationship-by-path *server*
+                                                        schema
+                                                        (format nil "/People/~A/TAGS" uid)
+                                                        (format nil "/Tags/~A" tag1)))
+    ;; Confirm we now only have one tag there
+    (fiveam:is (equal 1 (length (restagraph::get-resources *server* (format nil "/~A/~A/TAGS" restype uid)))))
+    ;; Delete both tags
     (restagraph::delete-resource-by-path *server* (format nil "/Tags/~A" tag1) schema)
     (restagraph::delete-resource-by-path *server* (format nil "/Tags/~A" tag2) schema)
     ;; Delete it

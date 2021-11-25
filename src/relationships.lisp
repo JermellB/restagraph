@@ -164,8 +164,8 @@
          (dest-type (first dest-parts))
          (dest-uid (second dest-parts))
          (relationship-attrs
-           (car (or (get-relationship schema source-type relationship dest-type)
-                    (get-relationship schema "any" relationship dest-type)))))
+           (or (get-relationship schema source-type relationship dest-type)
+               (get-relationship schema "any" relationship dest-type))))
     (log-message :debug (format nil "Source type: ~A" source-type))
     (log-message :debug (format nil "Relationship: ~A" relationship))
     (log-message :debug (format nil "Dest type: ~A" dest-type))
