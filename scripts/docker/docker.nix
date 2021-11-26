@@ -23,7 +23,7 @@ let
 in
 pkgs.dockerTools.buildImage {
     name = "equill/restagraph";
-    tag = "0.7.0b3";
+    tag = "0.7.0b7";
     created = "now";
 
     contents = [
