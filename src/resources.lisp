@@ -59,7 +59,7 @@ Return an error if
             (let ((attributes (validate-resource-before-creating schema resourcetype attributes)))
               ;; If we got this far, we have a valid resource type and valid attribute names.
               ;; Make it happen
-              (log-message :debug (format nil "Creating a ~A resource with attributes ~A"
+              (log-message :debug (format nil "Creating a '~A' resource with attributes ~A"
                                           resourcetype attributes))
               (handler-case
                 (progn
