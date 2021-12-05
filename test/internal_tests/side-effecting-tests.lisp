@@ -135,6 +135,362 @@
       (restagraph::store-resource *server* schema invalid-type `(("uid" . ,invalid-uid)) admin-user))))
 
 (fiveam:test
+  resources-attributes-enums
+  :depends-on (and . ('resources-basic 'schema-versions))
+  "Enumerated attributes"
+  (let* ((schema-version (restagraph::create-new-schema-version *server*))
+         (admin-user "RgAdmin")
+         (attr1name "state")
+         (attr1desc "Whether the port is up or down.")
+         (attr1vals '("up" "down"))
+         (restype (restagraph::make-incoming-rtypes
+                    :name "switchport"
+                    :attributes (list (restagraph::make-incoming-rtype-attrs
+                                        :NAME attr1name
+                                        :DESCRIPTION attr1desc
+                                        :ATTR-VALUES attr1vals))))
+         (uid "eth1")
+         (attr1valgood "up")
+         (attr1valbad "mal"))
+    ;; Set up the fixtures
+    (restagraph::log-message :info ";TEST Set up the fixtures")
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema *server* restagraph::*core-schema* schema-version)
+    ;; Ensure we have this resourcetype
+    (restagraph::install-subschema-resourcetype *server* restype schema-version)
+    (let ((schema (restagraph::fetch-current-schema *server*)))
+      ;; Check the definition in the schema
+      (restagraph::log-message :info ";TEST Check the schema for the enum attribute")
+      (let ((reference (restagraph::make-schema-rtype-attrs
+                         :NAME attr1name
+                         :DESCRIPTION attr1desc
+                         :ATTR-VALUES attr1vals))
+            (retrieved (elt (restagraph::attributes (gethash (restagraph::name restype) schema)) 0)))
+        (fiveam:is (equalp (restagraph::name reference) (restagraph::name retrieved)))
+        (fiveam:is (equalp (restagraph::description reference) (restagraph::description retrieved)))
+        (fiveam:is (equalp (restagraph::attr-values reference) (restagraph::attr-values retrieved))))
+      ;; Make sure the test resource doesn't already exist
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A"
+                                                   (restagraph::name restype)
+                                                   uid)
+                                           schema)
+      ;; Fail to create a resource with an invalid value for the enum
+      (restagraph::log-message :info ";TEST Fail to create a resource with an invalid attribute")
+      (fiveam:signals restagraph::client-error
+        (restagraph::store-resource *server*
+                                    schema
+                                    (restagraph::name restype)
+                                    `(("uid" . ,uid)
+                                      (,attr1name . ,attr1valbad))
+                                    admin-user))
+      ;; Create a resource with a valid value for the enum
+      (restagraph::log-message :info ";TEST Create a resource with a valid attribute")
+      (fiveam:is
+        (restagraph::store-resource *server*
+                                    schema
+                                    (restagraph::name restype)
+                                    `(("uid" . ,uid) (,attr1name . ,attr1valgood))
+                                    admin-user))
+      ;; Confirm that we now have this resource with the expected value
+      (let ((attr-test (restagraph::get-resources
+                         *server*
+                         (format nil "/~A/~A"
+                                 (restagraph::name restype)
+                                 uid))))
+        (fiveam:is (equal uid
+                          (cdr (assoc :uid attr-test))))
+        (fiveam:is (equal attr1valgood
+                          (cdr (assoc
+                                 (intern (string-upcase attr1name) 'keyword)
+                                 attr-test)))))
+      ;; Remove it again
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A"
+                                                   (restagraph::name restype)
+                                                   uid)
+                                           schema)
+      ;; Create it without the attribute
+      (restagraph::store-resource *server*
+                                  schema
+                                  (restagraph::name restype)
+                                  `(("uid" . ,uid))
+                                  admin-user)
+      ;; Add the attribute
+      (fiveam:is (restagraph::update-resource-attributes
+                   *server*
+                   schema
+                   (list (restagraph::name restype) uid)
+                   `((,attr1name . ,attr1valgood))))
+      ;;Confirm that the attribute is present
+      (let ((attr-test (restagraph::get-resources
+                         *server*
+                         (format nil "/~A/~A"
+                                 (restagraph::name restype)
+                                 uid))))
+        (fiveam:is (equal uid
+                          (cdr (assoc :uid attr-test))))
+        (fiveam:is (equal attr1valgood
+                          (cdr (assoc
+                                 (intern (string-upcase attr1name) 'keyword)
+                                 attr-test)))))
+      ;; Remove the resource again
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A"
+                                                   (restagraph::name restype)
+                                                   uid)
+                                           schema)
+      ;; Confirm it's gone
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A"
+                                                   (restagraph::name restype)
+                                                   uid)
+                                           schema)
+      ;; Remove the fixtures
+      (restagraph::log-message :info ";TEST Remove the fixtures")
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A"
+                                                   (restagraph::name restype) uid)
+                                           schema)
+      (restagraph::delete-schema-version *server* schema-version))))
+
+(fiveam:test
+  resources-dependent-simple
+  :depends-on 'resources-basic
+  "Basic operations on dependent resources"
+  (let* ((schema-version (restagraph::create-new-schema-version *server*))
+         (admin-user "RgAdmin")
+         (child-type (restagraph::make-incoming-rtypes :name "Interfaces"
+                                                       :dependent t))
+         (relationship "INTERFACES")
+         (parent-type (restagraph::make-incoming-rtypes :name "Routers"))
+         (parent-rel (restagraph::make-incoming-rels :source-type (restagraph::name parent-type)
+                                                     :name relationship
+                                                     :dependent t
+                                                     :cardinality "1:many"
+                                                     :target-type (restagraph::name child-type)))
+         (parent-uid "bikini")
+         (child-uid "eth0")
+         (invalid-child-type "routers")
+         (invalid-child-uid "whitesands"))
+    ;; Create the fixtures
+    (restagraph::log-message :info ";TEST Create the fixtures")
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema *server* restagraph::*core-schema* schema-version)
+    ;; Install the new resourcetypes and relationship
+    (restagraph::install-subschema-resourcetype *server* child-type schema-version)
+    (restagraph::install-subschema-resourcetype *server* parent-type schema-version)
+    (restagraph::install-subschema-relationship *server* parent-rel schema-version)
+    (let ((schema (restagraph::fetch-current-schema *server*)))
+      ;; Fail to create a dependent resourcetype in isolation
+      (restagraph::log-message :info ";TEST Fail to create a dependent resource in isolation.")
+      (fiveam:signals restagraph::integrity-error
+        (restagraph::store-resource *server*
+                                    schema
+                                    (restagraph::name child-type)
+                                    `(("uid" . ,child-uid))
+                                    admin-user))
+      ;; Create the parent resource
+      (restagraph::log-message :info ";TEST Create the parent resource.")
+      (restagraph::store-resource *server*
+                                  schema
+                                  (restagraph::name parent-type)
+                                  `(("uid" . ,parent-uid))
+                                  admin-user)
+      ;; Create the dependent resource
+      (restagraph::log-message :debug (format nil ";TEST Create the dependent resource /~A/~A/~A/~A"
+                                              (restagraph::name parent-type)
+                                              parent-uid
+                                              relationship
+                                              (restagraph::name child-type)))
+      (multiple-value-bind (result code message)
+        (restagraph::store-dependent-resource
+          *server*
+          schema
+          (format nil "/~A/~A/~A/~A"
+                  (restagraph::name parent-type)
+                  parent-uid
+                  relationship
+                  (restagraph::name child-type))
+          `(("uid" . ,child-uid))
+          admin-user)
+        (declare (ignore result) (ignore message))
+        (fiveam:is (equal 200 code)))
+      ;; Confirm it's the only member of the parent's dependents
+      (restagraph::log-message :debug ";TEST confirm this is an only child")
+      (fiveam:is (equal `((,relationship
+                            ,(restagraph::name child-type)
+                            ,child-uid))
+                        (restagraph::get-dependent-resources
+                          *server*
+                          schema
+                          (list (restagraph::name parent-type) parent-uid))))
+      ;; Confirm we get the type when asking for all things with that relationship
+      (restagraph::log-message :debug ";TEST Confirm listing of types with all things with this relationship")
+      (let ((result (car
+                      (restagraph::get-resources
+                        *server*
+                        (format nil "/~A/~A/~A"
+                                (restagraph::name parent-type)
+                                parent-uid
+                                relationship)))))
+        (fiveam:is (assoc :TYPE result))
+        (fiveam:is (equal (restagraph::sanitise-uid (restagraph::name child-type))
+                          (cdr (assoc :TYPE result))))
+        (fiveam:is (assoc :UID result))
+        (fiveam:is (equal (restagraph::sanitise-uid child-uid)
+                          (cdr (assoc :UID result))))
+        (fiveam:is (assoc :ORIGINAL_UID result))
+        (fiveam:is (equal child-uid
+                          (cdr (assoc :ORIGINAL_UID result)))))
+      ;; Delete the dependent resource
+      (restagraph::log-message :debug ";TEST Delete the dependent resource")
+      (let ((child-path (format nil "/~A/~A/~A/~A/~A"
+                                (restagraph::name parent-type)
+                                parent-uid
+                                relationship
+                                (restagraph::name child-type)
+                                child-uid)))
+        (multiple-value-bind (result code message)
+          (restagraph::delete-resource-by-path *server* child-path
+                                               schema)
+          (declare (ignore result) (ignore message))
+          (fiveam:is (equal 200 code)))
+        ;; Confirm the dependent resource is gone
+        (restagraph::log-message :debug ";TEST Confirm the dependent resource is gone.")
+        (fiveam:is (null (restagraph::get-resources *server* child-path))))
+      ;; Attempt to create a child resource that isn't of a dependent type
+      (restagraph::log-message
+        :debug
+        (format nil ";TEST Fail to create a non-dependent child resource /~A/~A/~A/~A"
+                (restagraph::name parent-type)
+                parent-uid
+                relationship
+                invalid-child-type))
+      (fiveam:signals (restagraph::client-error "This is not a dependent resource type")
+        (restagraph::store-dependent-resource
+          *server*
+          schema
+          (format nil "/~A/~A/~A/~A"
+                  (restagraph::name parent-type)
+                  parent-uid
+                  relationship
+                  invalid-child-type)
+          `(("uid" . ,invalid-child-uid))
+          admin-user))
+      ;; Create the dependent resource yet again
+      (restagraph::log-message :debug ";TEST Sucessfully re-create the dependent resource")
+      (restagraph::store-dependent-resource
+        *server*
+        schema
+        (format nil "/~A/~A/~A/~A"
+                (restagraph::name parent-type)
+                parent-uid
+                relationship
+                (restagraph::name child-type))
+        `(("uid" . ,child-uid))
+        admin-user)
+      ;; Delete the parent resource
+      (restagraph::log-message :info ";TEST Recursively deleting the parent resource")
+      (restagraph::delete-resource-by-path
+        *server*
+        (format nil "/~A/~A" (restagraph::name parent-type) parent-uid)
+        schema
+        :recursive t)
+      ;; Confirm the dependent resource was recursively deleted with it
+      (restagraph::log-message :info ";TEST Confirm the parent resource is gone")
+      (fiveam:is (null (restagraph::get-resources
+                         *server*
+                         (format nil "/~A/~A" (restagraph::name parent-type)
+                                 parent-uid))))
+      (restagraph::log-message :info ";TEST Confirm the dependent resource is gone")
+      (fiveam:is (null (restagraph::get-resources
+                         *server*
+                         (format nil "/~A/~A" (restagraph::name child-type)
+                                 child-uid))))
+      ;; Remove the newly-created schema-version
+      (restagraph::delete-schema-version *server* schema-version))))
+
+(fiveam:test
+  resources-dependent-errors
+  :depends-on 'resources-dependent-simple
+  "Error conditions around creating/moving dependent resources"
+  (let* ((schema-version (restagraph::create-new-schema-version *server*))
+         (admin-user "RgAdmin")
+         (child1-type (restagraph::make-incoming-rtypes :name "Models"
+                                                        :dependent t))
+         (parent1-type (restagraph::make-incoming-rtypes :name "Makes"))
+         (parent1-rel (restagraph::make-incoming-rels :name "PRODUCES"
+                                                      :source-type (restagraph::name parent1-type)
+                                                      :target-type (restagraph::name child1-type)
+                                                      :dependent t
+                                                      :cardinality "1:many"))
+         (child1-uid "Synthetics")
+         (parent1-uid "Weyland-Yutani")
+         (bad-parent1-type (restagraph::make-incoming-rtypes :name "NewGroups"))
+         (bad-parent1-uid "Replicants"))
+    (restagraph::log-message :info ";TEST Create the fixtures")
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema *server* restagraph::*core-schema* schema-version)
+    ;; Add the test-specific resources and relationships
+    (restagraph::install-subschema-resourcetype *server* child1-type schema-version)
+    (restagraph::install-subschema-resourcetype *server* parent1-type schema-version)
+    (restagraph::install-subschema-relationship *server* parent1-rel schema-version)
+    (restagraph::install-subschema-resourcetype *server* bad-parent1-type schema-version)
+    ;; Fetch the updated schema definition and start the tests
+    (let ((schema (restagraph::fetch-current-schema *server*)))
+      ;; Create the feasible parent
+      (restagraph::store-resource *server*
+                                  schema
+                                  (restagraph::name parent1-type)
+                                  `(("uid" . ,parent1-uid))
+                                  admin-user)
+      ;; Create the child
+      (restagraph::store-dependent-resource
+        *server*
+        schema
+        (format nil "/~A/~A/~A/~A"
+                (restagraph::name parent1-type)
+                parent1-uid
+                (restagraph::name parent1-rel)
+                (restagraph::name child1-type))
+        `(("uid" . ,child1-uid))
+        admin-user)
+      ;; Create the infeasible parent
+      (restagraph::store-resource *server*
+                                  schema
+                                  (restagraph::name bad-parent1-type)
+                                  `(("uid" . ,bad-parent1-uid))
+                                  admin-user)
+      (restagraph::log-message :info ";TEST Try to move the child to an invalid parent")
+      (fiveam:signals
+        restagraph::client-error
+        (restagraph::move-dependent-resource
+          *server*
+          schema
+          (format nil "/~A/~A/~A/~A/~A"
+                  (restagraph::name parent1-type)
+                  parent1-uid
+                  (restagraph::name parent1-rel)
+                  (restagraph::name child1-type)
+                  child1-uid)
+          (format nil "/~A/~A"
+                  (restagraph::name bad-parent1-type)
+                  bad-parent1-uid)))
+      ;; Clean up
+      (restagraph::log-message :info ";TEST Delete the fixtures")
+      (restagraph::delete-resource-by-path
+        *server*
+        (format nil "/~A/~A" (restagraph::name parent1-type) parent1-uid)
+        schema
+        :recursive t)
+      (restagraph::delete-resource-by-path
+        *server*
+        (format nil "/~A/~A" (restagraph::name bad-parent1-type) bad-parent1-uid)
+        schema)
+      (restagraph::delete-schema-version *server* schema-version))))
+
+(fiveam:test
   character-encoding
   :depends-on 'resources-basic
   "Check handling of non-ASCII characters."
