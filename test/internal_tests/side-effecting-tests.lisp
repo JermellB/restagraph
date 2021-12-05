@@ -494,138 +494,149 @@
   character-encoding
   :depends-on 'resources-basic
   "Check handling of non-ASCII characters."
-  (let* ((schema (restagraph::make-schema-hash-table))
+  (let* ((schema-version (restagraph::create-new-schema-version *server*))
          (admin-user "RgAdmin")
          (attr1name "fullname")
-         (restype (restagraph::make-schema-rtypes
+         (restype (restagraph::make-incoming-rtypes
                     :name "Dogs"
-                    :attributes (list (restagraph::make-schema-rtype-attrs :name attr1name))))
+                    :attributes (list (restagraph::make-incoming-rtype-attrs :name attr1name))))
          (uid "Spot")
          (attr1val "Röver Edwárd Petrusky the fourth"))
     ;; Create a resource
     (restagraph::log-message :info ";TEST Set up the fixtures")
-    (setf (gethash (restagraph::name restype) schema) restype)
-    (restagraph::store-resource *server*
-                                schema
-                                (restagraph::name restype)
-                                `(("uid" . ,uid))
-                                admin-user)
-    ;; Add an attribute whose value has non-ASCII characters
-    (restagraph::log-message :info ";TEST Try to set the attribute")
-    (fiveam:is (restagraph::update-resource-attributes
-                 *server*
-                 schema
-                 (list (restagraph::name restype) uid)
-                 `((,attr1name . ,attr1val))))
-    ;; Verify that the same string is returned when we query it
-    (let ((result (restagraph::get-resources
-                    *server* (format nil "/~A/~A"
-                                     (restagraph::name restype) uid)))
-          (attr1kw (intern (string-upcase attr1name) 'keyword)))
-      (fiveam:is (assoc :UID result))
-      (fiveam:is (equal (restagraph::sanitise-uid uid)
-                        (cdr (assoc :UID result))))
-      (fiveam:is (assoc :ORIGINAL_UID result))
-      (fiveam:is (equal uid
-                        (cdr (assoc :ORIGINAL_UID result))))
-      (fiveam:is (assoc attr1kw result))
-      (fiveam:is (equal attr1val (cdr (assoc attr1kw result)))))
-    ;; Delete the resource
-    (restagraph::log-message :info ";TEST Remove the fixtures")
-    (restagraph::delete-resource-by-path *server*
-                                         (format nil "/~A/~A" (restagraph::name restype) uid)
-                                         schema)))
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema *server* restagraph::*core-schema* schema-version)
+    (restagraph::install-subschema-resourcetype *server* restype schema-version)
+    (let ((schema (restagraph::fetch-current-schema *server*)))
+      (restagraph::store-resource *server*
+                                  schema
+                                  (restagraph::name restype)
+                                  `(("uid" . ,uid))
+                                  admin-user)
+      ;; Add an attribute whose value has non-ASCII characters
+      (restagraph::log-message :info ";TEST Try to set the attribute")
+      (fiveam:is (restagraph::update-resource-attributes
+                   *server*
+                   schema
+                   (list (restagraph::name restype) uid)
+                   `((,attr1name . ,attr1val))))
+      ;; Verify that the same string is returned when we query it
+      (let ((result (restagraph::get-resources
+                      *server* (format nil "/~A/~A"
+                                       (restagraph::name restype) uid)))
+            (attr1kw (intern (string-upcase attr1name) 'keyword)))
+        (fiveam:is (assoc :UID result))
+        (fiveam:is (equal (restagraph::sanitise-uid uid)
+                          (cdr (assoc :UID result))))
+        (fiveam:is (assoc :ORIGINAL_UID result))
+        (fiveam:is (equal uid
+                          (cdr (assoc :ORIGINAL_UID result))))
+        (fiveam:is (assoc attr1kw result))
+        (fiveam:is (equal attr1val (cdr (assoc attr1kw result)))))
+      ;; Delete the resource
+      (restagraph::log-message :info ";TEST Remove the fixtures")
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A" (restagraph::name restype) uid)
+                                           schema)
+      (restagraph::delete-schema-version *server* schema-version))))
 
 (fiveam:test
   relationships
   :depends-on 'resources-basic
   "Basic operations on relationships between resources"
-  (let* ((schema (restagraph::make-schema-hash-table))
+  (let* ((schema-version (restagraph::create-new-schema-version *server*))
          (admin-user "RgAdmin")
-         (to-type (restagraph::make-schema-rtypes :name "Asn"))
-         (relationship "ASN")
-         (from-type (restagraph::make-schema-rtypes
-                      :name "Routers"
-                      :relationships
-                      (list (restagraph::make-schema-rels
-                              :name relationship
-                              :cardinality "many:many"
-                              :target-type to-type))))
+         (to-type (restagraph::make-incoming-rtypes :name "Asn"))
+         (from-type (restagraph::make-incoming-rtypes :name "Routers"))
+         (relationship (restagraph::make-incoming-rels :NAME "ASN"
+                                                     :SOURCE-TYPE (restagraph::name from-type)
+                                                     :CARDINALITY "many:many"
+                                                     :TARGET-TYPE (restagraph::name to-type)))
          (from-uid "bikini")
          (to-uid "64512"))
     ;; Create the fixtures
     (restagraph::log-message :info ";TEST Create the fixtures")
-    (setf (gethash (restagraph::name to-type) schema) to-type)
-    (setf (gethash (restagraph::name from-type) schema) from-type)
-    ;; Store the router
-    (restagraph::log-message :info ";TEST Creating the resources")
-    (restagraph::store-resource *server* schema (restagraph::name from-type) `(("uid" . ,from-uid)) admin-user)
-    ;; Create the interface
-    (restagraph::store-resource *server* schema (restagraph::name to-type) `(("uid" . ,to-uid)) admin-user)
-    ;; Create a relationship between them
-    (restagraph::log-message :info (format nil ";TEST Create the relationship /~A/~A/~A/~A/~A"
-                                          (restagraph::name from-type)
-                                          from-uid
-                                          relationship
-                                          (restagraph::name to-type)
-                                          to-uid))
-    (multiple-value-bind (result code message)
-      (restagraph::create-relationship-by-path
-        *server*
-        (format nil "/~A/~A/~A"
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema *server* restagraph::*core-schema* schema-version)
+    ;; Add the new resourcetypes and relationships
+    (restagraph::install-subschema-resourcetype *server* from-type schema-version)
+    (restagraph::install-subschema-resourcetype *server* to-type schema-version)
+    (restagraph::install-subschema-relationship *server* relationship schema-version)
+    (let ((schema (restagraph::fetch-current-schema *server*)))
+      ;; Store the router
+      (restagraph::log-message :info ";TEST Creating the resources")
+      (restagraph::store-resource *server* schema (restagraph::name from-type) `(("uid" . ,from-uid)) admin-user)
+      ;; Create the interface
+      (restagraph::store-resource *server* schema (restagraph::name to-type) `(("uid" . ,to-uid)) admin-user)
+      ;; Create a relationship between them
+      (restagraph::log-message :info (format nil ";TEST Create the relationship /~A/~A/~A/~A/~A"
+                                             (restagraph::name from-type)
+                                             from-uid
+                                             (restagraph::name relationship)
+                                             (restagraph::name to-type)
+                                             to-uid))
+      (multiple-value-bind (result code message)
+        (restagraph::create-relationship-by-path
+          *server*
+          (format nil "/~A/~A/~A"
+                  (restagraph::name from-type)
+                  from-uid
+                  (restagraph::name relationship))
+          (format nil "/~A/~A"
+                  (restagraph::name to-type)
+                  to-uid)
+          schema)
+        (declare (ignore result) (ignore message))
+        (fiveam:is (equal 200 code)))
+      ;; Confirm the relationship is there
+      (restagraph::log-message
+        :info
+        (format nil ";TEST Confirm the list of resources at the end of /~A/~A/~A"
                 (restagraph::name from-type)
                 from-uid
-                relationship)
-        (format nil "/~A/~A"
-                (restagraph::name to-type)
-                to-uid)
-        schema)
-      (declare (ignore result) (ignore message))
-      (fiveam:is (equal 200 code)))
-    ;; Confirm the relationship is there
-    (restagraph::log-message
-      :info
-      (format nil ";TEST Confirm the list of resources at the end of /~A/~A/~A"
-              (restagraph::name from-type)
-              from-uid
-              relationship))
-    (let ((result (car (restagraph::get-resources
-                         *server*
-                         (format nil "/~A/~A/~A" (restagraph::name from-type) from-uid relationship)))))
-      (fiveam:is (equal (restagraph::name to-type)
-                        (cdr (assoc :TYPE result))))
-      (fiveam:is (equal to-uid (cdr (assoc :UID result)))))
-    ;; Delete the relationship
-    (restagraph::log-message :info (format nil ";TEST Delete the relationship from /~A/~A/~A to /~A/~A"
-                                          (restagraph::name from-type)
-                                          from-uid
-                                          relationship
-                                          (restagraph::name to-type)
-                                          to-uid))
-    (multiple-value-bind (result code message)
-      (restagraph::delete-relationship-by-path
-        *server*
-        schema
-        (format nil "/~A/~A/~A" (restagraph::name from-type) from-uid relationship)
-        (format nil "/~A/~A" (restagraph::name to-type) to-uid))
-      (declare (ignore result))
-      (restagraph::log-message :debug (format nil "Result of deletion request: ~A - ~A" code message))
-      (fiveam:is (equal 200 code)))
-    ;; Delete the router
-    (restagraph::log-message :info ";TEST Cleanup: removing the resources")
-    (restagraph::delete-resource-by-path *server*
-                                        (format nil "/~A/~A" (restagraph::name from-type) from-uid)
-                                        schema)
-    ;; Delete the interface
-    (restagraph::delete-resource-by-path *server*
-                                        (format nil "/~A/~A" (restagraph::name to-type) to-uid)
-                                        schema)))
+                relationship))
+      (let ((result (car (restagraph::get-resources
+                           *server*
+                           (format nil "/~A/~A/~A"
+                                   (restagraph::name from-type)
+                                   from-uid
+                                   (restagraph::name relationship))))))
+        (fiveam:is (equal (restagraph::name to-type)
+                          (cdr (assoc :TYPE result))))
+        (fiveam:is (equal to-uid (cdr (assoc :UID result)))))
+      ;; Delete the relationship
+      (restagraph::log-message :info (format nil ";TEST Delete the relationship from /~A/~A/~A to /~A/~A"
+                                             (restagraph::name from-type)
+                                             from-uid
+                                             (restagraph::name relationship)
+                                             (restagraph::name to-type)
+                                             to-uid))
+      (multiple-value-bind (result code message)
+        (restagraph::delete-relationship-by-path
+          *server*
+          schema
+          (format nil "/~A/~A/~A" (restagraph::name from-type) from-uid (restagraph::name relationship))
+          (format nil "/~A/~A" (restagraph::name to-type) to-uid))
+        (declare (ignore result))
+        (restagraph::log-message :debug (format nil "Result of deletion request: ~A - ~A" code message))
+        (fiveam:is (equal 200 code)))
+      ;; Delete the router
+      (restagraph::log-message :info ";TEST Cleanup: removing the resources")
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A" (restagraph::name from-type) from-uid)
+                                           schema)
+      ;; Delete the interface
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A" (restagraph::name to-type) to-uid)
+                                           schema)
+      ;; Delete the new schema-version
+      (restagraph::delete-schema-version *server* schema-version))))
 
 (fiveam:test
   relationships-to-any
   :depends-on 'relationships
   "Confirm that we can create relationships with a defined target of 'any',
-  but can't create 'just any' relationship."
+   but can't create 'just any' relationship."
   (let ((source-type "Test")
         (newrel "FROBS")
         (source-uid "Whoomp")
@@ -633,7 +644,9 @@
         (target-uid "ThereItIs")
         ;(invalid-sourcetype "People")
         (admin-user "RgAdmin")
-        (schema-version (restagraph::current-schema-version *server*)))
+        (schema-version (restagraph::create-new-schema-version *server*)))
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema *server* restagraph::*core-schema* schema-version)
     ;; Define a relationship with a target-resource of "any".
     ;; To keep things simple, create a new type altogether as its source-type.
     (restagraph::install-subschema-resourcetype
@@ -667,109 +680,129 @@
                                                  schema))
       ;; Delete the test instances
       (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" source-type source-uid) schema)
-      (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" target-type target-uid) schema))))
+      (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" target-type target-uid) schema))
+    ;; Delete the temporary schema-version
+    (restagraph::delete-schema-version *server* schema-version)))
 
 (fiveam:test
   relationships-integrity
   :depends-on 'relationships
   "Basic operations on relationships between resources"
-  (let* ((schema (restagraph::make-schema-hash-table))
+  (let* ((schema-version (restagraph::create-new-schema-version *server*))
          (admin-user "RgAdmin")
-         (to-type (restagraph::make-schema-rtypes :name "asn"))
-         (relationship "Asn")
-         (from-type (restagraph::make-schema-rtypes
-                      :name "routers"
-                      :relationships
-                      (list (restagraph::make-schema-rels
-                              :name relationship
-                              :cardinality "many:many"
-                              :target-type to-type))))
+         (from-type (restagraph::make-incoming-rtypes :name "Routers"))
+         (to-type (restagraph::make-incoming-rtypes :name "Asn"))
+         (relationship
+           (restagraph::make-incoming-rels
+             :NAME "ASN"
+             :CARDINALITY "many:many"
+             :SOURCE-TYPE (restagraph::name from-type)
+             :TARGET-TYPE (restagraph::name to-type)))
          (from-uid "bikini")
          (to-uid "64512"))
     ;; Create the fixtures
     (restagraph::log-message :info ";TEST Create the fixtures")
-    (setf (gethash (restagraph::name to-type) schema) to-type)
-    (setf (gethash (restagraph::name from-type) schema) from-type)
-    ;; Create the resources
-    (restagraph::log-message :info ";TEST Creating the resources")
-    (restagraph::store-resource *server* schema (restagraph::name from-type) `(("uid" . ,from-uid)) admin-user)
-    ;; Create the interface
-    (restagraph::store-resource *server* schema (restagraph::name to-type) `(("uid" . ,to-uid)) admin-user)
-    ;; Create a relationship between them
-    (restagraph::log-message :info ";TEST Create a relationship between them")
-    (multiple-value-bind (result code message)
-      (restagraph::create-relationship-by-path
-        *server*
-        (format nil "/~A/~A/~A" (restagraph::name from-type) from-uid relationship)
-        (format nil "/~A/~A" (restagraph::name to-type) to-uid)
-        schema)
-      (declare (ignore result) (ignore message))
-      (fiveam:is (equal 200 code)))
-    ;; Confirm the relationship is there
-    (restagraph::log-message :info ";TEST Confirm that the relationship is there")
-    (let ((result (restagraph::get-resources *server*
-                                             (format nil "/~A/~A/~A"
-                                                     (restagraph::name from-type)
-                                                     from-uid
-                                                     relationship))))
-      (restagraph::log-message :debug (format nil "Received result ~A" result))
-      (fiveam:is (equal 4 (length (car result))))
-      (fiveam:is (assoc :TYPE (car result) :test #'equal))
-      (fiveam:is (equal (restagraph::name to-type)
-                        (cdr (assoc :TYPE (car result) :test #'equal))))
-      (fiveam:is (assoc :UID (car result) :test #'equal))
-      (fiveam:is (equal to-uid (cdr (assoc :UID (car result) :test #'equal)))))
-    ;; Confirm we get what we expect when checking what's at the end of the path
-    (restagraph::log-message :info ";TEST Confirm that we get what we expect at the end of the path.")
-    (let ((result (restagraph::get-resources *server*
-                                             (format nil "/~A/~A/~A"
-                                                     (restagraph::name from-type)
-                                                     from-uid
-                                                     relationship))))
-      (fiveam:is (equal 4 (length (car result))))
-      (fiveam:is (assoc :TYPE (car result)))
-      (fiveam:is (equal (restagraph::name to-type)
-                        (cdr (assoc :TYPE (car result)))))
-      (fiveam:is (assoc :UID (car result)))
-      (fiveam:is (equal to-uid (cdr (assoc :UID (car result))))))
-    ;; Attempt to create a duplicate relationship between them
-    (restagraph::log-message :info ";TEST Attempt to create a duplicate relationship.")
-    (fiveam:signals (restagraph::integrity-error
-                      (format nil "Relationship ~A already exists from ~A ~A to ~A ~A"
-                              relationship
-                              (restagraph::name from-type)
-                              from-uid
-                              (restagraph::name to-type)
-                              to-uid))
-      (restagraph::create-relationship-by-path
-        *server*
-        (format nil "/~A/~A/~A" (restagraph::name from-type) from-uid relationship)
-        (format nil "/~A/~A" (restagraph::name to-type) to-uid)
-        schema))
-    ;; Confirm we still only have one relationship between them
-    (restagraph::log-message :info ";TEST Confirm we still only have one relationship between them.")
-    (let ((result (restagraph::get-resources *server*
-                                             (format nil "/~A/~A/~A"
-                                                     (restagraph::name from-type)
-                                                     from-uid
-                                                     relationship))))
-      (fiveam:is (equal 4 (length (car result))))
-      (fiveam:is (assoc :TYPE (car result) :test #'equal))
-      (fiveam:is (equal (restagraph::name to-type)
-                        (cdr (assoc :TYPE (car result) :test #'equal))))
-      (fiveam:is (assoc :UID (car result) :test #'equal))
-      (fiveam:is (equal to-uid (cdr (assoc :UID (car result) :test #'equal)))))
-    ;; Delete the relationship
-    (restagraph::log-message :info ";TEST Delete the relationship.")
-    (multiple-value-bind (result code message)
-      (restagraph::delete-relationship-by-path
-        *server*
-        schema
-        (format nil "/~A/~A/~A/" (restagraph::name from-type) from-uid relationship)
-        (format nil "/~A/~A/" (restagraph::name to-type) to-uid))
-      (declare (ignore result) (ignore message))
-      (fiveam:is (equal 200 code)))
-    ;; Clean-up: delete the resources
-    (restagraph::log-message :info ";TEST Cleaning up: removing the resources")
-    (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" (restagraph::name from-type) from-uid) schema)
-    (restagraph::delete-resource-by-path *server* (format nil "/~A/~A" (restagraph::name to-type) to-uid) schema)))
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema *server* restagraph::*core-schema* schema-version)
+    ;; Install the new resourcetypes and relationship
+    (restagraph::install-subschema-resourcetype *server* from-type schema-version)
+    (restagraph::install-subschema-resourcetype *server* to-type schema-version)
+    (restagraph::install-subschema-relationship *server* relationship schema-version)
+    (let ((schema (restagraph::fetch-current-schema *server*)))
+      ;; Create the resources
+      (restagraph::log-message :info ";TEST Creating the resources")
+      (restagraph::store-resource *server*
+                                  schema
+                                  (restagraph::name from-type)
+                                  `(("uid" . ,from-uid))
+                                  admin-user)
+      ;; Create the interface
+      (restagraph::store-resource *server*
+                                  schema
+                                  (restagraph::name to-type)
+                                  `(("uid" . ,to-uid))
+                                  admin-user)
+      ;; Create a relationship between them
+      (restagraph::log-message :info ";TEST Create a relationship between them")
+      (multiple-value-bind (result code message)
+        (restagraph::create-relationship-by-path
+          *server*
+          (format nil "/~A/~A/~A" (restagraph::name from-type) from-uid (restagraph::name relationship))
+          (format nil "/~A/~A" (restagraph::name to-type) to-uid)
+          schema)
+        (declare (ignore result) (ignore message))
+        (fiveam:is (equal 200 code)))
+      ;; Confirm the relationship is there
+      (restagraph::log-message :info ";TEST Confirm that the relationship is there")
+      (let ((result (restagraph::get-resources *server*
+                                               (format nil "/~A/~A/~A"
+                                                       (restagraph::name from-type)
+                                                       from-uid
+                                                       (restagraph::name relationship)))))
+        (restagraph::log-message :debug (format nil "Received result ~A" result))
+        (fiveam:is (equal 4 (length (car result))))
+        (fiveam:is (assoc :TYPE (car result) :test #'equal))
+        (fiveam:is (equal (restagraph::name to-type)
+                          (cdr (assoc :TYPE (car result) :test #'equal))))
+        (fiveam:is (assoc :UID (car result) :test #'equal))
+        (fiveam:is (equal to-uid (cdr (assoc :UID (car result) :test #'equal)))))
+      ;; Confirm we get what we expect when checking what's at the end of the path
+      (restagraph::log-message :info ";TEST Confirm that we get what we expect at the end of the path.")
+      (let ((result (restagraph::get-resources *server*
+                                               (format nil "/~A/~A/~A"
+                                                       (restagraph::name from-type)
+                                                       from-uid
+                                                       (restagraph::name relationship)))))
+        (fiveam:is (equal 4 (length (car result))))
+        (fiveam:is (assoc :TYPE (car result)))
+        (fiveam:is (equal (restagraph::name to-type)
+                          (cdr (assoc :TYPE (car result)))))
+        (fiveam:is (assoc :UID (car result)))
+        (fiveam:is (equal to-uid (cdr (assoc :UID (car result))))))
+      ;; Attempt to create a duplicate relationship between them
+      (restagraph::log-message :info ";TEST Attempt to create a duplicate relationship.")
+      (fiveam:signals (restagraph::integrity-error
+                        (format nil "Relationship ~A already exists from ~A ~A to ~A ~A"
+                                (restagraph::name relationship)
+                                (restagraph::name from-type)
+                                from-uid
+                                (restagraph::name to-type)
+                                to-uid))
+        (restagraph::create-relationship-by-path
+          *server*
+          (format nil "/~A/~A/~A" (restagraph::name from-type) from-uid (restagraph::name relationship))
+          (format nil "/~A/~A" (restagraph::name to-type) to-uid)
+          schema))
+      ;; Confirm we still only have one relationship between them
+      (restagraph::log-message :info ";TEST Confirm we still only have one relationship between them.")
+      (let ((result (restagraph::get-resources *server*
+                                               (format nil "/~A/~A/~A"
+                                                       (restagraph::name from-type)
+                                                       from-uid
+                                                       (restagraph::name relationship)))))
+        (fiveam:is (equal 4 (length (car result))))
+        (fiveam:is (assoc :TYPE (car result) :test #'equal))
+        (fiveam:is (equal (restagraph::name to-type)
+                          (cdr (assoc :TYPE (car result) :test #'equal))))
+        (fiveam:is (assoc :UID (car result) :test #'equal))
+        (fiveam:is (equal to-uid (cdr (assoc :UID (car result) :test #'equal)))))
+      ;; Delete the relationship
+      (restagraph::log-message :info ";TEST Delete the relationship.")
+      (multiple-value-bind (result code message)
+        (restagraph::delete-relationship-by-path
+          *server*
+          schema
+          (format nil "/~A/~A/~A/" (restagraph::name from-type) from-uid (restagraph::name relationship))
+          (format nil "/~A/~A/" (restagraph::name to-type) to-uid))
+        (declare (ignore result) (ignore message))
+        (fiveam:is (equal 200 code)))
+      ;; Clean-up: delete the resources
+      (restagraph::log-message :info ";TEST Cleaning up: removing the resources")
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A" (restagraph::name from-type) from-uid)
+                                           schema)
+      (restagraph::delete-resource-by-path *server*
+                                           (format nil "/~A/~A" (restagraph::name to-type) to-uid)
+                                           schema))
+    ;; Delete the temporary schema-version
+    (restagraph::delete-schema-version *server* schema-version)))
