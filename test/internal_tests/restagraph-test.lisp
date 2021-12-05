@@ -27,3 +27,5 @@
                  :dbname (getf restagraph::*config-vars* :dbname)
                  :dbuser (getf restagraph::*config-vars* :dbusername)
                  :dbpasswd (getf restagraph::*config-vars* :dbpasswd)))
+
+(defparameter *admin-user* "RgAdmin")

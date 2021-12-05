@@ -61,7 +61,6 @@
         (tag2 "crewmember")
         (invalid-type "interfaces")
         (invalid-uid "eth0")
-        (admin-user "RgAdmin")
         (schema (restagraph::fetch-current-schema *server*)))
     ;; Confirm the resource isn't already present
     (restagraph::log-message :info ";TEST Confirm the resource isn't already present")
@@ -69,7 +68,7 @@
     ;; Store the resource
     (restagraph::log-message :info ";TEST Store the resource")
     (fiveam:is (equal (restagraph::sanitise-uid uid)
-                      (restagraph::store-resource *server* schema restype `(("uid" . ,uid)) admin-user)))
+                      (restagraph::store-resource *server* schema restype `(("uid" . ,uid)) *admin-user*)))
     ;; Confirm it's there
     ;; (Test get-resources with mod/3 == 2)
     (restagraph::log-message :info ";TEST Confirm the resource is present")
@@ -84,7 +83,7 @@
     (restagraph::log-message :info ";TEST Confirm refusal to create duplicate resources")
     (fiveam:signals
       (restagraph::integrity-error "Path already exists; refusing to create a duplicate.")
-      (restagraph::store-resource *server* schema restype `(("uid" . ,uid)) admin-user))
+      (restagraph::store-resource *server* schema restype `(("uid" . ,uid)) *admin-user*))
     ;; Confirm that there are two people (RgAdmin should be the other)
     ;; (Test get-resources with mod/3 == 1)
     (let ((people-list (restagraph::get-resources *server* (format nil "/~A" restype))))
@@ -92,8 +91,8 @@
     (fiveam:is (equal 2 (length people-list))))
     ;; Confirm that we get all resource at the end of a relationship
     ;; First, create the tags.
-    (restagraph::store-resource *server* schema "Tags" `(("uid" . ,tag1)) admin-user)
-    (restagraph::store-resource *server* schema "Tags" `(("uid" . ,tag2)) admin-user)
+    (restagraph::store-resource *server* schema "Tags" `(("uid" . ,tag1)) *admin-user*)
+    (restagraph::store-resource *server* schema "Tags" `(("uid" . ,tag2)) *admin-user*)
     (fiveam:is (equal tag1
                       (cdr (assoc :UID (restagraph::get-resources *server* (format nil "/Tags/~A" tag1))))))
     (fiveam:is (equal tag2
@@ -132,14 +131,13 @@
     (restagraph::log-message :info ";TEST Ensure we can't create an invalid type")
     (fiveam:signals
       (restagraph::client-error "No such resourcetype.")
-      (restagraph::store-resource *server* schema invalid-type `(("uid" . ,invalid-uid)) admin-user))))
+      (restagraph::store-resource *server* schema invalid-type `(("uid" . ,invalid-uid)) *admin-user*))))
 
 (fiveam:test
   errors-basic
   :depends-on 'resources-basic
   "Errors that can be triggered just by making a bad request"
   (let ((schema (restagraph::make-schema-hash-table))
-        (admin-user "RgAdmin")
         (invalid-resourcetype "IjustMadeThisUpNow")
         (valid-resourcetype "People"))
     ;; Create a resource of an invalid type
@@ -151,7 +149,7 @@
                                   schema
                                   invalid-resourcetype
                                   '((:foo . "bar"))
-                                  admin-user))
+                                  *admin-user*))
     ;; Create a resource of a valid type, but without a UID
     (restagraph::log-message :info ";TEST Creating a valid resource without a UID")
     (fiveam:signals (restagraph::client-error "UID must be supplied")
@@ -159,14 +157,13 @@
                                   schema
                                   valid-resourcetype
                                   '(("foo" . "bar"))
-                                  admin-user))))
+                                  *admin-user*))))
 
 (fiveam:test
   resources-attributes-enums
   :depends-on (and . ('resources-basic 'schema-versions))
   "Enumerated attributes"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (attr1name "state")
          (attr1desc "Whether the port is up or down.")
          (attr1vals '("up" "down"))
@@ -210,7 +207,7 @@
                                     (restagraph::name restype)
                                     `(("uid" . ,uid)
                                       (,attr1name . ,attr1valbad))
-                                    admin-user))
+                                    *admin-user*))
       ;; Create a resource with a valid value for the enum
       (restagraph::log-message :info ";TEST Create a resource with a valid attribute")
       (fiveam:is
@@ -218,7 +215,7 @@
                                     schema
                                     (restagraph::name restype)
                                     `(("uid" . ,uid) (,attr1name . ,attr1valgood))
-                                    admin-user))
+                                    *admin-user*))
       ;; Confirm that we now have this resource with the expected value
       (let ((attr-test (restagraph::get-resources
                          *server*
@@ -242,7 +239,7 @@
                                   schema
                                   (restagraph::name restype)
                                   `(("uid" . ,uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Add the attribute
       (fiveam:is (restagraph::update-resource-attributes
                    *server*
@@ -286,7 +283,6 @@
   :depends-on 'resources-basic
   "Basic operations on dependent resources"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (child-type (restagraph::make-incoming-rtypes :name "Interfaces"
                                                        :dependent t))
          (relationship "INTERFACES")
@@ -316,14 +312,14 @@
                                     schema
                                     (restagraph::name child-type)
                                     `(("uid" . ,child-uid))
-                                    admin-user))
+                                    *admin-user*))
       ;; Create the parent resource
       (restagraph::log-message :info ";TEST Create the parent resource.")
       (restagraph::store-resource *server*
                                   schema
                                   (restagraph::name parent-type)
                                   `(("uid" . ,parent-uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Create the dependent resource
       (restagraph::log-message :debug (format nil ";TEST Create the dependent resource /~A/~A/~A/~A"
                                               (restagraph::name parent-type)
@@ -340,7 +336,7 @@
                   relationship
                   (restagraph::name child-type))
           `(("uid" . ,child-uid))
-          admin-user)
+          *admin-user*)
         (declare (ignore result) (ignore message))
         (fiveam:is (equal 200 code)))
       ;; Confirm it's the only member of the parent's dependents
@@ -404,7 +400,7 @@
                   relationship
                   invalid-child-type)
           `(("uid" . ,invalid-child-uid))
-          admin-user))
+          *admin-user*))
       ;; Create the dependent resource yet again
       (restagraph::log-message :debug ";TEST Sucessfully re-create the dependent resource")
       (restagraph::store-dependent-resource
@@ -416,7 +412,7 @@
                 relationship
                 (restagraph::name child-type))
         `(("uid" . ,child-uid))
-        admin-user)
+        *admin-user*)
       ;; Delete the parent resource
       (restagraph::log-message :info ";TEST Recursively deleting the parent resource")
       (restagraph::delete-resource-by-path
@@ -443,7 +439,6 @@
   :depends-on 'resources-dependent-simple
   "Error conditions around creating/moving dependent resources"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (child1-type (restagraph::make-incoming-rtypes :name "Models"
                                                         :dependent t))
          (parent1-type (restagraph::make-incoming-rtypes :name "Makes"))
@@ -471,7 +466,7 @@
                                   schema
                                   (restagraph::name parent1-type)
                                   `(("uid" . ,parent1-uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Create the child
       (restagraph::store-dependent-resource
         *server*
@@ -482,13 +477,13 @@
                 (restagraph::name parent1-rel)
                 (restagraph::name child1-type))
         `(("uid" . ,child1-uid))
-        admin-user)
+        *admin-user*)
       ;; Create the infeasible parent
       (restagraph::store-resource *server*
                                   schema
                                   (restagraph::name bad-parent1-type)
                                   `(("uid" . ,bad-parent1-uid))
-                                  admin-user)
+                                  *admin-user*)
       (restagraph::log-message :info ";TEST Try to move the child to an invalid parent")
       (fiveam:signals
         restagraph::client-error
@@ -522,7 +517,6 @@
   :depends-on 'resources-dependent-errors
   "Basic operations on 2-layered dependent resources"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (parent-type (restagraph::make-incoming-rtypes :NAME "Routers"))
          (child-type (restagraph::make-incoming-rtypes :NAME "Interfaces"
                                                        :DEPENDENT t))
@@ -558,7 +552,7 @@
                                   schema
                                   (restagraph::name parent-type)
                                   `(("uid" . ,parent-uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Create the child resource
       (restagraph::log-message :info ";TEST Create the child resource")
       (restagraph::store-dependent-resource *server*
@@ -569,7 +563,7 @@
                                                     (restagraph::name relationship)
                                                     (restagraph::name child-type))
                                             `(("uid" . ,child-uid))
-                                            admin-user)
+                                            *admin-user*)
       ;; Create the grandchild resource
       (restagraph::log-message :info ";TEST Create the grandchild resource")
       (restagraph::store-dependent-resource
@@ -584,7 +578,7 @@
                 (restagraph::name child-relationship)
                 (restagraph::name grandchild-type))
         `(("uid" . ,grandchild-uid))
-        admin-user)
+        *admin-user*)
       ;; Delete the parent resource
       (restagraph::log-message :info ";TEST Recursively deleting the parent resource")
       (restagraph::delete-resource-by-path
@@ -623,7 +617,6 @@
   :depends-on 'resources-dependent-compound
   "Moving a dependent resource to a new parent"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (target-type (restagraph::make-incoming-rtypes :NAME "Ipv4Addresses"
                                                         :DEPENDENT t))
          (p2-type (restagraph::make-incoming-rtypes :name "Interfaces"
@@ -664,7 +657,7 @@
                                  schema
                                  (restagraph::name p1-type)
                                  `(("uid" . ,p1-uid))
-                                 admin-user)
+                                 *admin-user*)
       ;; Create second parent as dependent on the initial
       (restagraph::store-dependent-resource
         *server*
@@ -675,7 +668,7 @@
                 (restagraph::name p1-p2-rel)
                 (restagraph::name p2-type))
         `(("uid" . ,p2-uid))
-        admin-user)
+        *admin-user*)
       ;; Create the dependent resource to be moved
       (restagraph::store-dependent-resource
         *server*
@@ -686,7 +679,7 @@
                 (restagraph::name p1-target-rel)
                 (restagraph::name target-type))
         `(("uid" . ,target-uid))
-        admin-user)
+        *admin-user*)
       ;; Move the resource
       (restagraph::log-message
         :info
@@ -786,7 +779,6 @@
   :depends-on 'resources-basic
   "Confirm we can retrieve all resources of a given type"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (resourcetype (restagraph::make-incoming-rtypes :name "Routers"))
          (res1uid "amchitka")
          (res2uid "bikini")
@@ -807,7 +799,7 @@
                                  schema
                                  (restagraph::name resourcetype)
                                  `(("uid" . ,res1uid))
-                                 admin-user)
+                                 *admin-user*)
       ;; Confirm we now get a list containing exactly that resource
       (let ((result (restagraph::get-resources
                       *server*
@@ -822,7 +814,7 @@
                                   schema
                                   (restagraph::name resourcetype)
                                   `(("uid" . ,res2uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Confirm we now get a list containing both resources
       (let ((result (restagraph::get-resources
                       *server*
@@ -842,7 +834,7 @@
                                   schema
                                   (restagraph::name resourcetype)
                                   `(("uid" . ,res3uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Confirm we now get a list containing all three resources
       (let ((result (restagraph::get-resources
                       *server*
@@ -874,7 +866,6 @@
   :depends-on 'resources-multiple
   "Filtering while searching for resources"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (r1type (restagraph::make-incoming-rtypes :name "Routers"))
          (r2type (restagraph::make-incoming-rtypes :name "Interfaces"
                                                    :dependent t))
@@ -903,7 +894,7 @@
                                   schema
                                   (restagraph::name r1type)
                                   `(("uid" . ,r1uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Search for it by type and exact UID
       (restagraph::log-message :info ";TEST Searching for the primary resource")
       (let ((result (restagraph::get-resources
@@ -942,7 +933,7 @@
                 (restagraph::name rel)
                 (restagraph::name r2type))
         `(("uid" . ,r2uid))
-        admin-user)
+        *admin-user*)
       ;; Confirm it's actually there
       (fiveam:is (equal `((,(restagraph::name rel)
                             ,(restagraph::name r2type)
@@ -1005,7 +996,6 @@
   :depends-on 'resources-basic
   "Check handling of non-ASCII characters."
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (attr1name "fullname")
          (restype (restagraph::make-incoming-rtypes
                     :name "Dogs"
@@ -1022,7 +1012,7 @@
                                   schema
                                   (restagraph::name restype)
                                   `(("uid" . ,uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Add an attribute whose value has non-ASCII characters
       (restagraph::log-message :info ";TEST Try to set the attribute")
       (fiveam:is (restagraph::update-resource-attributes
@@ -1055,7 +1045,6 @@
   :depends-on 'resources-basic
   "Basic operations on relationships between resources"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (to-type (restagraph::make-incoming-rtypes :name "Asn"))
          (from-type (restagraph::make-incoming-rtypes :name "Routers"))
          (relationship (restagraph::make-incoming-rels :NAME "ASN"
@@ -1075,9 +1064,9 @@
     (let ((schema (restagraph::fetch-current-schema *server*)))
       ;; Store the router
       (restagraph::log-message :info ";TEST Creating the resources")
-      (restagraph::store-resource *server* schema (restagraph::name from-type) `(("uid" . ,from-uid)) admin-user)
+      (restagraph::store-resource *server* schema (restagraph::name from-type) `(("uid" . ,from-uid)) *admin-user*)
       ;; Create the interface
-      (restagraph::store-resource *server* schema (restagraph::name to-type) `(("uid" . ,to-uid)) admin-user)
+      (restagraph::store-resource *server* schema (restagraph::name to-type) `(("uid" . ,to-uid)) *admin-user*)
       ;; Create a relationship between them
       (restagraph::log-message :info (format nil ";TEST Create the relationship /~A/~A/~A/~A/~A"
                                              (restagraph::name from-type)
@@ -1153,7 +1142,6 @@
         (target-type "Tags")
         (target-uid "ThereItIs")
         ;(invalid-sourcetype "People")
-        (admin-user "RgAdmin")
         (schema-version (restagraph::create-new-schema-version *server*)))
     ;; Install the core schema in the new schema-version
     (restagraph::install-subschema *server* restagraph::*core-schema* schema-version)
@@ -1174,8 +1162,8 @@
       schema-version)
     (let ((schema (restagraph::fetch-current-schema *server*)))
       ;; Create test instances
-      (restagraph::store-resource *server* schema source-type `(("uid" . ,source-uid)) admin-user)
-      (restagraph::store-resource *server* schema target-type `(("uid" . ,target-uid)) admin-user)
+      (restagraph::store-resource *server* schema source-type `(("uid" . ,source-uid)) *admin-user*)
+      (restagraph::store-resource *server* schema target-type `(("uid" . ,target-uid)) *admin-user*)
       ;; Create a relationship from the instance
       (fiveam:is (restagraph::create-relationship-by-path *server*
                                                           (format nil "/~A/~A/~A" source-type source-uid newrel)
@@ -1199,7 +1187,6 @@
   :depends-on 'relationships
   "Basic operations on relationships between resources"
   (let* ((schema-version (restagraph::create-new-schema-version *server*))
-         (admin-user "RgAdmin")
          (from-type (restagraph::make-incoming-rtypes :name "Routers"))
          (to-type (restagraph::make-incoming-rtypes :name "Asn"))
          (relationship
@@ -1225,13 +1212,13 @@
                                   schema
                                   (restagraph::name from-type)
                                   `(("uid" . ,from-uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Create the interface
       (restagraph::store-resource *server*
                                   schema
                                   (restagraph::name to-type)
                                   `(("uid" . ,to-uid))
-                                  admin-user)
+                                  *admin-user*)
       ;; Create a relationship between them
       (restagraph::log-message :info ";TEST Create a relationship between them")
       (multiple-value-bind (result code message)
