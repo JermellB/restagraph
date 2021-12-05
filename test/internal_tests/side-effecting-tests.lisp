@@ -21,6 +21,35 @@
 
 (fiveam:in-suite side-effecting)
 
+(fiveam:test
+  schema-versions
+  "Basic operations on schema versions"
+  (let ((current-version-list (restagraph::list-schema-versions *server*))
+        (current-version (restagraph::current-schema-version *server*)))
+    ;; Create a new schema version
+    (restagraph::log-message :info ";TEST Add a schema version")
+    (fiveam:is (restagraph::create-new-schema-version *server*))
+    ;; Do we have one more version than before?
+    (fiveam:is (= (+ (length (assoc :VERSIONS current-version-list)) 1)
+                  (length (assoc :VERSIONS (restagraph::list-schema-versions *server*)))))
+    (let ((new-current-version (restagraph::current-schema-version *server*)))
+      ;; Is the new current version newer than the previous one?
+      (fiveam:is (> new-current-version current-version))
+      (restagraph::log-message :info ";TEST Set schema version back and forward")
+      ;; Set the version back to the previous one
+      (fiveam:is (restagraph::set-current-schema-version *server* current-version))
+      (fiveam:is (= current-version (restagraph::current-schema-version *server*)))
+      ;; Roll forward to the newer one
+      (fiveam:is (restagraph::set-current-schema-version *server* new-current-version))
+      (fiveam:is (= new-current-version (restagraph::current-schema-version *server*)))
+      ;; Delete the new version
+      (restagraph::log-message :info ";TEST Delete a schema version")
+      (fiveam:is (restagraph::delete-schema-version *server* new-current-version))
+      ;; Are we back to the original current-version?
+      (fiveam:is (equal current-version (restagraph::current-schema-version *server*)))
+      ;; Are we back to the original number of versions?
+      (fiveam:is (= (length (assoc :VERSIONS current-version-list))
+                    (length (assoc :VERSIONS (restagraph::list-schema-versions *server*))))))))
 
 (fiveam:test
   resources-basic
