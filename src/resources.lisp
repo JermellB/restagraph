@@ -250,7 +250,14 @@ Return an error if
          (log-message :debug (format nil "Parent resource ~{/~A~} does not exist"
                                      (butlast dest-parts)))
          (error 'client-error :message "Parent resource does not exist")))
-      ;; Sanity-check: is the new relationship a valid dependent one?
+      ;; Sanity-check: is the new relationship a valid one?
+      ((not new-relationship-details)
+       (let ((message
+               (format nil "New parent-type ~A does not have relationship ~A to target resource ~A"
+                 new-parent-type new-relationship-type target-type)))
+         (log-message :debug message)
+         (error 'client-error :message message)))
+      ;; Sanity-check: is the new relationship dependent?
       ((not (dependent new-relationship-details))
        (progn
          (log-message
