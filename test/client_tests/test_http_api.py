@@ -221,6 +221,7 @@ class TestAttributesBasic(unittest.TestCase):
     person1 = 'Blake'
     attr1name = 'displayname'
     attr1val = 'Roj Blake'
+    response = None
     @pytest.mark.dependency()
     def test_add_and_remove_single_attribute(self):
         # Create the resource
@@ -231,8 +232,10 @@ class TestAttributesBasic(unittest.TestCase):
         with pytest.raises(KeyError):
             _ = result1[self.attr1name] # Assign to discard-var to shut pylint up
         # Add the attribute
-        assert requests.put('%s/People/%s' % (API_BASE_URL, self.person1),
-                            data={self.attr1name: self.attr1val}).status_code == 204
+        response = requests.put('%s/People/%s' % (API_BASE_URL, self.person1),
+                                data={self.attr1name: self.attr1val})
+        assert response.status_code == 200
+        assert response.text == 'Updated'
         # Confirm that the attribute is there
         assert requests.get('%s/People/%s' % (
             API_BASE_URL, self.person1)).json()[self.attr1name] == self.attr1val
@@ -527,7 +530,7 @@ class TestAttributeValues(unittest.TestCase):
         # Confirm the "values" feature as well as the added subschema:
         # Add a valid attribute (per the "values" attribute-attribute)
         assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
-                            data={self.res1attrname: self.res1attrval_valid}).status_code == 204
+                            data={self.res1attrname: self.res1attrval_valid}).status_code == 200
         # Fail to add an invalid attribute
         assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
                             data={self.res1attrname: self.res1attrval_invalid}).status_code == 400

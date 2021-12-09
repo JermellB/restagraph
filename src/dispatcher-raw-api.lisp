@@ -248,9 +248,20 @@
                                   (equal (cdr param) "")))
                           (append (tbnl:post-parameters*)
                                   (tbnl:get-parameters*))))
+             ;; Return 200/Updated in accordance with the Working Group spec:
+             ;; https://httpwg.org/specs/rfc7231.html#PUT
+             ;; Technically, it'd be more correct to return 201/Created if a new attribute is set,
+             ;; but there are two issues with this:
+             ;; - all attributes are null by default in this system
+             ;; - multiple attributes can be updated in a single PUT request, leading to a conflict
+             ;;   where one or more is updated, and one or more is not.
+             ;;   The simplest solution to this conflict is to use the one return-code shared by
+             ;;   these cases, and interpret the spec as "ensure that these attributes have these
+             ;;   values" rather than "conditionally update whichever of these attributes doesn't
+             ;;   already have the value specified in this request."
              (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-no-content+)
-             "")
+             (setf (tbnl:return-code*) tbnl:+http-ok+)
+             "Updated")
            ;; Attempted violation of db integrity
            (integrity-error (e) (return-integrity-error (message e)))
            ;; Generic client errors

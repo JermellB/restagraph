@@ -108,6 +108,11 @@ Resourcetypes can have any number of user-defined attributes. Each of these is d
 - `values` is an optional list of acceptable values for an attribute. If it's not set, it has no effect.
     - It's a comma-separated list of values, which turns the attribute into a kind of enum. If it's defined, the API will only accept values in this list when setting the attribute's value.
 
+Neo4j does not provide a way to record an explicit null value for an attribute, so this API treats all attributes as having a default of `null`. It also only returns attributes with non-null values in response to GET queries. This has two semantic implications:
+
+- If a given attribute is not included in the response to a GET query on a resource, the correct interpretation is that its value is `null`.
+- All PUT requests for updating attributes are changes of state. This API does not have the concept of _creating_ an attribute representation via a PUT request.
+
 
 ### Relationships between resource-types
 

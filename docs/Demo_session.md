@@ -39,12 +39,15 @@ From the top of this repo, create two Docker volumes (one for the db, one for fi
 Restagraph should now be listening on `http://192.0.2.1:4950/` so you should be able to upload the Movies subschema with the following command:
 
     $ curl -X POST --data-urlencode schema@schemas/movies_demo.json http://192.0.2.1:4950/schema/v1
+    Created
 
 This demonstrates one of Restagraph's features: you can augment the schema and API at any time, by uploading more definitions.
 
 If you want to check the schema at any point, you can request the whole thing and use `jq` to make it human-readable:
 
     $ curl -s http://192.0.2.1:4950/schema/v1 | jq .
+
+I've left out the response to this because it's 353 lines long.
 
 Remember to include the trailing dot. If you're curious about why I make a point about human-readability, try that request again _without_ piping it through `jq`.
 
@@ -121,9 +124,16 @@ Check all the characteristics of a `People` resource, to see what else you can r
 OK, so we can add a display-name and a note to a person. We use the `PUT` method for this, because we're updating an attribute on an existing resource:
 
     $ curl -X PUT -d 'displayname=Keanu Reeves' -d 'notes=May or may not be married to Winona Ryder.' http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves
-    http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves
+    Updated
 
-Look at him again, and now we see the extra details we just added:
+Note for the language-lawyers: this returns 200/Updated in all cases, for two reasons:
+
+- Multiple attributes can be updated in a single PUT request, leading to a conflict where one or more is updated, and one or more is not.
+  The simplest solution to this conflict is to use the one return-code shared by these cases, and interpret the spec as "ensure that these attributes have these values" rather than "conditionally update whichever of these attributes doesn't already have the value specified in this request."
+- Within the semantics of this API, all attributes are null by default. Thus, PUT requests are all updates by definition anyway.
+
+
+Back to the API. Look at Keanu again (hardships, I know) and now we see the extra details we just added:
 
     $ curl -s http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves | jq .
     {
