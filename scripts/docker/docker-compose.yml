@@ -21,7 +21,7 @@ services:
     deploy:
       replicas: 1
     ports:
-      - "4965:4949"
+      - "4950:4949"
     volumes:
       - rgtestfiles:/files
     networks:
