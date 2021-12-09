@@ -17,6 +17,8 @@ The rest is details, around things like:
 - The cardinality of a relationship: one-to-one, one-to-many, many-to-one, or many-to-many.
 - Whether a relationship is a parent-child one between a primary resource and a dependent one.
 
+For a practical walkthrough of how this API looks when in use, read through the [demo session](Demo_session.md).
+
 
 ### What makes this API different from the others
 

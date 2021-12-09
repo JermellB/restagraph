@@ -1,6 +1,6 @@
 # Restagraph demo session
 
-A walkthrough, demonstrating various features of Restagraph.
+A walkthrough, demonstrating various features of Restagraph. Best read in conjunction with the [HTTP API reference](HTTP_API.md).
 
 The following sequence gives you an overview of what you can do with Restagraph, using the familiar arena of movies, actors and directors.
 
@@ -123,7 +123,7 @@ Check all the characteristics of a `People` resource, to see what else you can r
 
 OK, so we can add a display-name and a note to a person. We use the `PUT` method for this, because we're updating an attribute on an existing resource:
 
-    $ curl -X PUT -d 'displayname=Keanu Reeves' -d 'notes=May or may not be married to Winona Ryder.' http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves
+    $ curl -X PUT -d 'displayname=Keanu Reeves' -d 'notes=Likes motorbikes. May or may not be married to Winona Ryder.' http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves
     Updated
 
 Note for the language-lawyers: this returns 200/Updated in all cases, for two reasons:
@@ -138,7 +138,7 @@ Back to the API. Look at Keanu again (hardships, I know) and now we see the extr
     $ curl -s http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves | jq .
     {
       "uid": "Keanu_Reeves",
-      "notes": "May or may not be married to Winona Ryder.",
+      "notes": "Likes motorbikes. May or may not be married to Winona Ryder.",
       "createddate": 3847886778,
       "original_uid": "Keanu Reeves",
       "displayname": "Keanu Reeves",
@@ -205,7 +205,7 @@ Actors and directors. OK, let's see who we already know acted in that movie?
       {
         "type": "People",
         "uid": "Keanu_Reeves",
-        "notes": "May or may not be married to Winona Ryder.",
+        "notes": "Likes motorbikes. May or may not be married to Winona Ryder.",
         "createddate": 3847886778,
         "original_uid": "Keanu Reeves",
         "displayname": "Keanu Reeves",
@@ -219,7 +219,7 @@ Keanu - what a surprise. But we already know he's a person (or a People), and ri
     [
       {
         "uid": "Keanu_Reeves",
-        "notes": "May or may not be married to Winona Ryder.",
+        "notes": "Likes motorbikes. May or may not be married to Winona Ryder.",
         "createddate": 3847886778,
         "original_uid": "Keanu Reeves",
         "displayname": "Keanu Reeves",
@@ -244,7 +244,7 @@ Now she's in that movie, right?
     [
       {
         "uid": "Keanu_Reeves",
-        "notes": "May or may not be married to Winona Ryder.",
+        "notes": "Likes motorbikes. May or may not be married to Winona Ryder.",
         "createddate": 3847886778,
         "original_uid": "Keanu Reeves",
         "displayname": "Keanu Reeves",
@@ -324,3 +324,97 @@ Now just the TV series:
         "original_uid": "Stranger Things"
       }
     ]
+
+
+So far, so good. Can we do some filtering, though? Let's find all people who acted in Dracula:
+
+    $ curl -s http://192.0.2.1:4950/raw/v1/People?RGoutbound=/ACTED_IN/Movies/Dracula | jq .
+    [
+      {
+        "uid": "Keanu_Reeves",
+        "notes": "Likes motorbikes. May or may not be married to Winona Ryder.",
+        "createddate": 3847886778,
+        "original_uid": "Keanu Reeves",
+        "displayname": "Keanu Reeves",
+        "updateddate": 3848137985
+      },
+      {
+        "uid": "Winona_Ryder",
+        "notes": "May or may not be married to Keanu Reeves",
+        "createddate": 3848138034,
+        "original_uid": "Winona Ryder",
+        "displayname": "Winona Ryder"
+      }
+    ]
+
+Why `RGoutbound`? Because you can also filter on attributes with regular expressions, and I figured it's unlikely that anybody will have a pressing need to name attributes that way.
+
+You can use `RGinbound` to pick out, say, all tags associated with that one movie:
+
+    $ curl -X POST -d 'uid=Vampires' http://192.0.2.1:4950/raw/v1/Tags
+    /Tags/Vampires
+    $ curl -X POST -d 'uid=Supernatural' http://192.0.2.1:4950/raw/v1/Tags
+    /Tags/Supernatural
+    $ curl -X POST -d 'uid=Interdimensional' http://192.0.2.1:4950/raw/v1/Tags
+    /Tags/Interdimensional
+    $ curl -X POST -d 'target=/Tags/Vampires' http://192.0.2.1:4950/raw/v1/Movies/Dracula/TAGS
+    /Movies/Dracula/TAGS/Tags/Vampires
+    $ curl -X POST -d 'target=/Tags/Supernatural' http://192.0.2.1:4950/raw/v1/Movies/Dracula/TAGS
+    /Movies/Dracula/TAGS/Tags/Supernatural
+    $ curl -X POST -d 'target=/Tags/Interdimensional' http://192.0.2.1:4950/raw/v1/TvSeries/Stranger_Things/TAGS
+    /TvSeries/Stranger_Things/TAGS/Tags/Interdimensional
+    
+    $ curl -s http://192.0.2.1:4950/raw/v1/Tags?RGinbound=/Movies/Dracula/TAGS | jq .
+    [
+      {
+        "uid": "Vampires",
+        "createddate": 3848138980,
+        "original_uid": "Vampires"
+      },
+      {
+        "uid": "Supernatural",
+        "createddate": 3848141021,
+        "original_uid": "Supernatural"
+      }
+    ]
+
+Filtering on attribute values, including with regexes? Why, yes, though the special characters usually need escaping in some way:
+
+    $ curl -s http://192.0.2.1:4950/raw/v1/Movies?year_released=1992 | jq .
+    [
+      {
+        "uid": "Dracula",
+        "createddate": 3848138003,
+        "original_uid": "Dracula",
+        "year_released": "1992"
+      }
+    ]
+
+    $ curl -s 'http://192.0.2.1:4950/raw/v1/People?notes=.*motorbikes.*' | jq .
+    [
+      {
+        "uid": "Keanu_Reeves",
+        "notes": "Likes motorbikes. May or may not be married to Winona Ryder.",
+        "createddate": 3847886778,
+        "original_uid": "Keanu Reeves",
+        "displayname": "Keanu Reeves",
+        "updateddate": 3848138755
+      }
+    ]
+
+The API recognises [Java-style regexes](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html).
+
+We can negate them, too, using `!`:
+
+    $ curl -s 'http://192.0.2.1:4950/raw/v1/People?notes=!.*motorbikes.*' | jq .
+    [
+      {
+        "uid": "Winona_Ryder",
+        "notes": "May or may not be married to Keanu Reeves",
+        "createddate": 3848138034,
+        "original_uid": "Winona Ryder",
+        "displayname": "Winona Ryder"
+      }
+    ]
+
+There's also the Files API, described in the [HTTP API doc](HTTP_API.md), but by now you should have a clear idea of how to use it and what to expect. Likewise with the rest of the Schema API

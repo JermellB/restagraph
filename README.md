@@ -20,18 +20,11 @@ There is explicit support for dependent resources, i.e. resources that only make
 - Development speed: with a single JSON file, you define both the database schema and the API.
 
 
-## Why use a graph database?
-
-Referential flexibility, in short: this is built for a type of problem for which graph databases are perfectly suited, and for which relational databases are not well suited at all.
-
-Relational databases are a great fit for many use-cases, but I found one of their natural limitations while developing [Syscat](https://github.com/equill/syscat): if you want to be able to link one type of thing to any number of other types of things without giving up referential integrity, you start drowning in many-to-many tables and the DBMS starts grinding to a halt.
-
-
 ## Where to get it
 
 Source code is in [equill/restagraph on GitHub](https://github.com/equill/restagraph).
 
-Docker images are [Docker hub](https://hub.docker.com/repository/docker/equill/restagraph).
+Docker images are on [Docker hub](https://hub.docker.com/repository/docker/equill/restagraph).
 
 
 ## License
@@ -67,9 +60,64 @@ When you look at the schema, pay attention to the `any` resourcetype. It's a spe
 You can change most of the details in `docker-compose.yml` to suit your own needs. There's nothing significant about the port numbers, volume names or network name, Restagraph doesn't _need_ to listen on all possible addresses, and it's always good practice to change the database password.
 
 
-## Demo session
+## API examples
 
-A detailed, fairly comprehensive walkthrough is at [docs/Demo_session.md](docs/Demo_session.md)
+Using `curl` for convenience, as it's the definitive command-line tool for the job. Also using `jq` to format the responses into human-readable form, because the API assumes it'll mostly be talking to other applications.
+
+Commands are prefixed with `$` to indicate the command-line prompt, and responses from the server are shown without a prefix.
+
+Create a resource representing a person:
+
+    $ curl -X POST -d 'uid=Kenny Who' http://192.0.2.1:4950/raw/v1/People
+    /People/Kenny_Who
+
+Note that the space in his name was automatically converted to an underscore, so you can use it in a URL without any workarounds.
+
+Create a tag:
+
+    $ curl -X POST -d 'uid=Artist' -d 'description=Creative people. A bit sensitive sometimes.' http://192.0.2.1:4950/raw/v1/Tags
+    /Tags/Artist
+
+Connect the tag to the person:
+
+    $ curl -X POST -d 'target=/Tags/Artist' http://192.0.2.1:4950/raw/v1/People/Kenny_Who/TAGS
+    /People/Kenny_Who/TAGS/Tags/Artist
+
+Look at Kenny's details:
+
+    $ curl -s http://192.0.2.1:4950/raw/v1/People/Kenny_Who | jq .
+    {
+      "uid": "Kenny_Who",
+      "createddate": 3848054079,
+      "original_uid": "Kenny Who"
+    }
+
+Check his tags:
+
+    $ curl -s http://localhost:4950/raw/v1/People/Kenny_Who/TAGS | jq .
+    [
+      {
+        "type": "Tags",
+        "uid": "Artist",
+        "createddate": 3848054682,
+        "original_uid": "Artist",
+        "description": "Creative people. A bit sensitive sometimes."
+      }
+    ]
+
+Find all people who are tagged as an artist:
+
+    $ curl -s http://localhost:4950/raw/v1/People?RGoutbound=/TAGS/Tags/Artist | jq .
+    [
+      {
+        "uid": "Kenny_Who",
+        "createddate": 3848054079,
+        "original_uid": "Kenny Who"
+      }
+    ]
+
+
+A more comprehensive walkthrough is at [docs/Demo_session.md](docs/Demo_session.md)
 
 
 # The schema - how it works
@@ -103,6 +151,9 @@ Attributes built into every resourcetype:
 Resourcetypes can have any number of user-defined attributes. Each of these is defined with three characteristics:
 - `name`
     - These are not specified in the Neo4j conventions, so I've gone with lowercase.
+    - Don't name them with a leading `RG`. Technically you _can_, but if it collides with a term used by the API for some other kind of filtering, the reserved term takes precedence. Filtered terms currently include:
+        - `RGoutbound`
+        - `RGinbound`
 - `description`
     - This only appears in the schema. It's for clarifying what the attribute is for, or how it's to be used.
 - `values` is an optional list of acceptable values for an attribute. If it's not set, it has no effect.
