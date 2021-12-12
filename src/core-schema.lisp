@@ -67,7 +67,7 @@
                                 :description "Notes about this file.")
                               (make-incoming-rtype-attrs
                                 :name "mimetype"
-                                :description "The detected mime-type of this file.")
+                                :description "The detected MIME-type of this file, i.e. the description used for attaching files to emails or transferring to/from webservers.")
                               (make-incoming-rtype-attrs
                                 :name "sha3256sum"
                                 :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions.")))
@@ -92,6 +92,13 @@
                                 :name "prefixlength"
                                 :description "The prefix length of the subnet - an integer between 1 and 32.")))
           (make-incoming-rtypes
+            :name "Ipv4Addresses"
+            :description "IPv4 Addresses. Unqualified, so really only useful for allocating."
+            :dependent t
+            :attributes (list (make-incoming-rtype-attrs
+                                :name "description"
+                                :description "What this address is allocated to, and possibly why.")))
+          (make-incoming-rtypes
             :name "Ipv6Subnets"
             :description "IPv6 Subnets, as allocated rather than as configured."
             :dependent t
@@ -105,17 +112,12 @@
                                 :name "prefixlength"
                                 :description "The prefix length of the subnet - an integer between 1 and 64.")))
           (make-incoming-rtypes
-            :name "Ipv4Addresses"
-            :description "IPv4 Addresses. Unqualified, so really only useful for allocating."
-            :dependent t
-            :attributes (list (make-incoming-rtype-attrs
-                                :name "description")))
-          (make-incoming-rtypes
             :name "Ipv6Addresses"
             :description "IPv6 Addresses. Unqualified, so really only useful for allocating."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
-                                :name "description"))))
+                                :name "description"))
+            :description "What this address is allocated to, and possibly why."))
     :relationships (list (make-incoming-rels :name "TAGS"
                                              :source-type "any"
                                              :target-type "Tags"
@@ -129,59 +131,74 @@
                          (make-incoming-rels :name "CREATOR"
                                              :source-type "any"
                                              :target-type "People"
-                                             :description "In a coming upgrade, all resources will have a creator as part of the permissions-management system.")
-                         (make-incoming-rels :name "PRONOUNS"
-                                             :source-type "People"
-                                             :target-type "Pronouns"
-                                             :description "She/her, they/them, he/him and whatever others you choose to add. These are defined as a separate resourcetype partly because some people accept more than one set, and partly to make it easier to add more as necessary.")
+                                             :cardinality "1:many"
+                                             :description "All resources are linked to their creator. This is the first part of the permissions-management system.")
                          (make-incoming-rels :name "MEMBERS"
                                              :source-type "Organisations"
-                                             :target-type "People")
-                         (make-incoming-rels :name "MEMBER_OF"
-                                             :source-type "People"
-                                             :target-type "Organisations")
+                                             :target-type "People"
+                                             :cardinality "many:many"
+                                             :description "Denotes who belongs to this organisation. Counterpart to /People/MEMBER_OF/Organisations.")
                          (make-incoming-rels :name "VRF_GROUPS"
                                              :source-type "Organisations"
                                              :target-type "VrfGroups"
                                              :cardinality "1:many"
-                                             :dependent t)
+                                             :dependent t
+                                             :description "For IPAM purposes, the Virtual Routing and Forwarding circuits that you've allocated within your organisation's network.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "Organisations"
                                              :target-type "Ipv4Subnets"
                                              :cardinality "1:many"
-                                             :dependent t)
+                                             :dependent t
+                                             :description "The IPv4 supernets that you've allocated within your organisation, independent of any VRF Groups.")
+                         (make-incoming-rels :name "SUBNETS"
+                                             :source-type "Organisations"
+                                             :target-type "Ipv6Subnets"
+                                             :cardinality "1:many"
+                                             :dependent t
+                                             :description "The IPv6 supernets that you've allocated within your organisation, independent of any VRF Groups.")
+                         (make-incoming-rels :name "MEMBER_OF"
+                                             :source-type "People"
+                                             :target-type "Organisations"
+                                             :cardinality: "many:many"
+                                             :description "Denotes membership of an organisation. Counterpart to /Organisations/MEMBERS/People.")
+                         (make-incoming-rels :name "PRONOUNS"
+                                             :source-type "People"
+                                             :target-type "Pronouns"
+                                             :cardinality "many:many"
+                                             :description "She/her, they/them, he/him and whatever others you choose to add. These are defined as a separate resourcetype partly because some people accept more than one set, and partly to make it easier to add more as necessary."
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "VrfGroups"
                                              :target-type "Ipv4Subnets"
                                              :cardinality "1:many"
-                                             :dependent t)
+                                             :dependent t
+                                             :description "IPv4 supernets allocated to this VRF Group.")
+                         (make-incoming-rels :name "SUBNETS"
+                                             :source-type "VrfGroups"
+                                             :target-type "Ipv6Subnets"
+                                             :cardinality "1:many"
+                                             :dependent t
+                                             :description "IPv6 supernets allocated to this VRF Group.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "Ipv4Subnets"
                                              :target-type "Ipv4Subnets"
                                              :cardinality "1:many"
-                                             :dependent t)
+                                             :dependent t
+                                             :description "A subnet of this subnet.")
                          (make-incoming-rels :name "ADDRESSES"
                                              :source-type "Ipv4Subnets"
                                              :target-type "Ipv4Addresses"
                                              :cardinality "1:many"
-                                             :dependent t)
-                         (make-incoming-rels :name "SUBNETS"
-                                             :source-type "Organisations"
-                                             :target-type "Ipv6Subnets"
-                                             :cardinality "1:many"
-                                             :dependent t)
-                         (make-incoming-rels :name "SUBNETS"
-                                             :source-type "VrfGroups"
-                                             :target-type "Ipv6Subnets"
-                                             :cardinality "1:many"
-                                             :dependent t)
+                                             :dependent t
+                                             :description "An address allocated from within this subnet.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "Ipv6Subnets"
                                              :target-type "Ipv6Subnets"
                                              :cardinality "1:many"
-                                             :dependent t)
+                                             :dependent t
+                                             :description "A subnet of this subnet.")
                          (make-incoming-rels :name "ADDRESSES"
                                              :source-type "Ipv6Subnets"
                                              :target-type "Ipv6Addresses"
                                              :cardinality "1:many"
-                                             :dependent t))))
+                                             :dependent t
+                                             :description "An address allocated from within this subnet."))))
