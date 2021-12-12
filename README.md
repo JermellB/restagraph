@@ -190,6 +190,11 @@ Optional attributes:
     - default is `null`
 
 
+**Important note:** The `any` resourcetype can be used to define relationships from "any" other resourcetype to this one, or from this one to "any" other. So it's important to remember that when you query the Schema API about a resourcetype, the `relationships` section _combines_ outbound relationships from "any" with those from the specific type you're querying it about. The same applies when it's validating a request to create a relationship.
+
+That's the `any` resourcetype's reason for existence; the server won't allow you to create an instance, or to query one; it's only there to make relationship definitions manageable.
+
+
 ### Resources
 
 That is, instances of a resourcetype. Their attributes are:

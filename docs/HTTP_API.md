@@ -69,6 +69,14 @@ The endpoint base URI is `/schema/v1`, and it always returns the schema in JSON 
 
 Note that this format is _not_ the same as the format required for uploading a subschema, as it's intended for clients to use in interactions with the server.
 
+Among the information returned by the server, is a list of the relationships that can be created from this resourcetype to certain others. This list combines _three_ sets of permissible relationships:
+
+- _from_ instances of this exact resourcetype, _to_ instances of another specific resourcetype.
+- _from_ instances of _any_ other resourcetype, _to_ instances of this one.
+- _from_ instances of this resourcetype, _to_ instances of any other.
+
+The latter two are defined by relationships to and from the `any` resourcetype. The combined set is also (and most importantly) consulted when the server receives a request to create a relationship.
+
 
 ### GET a list of schema versions
 
