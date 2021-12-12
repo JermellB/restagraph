@@ -245,4 +245,4 @@ There's more in the `docs` folder in this repo.
 - The IPAM API (IP Address Management) gets a separate file: [docs/IPAM_API.md](docs/IPAM_API.md).
 - For information aobut the access-control mechanism, read [docs/Access-control.md](docs/Access-control.md).
 
-You may also want to look over the core schema (`src/core-schema.lisp`) to see what's installed by default before you add anything else.
+You may also want to look over the core schema to see what's installed by default before you add anything else. It's summarised in [Core_schema.md](docs/Core_schema.md), and the definitive reference is always in the source code: `src/core-schema.lisp`.
