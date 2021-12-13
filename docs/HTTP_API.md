@@ -148,6 +148,8 @@ Note that if the file (re)defines an existing resourcetype, Restagraph will not 
 
 Duplicate relationships will simply be ignored.
 
+For information about _how_ to define your own subschema, see [Defining a schema](Defining_a_schema.md).
+
 
 ### Notes about the format and naming conventions
 
