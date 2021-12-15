@@ -1,7 +1,7 @@
 version: "3"
 services:
   neo4j:
-    image: neo4j:4.3.2
+    image: neo4j:4.4.1
     deploy:
       replicas: 1
     ports:
@@ -15,7 +15,7 @@ services:
       NEO4J_AUTH: "neo4j/wombat"
       NEO4J_dbms_jvm_additional: "-Dfile.encoding=UTF-16"
   restagraph:
-    image: equill/restagraph:0.7.0b9
+    image: equill/restagraph:0.7.0b10
     depends_on:
       - neo4j
     deploy:
