@@ -159,13 +159,13 @@
                          (make-incoming-rels :name "MEMBER_OF"
                                              :source-type "People"
                                              :target-type "Organisations"
-                                             :cardinality: "many:many"
+                                             :cardinality "many:many"
                                              :description "Denotes membership of an organisation. Counterpart to /Organisations/MEMBERS/People.")
                          (make-incoming-rels :name "PRONOUNS"
                                              :source-type "People"
                                              :target-type "Pronouns"
                                              :cardinality "many:many"
-                                             :description "She/her, they/them, he/him and whatever others you choose to add. These are defined as a separate resourcetype partly because some people accept more than one set, and partly to make it easier to add more as necessary."
+                                             :description "She/her, they/them, he/him and whatever others you choose to add. These are defined as a separate resourcetype partly because some people accept more than one set, and partly to make it easier to add more as necessary.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "VrfGroups"
                                              :target-type "Ipv4Subnets"
