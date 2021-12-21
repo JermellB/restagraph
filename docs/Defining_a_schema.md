@@ -55,7 +55,7 @@ Whether this is a "dependent" resourcetype, i.e. whether it exists only in the c
 
 A dependent resourcetype can only be created in relationship to a "parent" type, via a relationship that is _also_ defined as a dependent one, meaning that it defines the dependency between them. A resourcetype can be dependent on another dependent one, e.g. the ceiling of a room.
 
-Type: boolean. Acceptable values include `true`, "true", "True", `false`, "false" and "False".
+Type: boolean. In accordance with Postel's Principle, acceptable values include `true`, "true", "True", `false`, "false" and "False".
 
 
 ### Notes
@@ -87,22 +87,29 @@ A list of attributes objects. Their keys are:
 A list of relationships objects. Their keys are:
 
 - `name`
-    - The name of this relationship, as 
+    - The name of this relationship. Needs to be URL-safe.
+    - Should be in SCREAMING_SNAKE_CASE.
+    - Type: string.
 - `source-type`
     - The name of the resourcetype that this relationship _comes_from_.
+    - Type: string.
 - `target-type`
     - The name of the resourcetype that this relationship _goes_to_.
+    - Type: string.
 - `cardinality`
     - How many relationships of this kind are to be permitted from an instance of the `sourcetype`, and how many to an instance of the `target-type`. Valid options are:
-        - `many:many`
-        - `1:many`
-        - `many:1`
-        - `1:1`
+        - "many:many"
+        - "1:many"
+        - "many:1"
+        - "1:1"
+    - Type: string.
 - `dependent`
     - Whether this is the definitive relationship between a dependent resourcetype and its parent type.
     - Corresponds to the resourcetype attribute of the same name.
+    - Type: boolean. In accordance with Postel's Principle, acceptable values include `true`, "true", "True", `false`, "false" and "False".
 - `notes`
     - Any clarifying notes about what this relationship means.
+    - Type: string.
 
 
 I usually define them in the order `source-type`, `name`, `target-type` because that matches the way I think about them. In Cypher, Neo4j's native syntax, it's represented as `(:source-type)-[:name]->(:target-type)`.
