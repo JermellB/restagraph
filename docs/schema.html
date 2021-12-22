@@ -1,0 +1,284 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+     <meta charset="UTF-8">
+     <title>Restagraph schema documentation</title>
+     <style>
+      table { border: 1px solid black; width: 80% }
+      tr { border: 1px solid black }
+      th { text-align: left }
+      td { vertical-align: top; }
+      td.heading { width: 10em }
+      .attribute-name { font-weight: bold }
+      li { padding-bottom: 1ex }
+     </style>
+  </head>
+  <body>
+    <h1>Restagraph schema documentation</h1>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Files">Files</a></th></tr>
+      <tr><td class="heading">Description: </td><td>Metadata about files uploaded by users. The files themselves are stored separately, using the sha3-256 checksum as the filename.</td></tr>
+      <tr><td>Dependent: </td><td>false</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">mimetype</span>: The detected MIME-type of this file, i.e. the description used for attaching files to emails or transferring to/from webservers. </li>
+            <li><span class="attribute-name">notes</span>: Notes about this file. </li>
+            <li><span class="attribute-name">sha3256sum</span>: The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions. </li>
+            <li><span class="attribute-name">title</span>: The requested filename, recorded verbatim instead of having to be sanitised for URI-safety. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Groups">Groups</a></th></tr>
+      <tr><td class="heading">Description: </td><td>For collecting resources into explicit groups.</td></tr>
+      <tr><td>Dependent: </td><td>false</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">description</span>: Clarification of what the group means. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Ipv4Addresses">Ipv4Addresses</a></th></tr>
+      <tr><td class="heading">Description: </td><td>IPv4 Addresses. Unqualified, so really only useful for allocating.</td></tr>
+      <tr><td>Dependent: </td><td>true</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">description</span>: What this address is allocated to, and possibly why. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Ipv4Subnets">Ipv4Subnets</a></th></tr>
+      <tr><td class="heading">Description: </td><td>IPv4 Subnets, as allocated rather than as configured.</td></tr>
+      <tr><td>Dependent: </td><td>true</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">description</span>: Who or what this subnet is allocated for, and possibly why. </li>
+            <li><span class="attribute-name">netaddress</span>: The network address of the subnet. </li>
+            <li><span class="attribute-name">prefixlength</span>: The prefix length of the subnet - an integer between 1 and 32. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        <td>
+          <ul>
+            <li>ADDRESSES/<a href="#Ipv4Addresses">Ipv4Addresses</a><br>An address allocated from within this subnet.<br>1:many, dependent: true</li>
+            <li>SUBNETS/<a href="#Ipv4Subnets">Ipv4Subnets</a><br>A subnet of this subnet.<br>1:many, dependent: true</li>
+          </ul>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Ipv6Addresses">Ipv6Addresses</a></th></tr>
+      <tr><td class="heading">Description: </td><td>IPv6 Addresses. Unqualified, so really only useful for allocating.</td></tr>
+      <tr><td>Dependent: </td><td>true</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">description</span>:  </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Ipv6Subnets">Ipv6Subnets</a></th></tr>
+      <tr><td class="heading">Description: </td><td>IPv6 Subnets, as allocated rather than as configured.</td></tr>
+      <tr><td>Dependent: </td><td>true</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">description</span>: Who or what this subnet is allocated for, and possibly why. </li>
+            <li><span class="attribute-name">netaddress</span>: The network address of the subnet. </li>
+            <li><span class="attribute-name">prefixlength</span>: The prefix length of the subnet - an integer between 1 and 64. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        <td>
+          <ul>
+            <li>ADDRESSES/<a href="#Ipv6Addresses">Ipv6Addresses</a><br>An address allocated from within this subnet.<br>1:many, dependent: true</li>
+            <li>SUBNETS/<a href="#Ipv6Subnets">Ipv6Subnets</a><br>A subnet of this subnet.<br>1:many, dependent: true</li>
+          </ul>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Organisations">Organisations</a></th></tr>
+      <tr><td class="heading">Description: </td><td>Any kind of organisation: professional, social or other.</td></tr>
+      <tr><td>Dependent: </td><td>false</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">description</span>: Notes about this particular organisation. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        <td>
+          <ul>
+            <li>MEMBERS/<a href="#People">People</a><br>Denotes who belongs to this organisation. Counterpart to /People/MEMBER_OF/Organisations.<br>many:many, dependent: false</li>
+            <li>SUBNETS/<a href="#Ipv4Subnets">Ipv4Subnets</a><br>The IPv4 supernets that you&#039;ve allocated within your organisation, independent of any VRF Groups.<br>1:many, dependent: true</li>
+            <li>SUBNETS/<a href="#Ipv6Subnets">Ipv6Subnets</a><br>The IPv6 supernets that you&#039;ve allocated within your organisation, independent of any VRF Groups.<br>1:many, dependent: true</li>
+            <li>VRF_GROUPS/<a href="#VrfGroups">VrfGroups</a><br>For IPAM purposes, the Virtual Routing and Forwarding circuits that you&#039;ve allocated within your organisation&#039;s network.<br>1:many, dependent: true</li>
+          </ul>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="People">People</a></th></tr>
+      <tr><td class="heading">Description: </td><td>Real people, imaginary people, security roles, members of an external organisation... if they&#039;re a person, this is the type.</td></tr>
+      <tr><td>Dependent: </td><td>false</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">displayname</span>: The human-friendly version of their name, to be displayed in the UI. </li>
+            <li><span class="attribute-name">notes</span>: Notes about this person. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        <td>
+          <ul>
+            <li>MEMBER_OF/<a href="#Organisations">Organisations</a><br>Denotes membership of an organisation. Counterpart to /Organisations/MEMBERS/People.<br>many:many, dependent: false</li>
+            <li>PRONOUNS/<a href="#Pronouns">Pronouns</a><br>She/her, they/them, he/him and whatever others you choose to add. These are defined as a separate resourcetype partly because some people accept more than one set, and partly to make it easier to add more as necessary.<br>many:many, dependent: false</li>
+          </ul>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Pronouns">Pronouns</a></th></tr>
+      <tr><td class="heading">Description: </td><td>The pronouns by which a person prefers to be addressed.</td></tr>
+      <tr><td>Dependent: </td><td>false</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">text</span>: The full, non-URL-safe text of the pronoun set. E.g, They/them. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="Tags">Tags</a></th></tr>
+      <tr><td class="heading">Description: </td><td>For categorising resources of any type. Useful in searches.</td></tr>
+      <tr><td>Dependent: </td><td>false</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">description</span>: Clarification of what the tag means. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="VrfGroups">VrfGroups</a></th></tr>
+      <tr><td class="heading">Description: </td><td>VRF Groups, as allocated by an organisation.</td></tr>
+      <tr><td>Dependent: </td><td>true</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <td>
+          <ul>
+            <li><span class="attribute-name">description</span>: Helpful notes about what this group is for. </li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        <td>
+          <ul>
+            <li>SUBNETS/<a href="#Ipv4Subnets">Ipv4Subnets</a><br>IPv4 supernets allocated to this VRF Group.<br>1:many, dependent: true</li>
+            <li>SUBNETS/<a href="#Ipv6Subnets">Ipv6Subnets</a><br>IPv6 supernets allocated to this VRF Group.<br>1:many, dependent: true</li>
+          </ul>
+        </td>
+      </tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="any">any</a></th></tr>
+      <tr><td class="heading">Description: </td><td>Special-case meta-resource, representing an instance of any type of resource. This is used for defining relationships where either the source or target could be, well, any resourcetype. The server refuses to create an instance of this resourcetype.</td></tr>
+      <tr><td>Dependent: </td><td>false</td></tr>
+      <tr>
+        <td>Attributes: </td>
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        <td>
+          <ul>
+            <li>CREATOR/<a href="#People">People</a><br>All resources are linked to their creator. This is the first part of the permissions-management system.<br>1:many, dependent: false</li>
+            <li>GROUPS/<a href="#Groups">Groups</a><br>Any resourcetype can be assigned to a group.<br>many:many, dependent: false</li>
+            <li>TAGS/<a href="#Tags">Tags</a><br>Any resourcetype can be tagged.<br>many:many, dependent: false</li>
+          </ul>
+        </td>
+      </tr>
+      </table>
+    </div>
+  </body>
+</html>

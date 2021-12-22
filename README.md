@@ -245,5 +245,6 @@ There's more in the `docs` folder in this repo:
 - For more about defining your own subschemas, see [docs/Defining_a_schema.md](docs/Defining_a_schema.md)
 - The IPAM API (IP Address Management) gets a separate file: [docs/IPAM_API.md](docs/IPAM_API.md).
 - For information about the access-control mechanism, read [docs/Access-control.md](docs/Access-control.md).
+- The core schema is documented in [docs/schema.html](docs/schema.html).
 
 You may also want to look over the core schema to see what's installed by default before you add anything else. It's summarised in [Core_schema.md](docs/Core_schema.md), and the definitive reference is always in the source code: `src/core-schema.lisp`.
