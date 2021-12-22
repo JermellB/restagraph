@@ -1,0 +1,52 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+     <meta charset="UTF-8">
+     <title>Restagraph schema documentation</title>
+     <style>
+      table { border: 1px solid black; width: 80% }
+      tr { border: 1px solid black }
+      th { text-align: left }
+      td { vertical-align: top; }
+      td.heading { width: 10em }
+      .attribute-name { font-weight: bold }
+      li { padding-bottom: 1ex }
+     </style>
+  </head>
+  <body>
+    <h1>Restagraph schema documentation</h1>
+    <!-- TMPL_LOOP resourcetypes -->
+    <div>
+      <table>
+        <tr><th colspan="2"><a name="<!-- TMPL_VAR name -->"><!-- TMPL_VAR name --></a></th></tr>
+      <tr><td class="heading">Description: </td><td><!-- TMPL_VAR description --></td></tr>
+      <tr><td>Dependent: </td><td><!-- TMPL_VAR dependent --></td></tr>
+      <tr>
+        <td>Attributes: </td>
+        <!-- TMPL_IF attributes -->
+        <td>
+          <ul>
+            <!-- TMPL_LOOP attributes -->
+            <li><span class="attribute-name"><!-- TMPL_VAR name --></span>: <!-- TMPL_VAR description --> <!-- TMPL_VAR values --></li>
+            <!-- /TMPL_LOOP -->
+          </ul>
+          <!-- /TMPL_IF -->
+        </td>
+      </tr>
+      <tr>
+        <td>Relationships: </td>
+        <!-- TMPL_IF relationships -->
+        <td>
+          <ul>
+            <!-- TMPL_LOOP relationships -->
+            <li><!-- TMPL_VAR name -->/<a href="#<!-- TMPL_VAR target-type -->"><!-- TMPL_VAR target-type --></a><br><!-- TMPL_VAR description --><br><!-- TMPL_VAR cardinality -->, dependent: <!-- TMPL_VAR dependent --></li>
+            <!-- /TMPL_LOOP -->
+          </ul>
+          <!-- /TMPL_IF -->
+        </td>
+      </tr>
+      </table>
+    </div>
+    <!-- /TMPL_LOOP -->
+  </body>
+</html>

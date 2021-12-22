@@ -62,6 +62,16 @@
     (:relationships . ,(map 'list #'a-listify (relationships obj)))))
 
 
+(defgeneric p-listify (obj)
+  (:documentation "Serialise an object to p-list format, for further serialisation to, e.g, HTML."))
+
+(defmethod p-listify ((obj schema-rtypes))
+  `(:name ,(name obj)
+    :dependent ,(if (dependent obj) "true" "false")
+    :description ,(description obj)
+    :attributes ,(map 'list #'p-listify (attributes obj))
+    :relationships ,(map 'list #'p-listify (relationships obj))))
+
 (defmethod set-attributes ((rtype schema-rtypes) (attributes list))
   (if (every #'(lambda (attr) (typep attr 'schema-rtype-attrs))
              attributes)
@@ -131,6 +141,11 @@
     (:description . ,(description obj))
     (:values . ,(attr-values obj))))
 
+(defmethod p-listify ((obj schema-rtype-attrs))
+  `(:name ,(name obj)
+    :description ,(description obj)
+    :values ,(attr-values obj)))
+
 
 (defun make-schema-rtype-attrs (&key name description attr-values)
   (declare (type string name)
@@ -172,6 +187,13 @@
     (:cardinality . ,(cardinality obj))
     (:dependent . ,(dependent obj))
     (:description . ,(description obj))))
+
+(defmethod p-listify ((obj schema-rels))
+  `(:name ,(name obj)
+    :target-type ,(name (target-type obj))
+    :cardinality ,(cardinality obj)
+    :dependent ,(if (dependent obj) "true" "false")
+    :description ,(description obj)))
 
 (defmethod make-schema-rels (&key name target-type cardinality dependent description)
   (declare (type string name cardinality)

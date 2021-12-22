@@ -17,7 +17,8 @@
     (let ((uri-parts (get-uri-parts
                        (get-sub-uri (tbnl:request-uri*)
                                     (uri-base-schema tbnl:*acceptor*)))))
-      (log-message :debug (format nil "Handling schema ~A request ~{/~A~}" (tbnl:request-method*) uri-parts))
+      (log-message :debug (format nil "Handling schema ~A request ~{/~A~}"
+                                  (tbnl:request-method*) uri-parts))
       (cond
         ;; Get a list of schema versions
         ((and
@@ -41,6 +42,39 @@
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-not-found+)
                "Resourcetype not defined"))))
+        ;; Get a description of the whole schema in HTML format
+        ((and (equal (tbnl:request-method*) :GET)
+              (equal (tbnl:get-parameter "format") "html"))
+         (progn
+           (log-message :info "Dumping schema in HTML format")
+           (setf (tbnl:content-type*) "application/json")
+           (setf (tbnl:return-code*) tbnl:+http-ok+)
+           ;; Prevent html-template graunching everything to a halt
+           (setf html-template:*warn-on-creation* nil)
+           ;; Prevent the output turning into a sea of whitespace interspersed with markup
+           (setf html-template:*ignore-empty-lines* t)
+           ;; Render the schema and emit the result
+           (let ((layout-template-path (make-pathname :defaults (template-path tbnl:*acceptor*)
+                                                      :type "tmpl"
+                                                      :name "schema")))
+             (log-message :debug (format nil "Path to layout template: ~A" layout-template-path))
+             (log-message :debug (format nil "State of layout template: ~A"
+                                         (probe-file layout-template-path)))
+             (with-output-to-string (outstr)
+               (html-template:fill-and-print-template
+                 layout-template-path
+                 (let ((typenames
+                         (sort
+                           (loop for k being the hash-keys
+                                 in (schema *restagraph-acceptor*)
+                                 collecting k)
+                           #'string<)))
+                   (list :resourcetypes
+                         (mapcar #'(lambda (rtype)
+                                     (p-listify (gethash rtype (schema tbnl:*acceptor*))))
+                                 typenames)))
+                 :stream outstr)
+               outstr))))
         ;; Get a description of the whole schema in JSON format
         ((equal (tbnl:request-method*) :GET)
          (progn
