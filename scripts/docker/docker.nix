@@ -7,6 +7,7 @@ let
         args = [ ./nix-builder.sh ];
         inherit coreutils openssl;
         system = builtins.currentSystem;
+        templatepath = ../../src/templates;
         restagraphpath = ./restagraph;
     };
 
@@ -23,7 +24,7 @@ let
 in
 pkgs.dockerTools.buildImage {
     name = "equill/restagraph";
-    tag = "0.7.0b10";
+    tag = "0.7.0b15";
     created = "now";
 
     contents = [
