@@ -246,6 +246,7 @@
                  (mapcar #'(lambda (row)
                              (make-schema-rtype-attrs :name (first row)
                                                       :description (second row)
+                                                      :read-only (fourth row)
                                                       :attr-values (if (and (third row)
                                                                             (stringp (third row)))
                                                                        (cl-ppcre:split "," (third row))
@@ -255,7 +256,7 @@
                              db
                              `((:STATEMENTS
                                  ((:STATEMENT
-                                    . ,(format nil "~A-[:HAS]->(t:RgResourceType {name: \"~A\"})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a.name, a.description, a.values"
+                                    . ,(format nil "~A-[:HAS]->(t:RgResourceType {name: \"~A\"})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a.name, a.description, a.values, a.readonly"
                                                schema-base (name rtype))))))))))
                ;; It doesn't exist. Create it, and return nulls for attributes and relationships
                (let ((query (format nil "~A CREATE (v)-[:HAS]->(t:RgResourceType {name: \"~A\", dependent: ~A~A})"
@@ -306,7 +307,7 @@
                                        (mapcar
                                          #'(lambda
                                              (attr)
-                                             (format nil "(t)-[:HAS]->(:RgResourceTypeAttribute {name: \"~A\"~A~A})"
+                                             (format nil "(t)-[:HAS]->(:RgResourceTypeAttribute {name: \"~A\"~A~A~A})"
                                                      (name attr)
                                                      (if (and (description attr)
                                                               (not (equal "" (description attr))))
@@ -314,7 +315,10 @@
                                                          "")
                                                      (if (attr-values attr)
                                                          (format nil ", values: \"~{~A~^,~}\"" (attr-values attr))
-                                                         "")))
+                                                         "")
+                                                     (if (read-only attr)
+                                                       (format nil ", readonly: true")
+                                                       "")))
                                          new-attrs)))))
             (log-message :debug (format nil "Installing resourcetype-attribute definitions with this query: ~A"
                                         query))
@@ -565,6 +569,7 @@
                         (make-incoming-rtype-attrs
                           :name (cdr (assoc :NAME attr))
                           :description (cdr (assoc :DESCRIPTION attr))
+                          :read-only (cdr (assoc :READ-ONLY attr))
                           :attr-values (cdr (assoc :VALUES attr))))
                     (cdr (assoc :ATTRIBUTES res)))))
       (cdr (assoc :RESOURCETYPES schema-alist)))
@@ -707,13 +712,14 @@
   (mapcar #'(lambda (attr)
               (make-schema-rtype-attrs :name (first attr)
                                        :description (second attr)
+                                       :read-only (fourth attr)
                                        :attr-values (cl-ppcre:split "," (third attr))))
           (neo4cl:extract-rows-from-get-request
             (neo4cl:neo4j-transaction
               db
               `((:STATEMENTS
                   ((:STATEMENT
-                     . ,(format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: \"~A\"})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a.name, a.description, a.values"
+                     . ,(format nil "MATCH (:RgSchema {name: \"root\"})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: \"~A\"})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a.name, a.description, a.values, a.readonly"
                                 resourcetype)))))))))
 
 

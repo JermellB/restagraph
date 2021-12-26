@@ -10,6 +10,20 @@
                    (safety 3)
                    (debug 3)))
 
+(defun any-readonly-attrs (resourcetype params)
+  "Detect whether the supplied parameters include any read-only ones for this resourcetype."
+  (declare (type (or null schema-rtypes) resourcetype))
+  (when resourcetype
+    (progn
+      (log-message :debug
+                   (format nil "Checking for read-only attributes in resourcetype '~A'"
+                           (name resourcetype)))
+      (intersection (map 'list
+                         'restagraph::name
+                         (remove-if-not 'restagraph::read-only (attributes resourcetype)))
+                    (mapcar 'car params)
+                    :test 'equal))))
+
 (defun api-dispatcher-v1 ()
   "Hunchentoot dispatch function for the Restagraph API, version 1."
   (handler-case
@@ -88,42 +102,59 @@
            (log-message
              :debug
              (format nil "Attempting to dispatch a POST request for resource type ~A" resourcetype))
-           ;; Do we already have one of these?
-           (if (get-resources
-                 (datastore tbnl:*acceptor*)
-                 (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
-             ;; It's already there; return 304 "Not modified"
-             (progn
-               (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
-                                           resourcetype (sanitise-uid uid)))
-               (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-not-modified+)
-               (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
+           ;; Perform a series of sanity-tests.
+           ;; If all of them pass, try to store it.
+           (cond
+             ;; Do we already have one of these?
+             ((get-resources
+                (datastore tbnl:*acceptor*)
+                (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
+              ;; It's already there; return 304 "Not modified"
+              (progn
+                (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
+                                            resourcetype (sanitise-uid uid)))
+                (setf (tbnl:content-type*) "text/plain")
+                (setf (tbnl:return-code*) tbnl:+http-not-modified+)
+                (format nil "/~A/~A" resourcetype (sanitise-uid uid))))
+             ;; Did the client try to set any read-only attributes?
+             ((any-readonly-attrs (gethash resourcetype (schema tbnl:*acceptor*))
+                                  (tbnl:post-parameters*))
+              (progn
+                (log-message :debug "Client tried to set 1+ read-only attributes.")
+                (setf (tbnl:content-type*) "text/plain")
+                ;; Using 403 here instead of 400, because the request is understood and
+                ;; _semantically_ valid, but the client is trying to do something it's not
+                ;; allowed/authorised to do.
+                (setf (tbnl:return-code*) tbnl:+http-forbidden+)
+                "Invalid attempt to set read-only attributes."))
+             ;; Do we have a valid user to store it under?
+             ;; - Currently a no-op, but we'll need this when adding users and AAA.
+             ;;
              ;; We don't already have one of these; store it
-             ;; But first, do we have a valid user to store it under?
-             (handler-case
-               (let ((uri (format
-                            nil
-                            "/~A/~A"
-                            resourcetype
-                            (store-resource (datastore tbnl:*acceptor*)
-                                            (schema tbnl:*acceptor*)
-                                            resourcetype
-                                            (tbnl:post-parameters*)
-                                            (get-creator
-                                              (post-policy
-                                                (access-policy *restagraph-acceptor*)))))))
-                 ;; Return 201 and the URI
-                 (log-message :debug (format nil "Stored the new resource with URI '~A'" uri))
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 (setf (tbnl:header-out "Location") uri)
-                 ;; Return the URI to the newly-created resource
-                 uri)
-               ;; Handle integrity errors
-               (integrity-error (e) (return-integrity-error (message e)))
-               ;; Handle general client errors
-               (client-error (e) (return-client-error (message e)))))))
+             (t
+               (handler-case
+                 (let ((uri (format
+                              nil
+                              "/~A/~A"
+                              resourcetype
+                              (store-resource (datastore tbnl:*acceptor*)
+                                              (schema tbnl:*acceptor*)
+                                              resourcetype
+                                              (tbnl:post-parameters*)
+                                              (get-creator
+                                                (post-policy
+                                                  (access-policy *restagraph-acceptor*)))))))
+                   ;; Return 201 and the URI
+                   (log-message :debug (format nil "Stored the new resource with URI '~A'" uri))
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-created+)
+                   (setf (tbnl:header-out "Location") uri)
+                   ;; Return the URI to the newly-created resource
+                   uri)
+                 ;; Handle integrity errors
+                 (integrity-error (e) (return-integrity-error (message e)))
+                 ;; Handle general client errors
+                 (client-error (e) (return-client-error (message e))))))))
         ;;
         ;; Store a relationship
         ((and (equal (tbnl:request-method*) :POST)
@@ -235,33 +266,49 @@
            (equal (tbnl:request-method*) :PUT)
            (equal (mod (length uri-parts) 3) 2))
          (handler-case
-           (progn
-             (log-message
-               :debug
-               (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
-             (update-resource-attributes
-               (datastore tbnl:*acceptor*)
-               (schema tbnl:*acceptor*)
-               uri-parts
-               (remove-if #'(lambda (param)
-                              (or (null (cdr param))
-                                  (equal (cdr param) "")))
-                          (append (tbnl:post-parameters*)
-                                  (tbnl:get-parameters*))))
-             ;; Return 200/Updated in accordance with the Working Group spec:
-             ;; https://httpwg.org/specs/rfc7231.html#PUT
-             ;; Technically, it'd be more correct to return 201/Created if a new attribute is set,
-             ;; but there are two issues with this:
-             ;; - all attributes are null by default in this system
-             ;; - multiple attributes can be updated in a single PUT request, leading to a conflict
-             ;;   where one or more is updated, and one or more is not.
-             ;;   The simplest solution to this conflict is to use the one return-code shared by
-             ;;   these cases, and interpret the spec as "ensure that these attributes have these
-             ;;   values" rather than "conditionally update whichever of these attributes doesn't
-             ;;   already have the value specified in this request."
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-ok+)
-             "Updated")
+           (let ((resourcetype (first uri-parts)))
+                 (cond
+                   ;; Attempt to update one or more read-only attributes.
+                   ((any-readonly-attrs (gethash resourcetype (schema tbnl:*acceptor*))
+                                        (append (tbnl:post-parameters*)
+                                                (tbnl:get-parameters*)))
+                    (progn
+                      (log-message :debug "Client tried to set 1+ read-only attributes.")
+                      (setf (tbnl:content-type*) "text/plain")
+                      ;; Using 403 here instead of 400, because the request is understood and
+                      ;; _semantically_ valid, but the client is trying to do something it's not
+                      ;; allowed/authorised to do.
+                      (setf (tbnl:return-code*) tbnl:+http-forbidden+)
+                      "Invalid attempt to set read-only attributes."))
+                   ;; Default case: we're good, carry on.
+                   (t
+                    (progn
+                      (log-message
+                        :debug
+                        (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
+                      (update-resource-attributes
+                        (datastore tbnl:*acceptor*)
+                        (schema tbnl:*acceptor*)
+                        uri-parts
+                        (remove-if #'(lambda (param)
+                                       (or (null (cdr param))
+                                           (equal (cdr param) "")))
+                                   (append (tbnl:post-parameters*)
+                                           (tbnl:get-parameters*))))
+                      ;; Return 200/Updated in accordance with the Working Group spec:
+                      ;; https://httpwg.org/specs/rfc7231.html#PUT
+                      ;; Technically, it'd be more correct to return 201/Created if a new attribute is set,
+                      ;; but there are two issues with this:
+                      ;; - all attributes are null by default in this system
+                      ;; - multiple attributes can be updated in a single PUT request, leading to a conflict
+                      ;;   where one or more is updated, and one or more is not.
+                      ;;   The simplest solution to this conflict is to use the one return-code shared by
+                      ;;   these cases, and interpret the spec as "ensure that these attributes have these
+                      ;;   values" rather than "conditionally update whichever of these attributes doesn't
+                      ;;   already have the value specified in this request."
+                      (setf (tbnl:content-type*) "text/plain")
+                      (setf (tbnl:return-code*) tbnl:+http-ok+)
+                      "Updated"))))
            ;; Attempted violation of db integrity
            (integrity-error (e) (return-integrity-error (message e)))
            ;; Generic client errors

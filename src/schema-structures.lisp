@@ -123,6 +123,11 @@
    (description :initarg :description
                 :reader description
                 :type (or null string))
+   (read-only :initarg :read-only
+              :reader read-only
+              :type boolean
+              :initform nil
+              :documentation "Whether this attribute can be updated via client request. Default is nil, i.e. it's writeable. Maps to 'readonly' within Neo4j.")
    (attr-values :initarg :attr-values
                 :reader attr-values
                 :type (or null list)))
@@ -139,17 +144,20 @@
 (defmethod a-listify ((obj schema-rtype-attrs))
   `((:name . ,(name obj))
     (:description . ,(description obj))
+    (:read-only . ,(read-only obj))
     (:values . ,(attr-values obj))))
 
 (defmethod p-listify ((obj schema-rtype-attrs))
   `(:name ,(name obj)
     :description ,(description obj)
+    :read-only ,(read-only obj)
     :values ,(attr-values obj)))
 
 
-(defun make-schema-rtype-attrs (&key name description attr-values)
+(defun make-schema-rtype-attrs (&key name description read-only attr-values)
   (declare (type string name)
            (type (or null string) description)
+           (type boolean read-only)
            (type list attr-values))
   "Constructor for schema-rtype-attrs instances."
   (if (or (null attr-values)
@@ -157,8 +165,9 @@
                (every #'stringp attr-values)))
       (make-instance 'schema-rtype-attrs :name name
                      :description description
+                     :read-only read-only
                      :attr-values attr-values)
-      (error ":values arg must be a list of strings.")))
+      (error ":values arg must be either null, or a list of strings.")))
 
 
 (defclass schema-rels ()
@@ -283,12 +292,17 @@
    (description :initarg :description
                 :reader description
                 :type (or null string))
+   (read-only :initarg :read-only
+              :reader read-only
+              :type boolean
+              :initform nil
+              :documentation "Whether this attribute can be updated via client request. Default is nil, i.e. it's writeable.")
    (attr-values :initarg :attr-values
            :reader attr-values
            :type (or null list)))
   (:documentation "Attributes of _incoming_ resource-types."))
 
-(defun make-incoming-rtype-attrs (&key name description attr-values)
+(defun make-incoming-rtype-attrs (&key name description read-only attr-values)
   (declare (type string name)
            (type (or null string) description)
            (type (or null list) attr-values))
@@ -298,6 +312,7 @@
       (make-instance 'incoming-rtype-attrs
                      :name name
                      :description description
+                     :read-only read-only
                      :attr-values attr-values)
       (error ":values arg must be a list of strings.")))
 
