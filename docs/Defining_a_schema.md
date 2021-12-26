@@ -80,6 +80,10 @@ A list of attributes objects. Their keys are:
     - A list of valid values for this attribute, so you can effectively define it as an enum type.
     - Those values can currently only be defined as strings, because I haven't (yet) implemented a way of specifying their type as something else.
     - Default value is `null`, which means anything goes.
+- `read-only`
+    - Denotes an attribute that can't be updated via the HTTP API.
+    - This is only useful in combination with server-side logic that autogenerates the parameter's value, like checksums and MIME-types of files.
+    - Note that in the database, this is stored as `readonly` (no hyphen) due to Neo4j constraints on attribute names. I'm living with the inconsistency because I prefer the readability of the Lisp version.
 
 
 ## Relationships

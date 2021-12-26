@@ -243,6 +243,8 @@ The UID must be unique for each resource-type. That is, if you define a `routers
 
 On success, returns a status code of 201, and the URI for the newly-created resource, e.g. `/People/Blake`.
 
+Note that it will return a 400 error if you try to set the `createddate` or `lastmodified` datestamps, and a 403 if you try to set any attribute whose `read-only` value in the schema is `True`.
+
 
 ### Create a dependent resource
 
@@ -337,6 +339,8 @@ This always returns a status code of 204 (no content) on success.
 Although [section 4.3.4 of RFC 7231](https://tools.ietf.org/html/rfc7231#section-4.3.4) states that 201 must be returned "[i]f the target resource does not have a current representation and the PUT successfully creates one," this API provides for updating multiple resources in a single request, making it entirely possible to create, update _and_ delete attributes in a single transaction. It seems like a backward step to restrict clients to updating a single attribute per request, so I´m making the counter-argument that unpopulated attributes have the de facto representation of `Null`, so _technically_ there aren´t any valid resources lacking representation in the context of this method.
 
 There's currently no way to delete the value of an attribute, but I do plan to add this feature.
+
+Note that, like with POST requests, the API will return a 400 error if you try to set the `createddate` or `lastmodified` datestamps, and a 403 if you try to set any attribute whose `read-only` value in the schema is `True`.
 
 
 ## Delete a resource

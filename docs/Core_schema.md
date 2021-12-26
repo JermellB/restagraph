@@ -73,7 +73,9 @@ Note that some of these things are specifically for IP Address Management (or IP
     - `title` - The requested filename, recorded verbatim instead of having to be sanitised for URI-safety.
     - `notes` - Notes about this file.
     - `mimetype` - The detected MIME-type of this file, i.e. the description used for attaching files to emails or transferring to/from webservers.
+        - Read-only: this attribute _cannot_ be updated via the HTTP client API.
     - `sha3256sum` - The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions.
+        - Read-only: this attribute _cannot_ be updated via the HTTP client API.
 - Outbound relationships: none
 
 
