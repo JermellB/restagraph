@@ -67,9 +67,11 @@
                                 :description "Notes about this file.")
                               (make-incoming-rtype-attrs
                                 :name "mimetype"
+                                :read-only t
                                 :description "The detected MIME-type of this file, i.e. the description used for attaching files to emails or transferring to/from webservers.")
                               (make-incoming-rtype-attrs
                                 :name "sha3256sum"
+                                :read-only t
                                 :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions.")))
           (make-incoming-rtypes
             :name "VrfGroups"
