@@ -23,7 +23,6 @@ stdenv.mkDerivation rec {
 
     LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
         pkgs.openssl
-        #pkgs.libyaml
     ];
 
     shellHook = "export PS1='\n\\[\\033[01;32m\\][nix restagraph] \\w\\$\\[\\033[00m\\] ';\
