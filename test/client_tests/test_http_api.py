@@ -421,8 +421,8 @@ class TestSchemaBasic(unittest.TestCase):
                     {
                         "name": "CREATOR",
                         "dependent": None,
-                        "cardinality": "many:many",
-                        "description": "In a coming upgrade, all resources will have a creator as part of the permissions-management system.",
+                        "cardinality": "many:1",
+                        "description": "All resources are linked to their creator. This is the first part of the permissions-management system.",
                         "target-type": "People"
                         },
                     {
