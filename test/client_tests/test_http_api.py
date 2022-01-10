@@ -221,7 +221,15 @@ class TestAttributesBasic(unittest.TestCase):
     person1 = 'Blake'
     attr1name = 'displayname'
     attr1val = 'Roj Blake'
+    person2 = 'Vila'
+    attr2name = 'displayname'
+    attr2val = 'Vila Restal'
+    file1source = 'cats_cuddling.jpg'
+    file1name = 'The popular cat-cuddling front of Judea'
+    file1sha3_256sum = '305664EB53010D52642594A3B3877A1BB811EAD9B610C5C1210F7F3B88B4C184'
+    file1sha3_256sum_wrong = '5555555555555555555555555555555555555555555555555555555555555555'
     response = None
+    currentDate = None
     @pytest.mark.dependency()
     def test_add_and_remove_single_attribute(self):
         # Create the resource
@@ -243,6 +251,53 @@ class TestAttributesBasic(unittest.TestCase):
         assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
         # Confirm the resource is gone
         assert requests.get('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 404
+    def test_nonaddressable_attribute(self):
+        # Try to change an attribute that is not explicitly defined, and is only set on creation.
+        # Create the resource
+        requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person2})
+        # Get the current createddate
+        currentDate = requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).json()['createddate']
+        # Try to set the createddate; the server should return "400/Client error".
+        # It should pass straight through the read-only-attribute validation, because
+        # the API dispatcher doesn't even recognise it as an attribute that might need validation.
+        assert requests.put('%s/People/%s' % (API_BASE_URL, self.person2),
+                            data = {'createddate': 13245}).status_code == 400
+        # Confirm that the createddate hasn't changed anyway.
+        assert currentDate == requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).json()['createddate']
+        #
+        ## Second variation: an internal-only attribute that is only added subsequent to creation.
+        # Confirm that the lastmodified datestamp is null.
+        # Try to set the lastmodified datestamp. This should fail, too.
+        # Confirm that the lastmodified datestamp is _still_ null.
+        assert requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).json().get('updateddate', None) is None
+        # Set an attribute.
+        assert requests.put('%s/People/%s' % (API_BASE_URL, self.person2),
+                                              data={self.attr2name: self.attr2val}).status_code == 200
+        # Get the updated lastmodified datestamp.
+        lastmodified = requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).json().get('updateddate', None)
+        # Try to set the lastmodified datestamp; the server should return an error.
+        assert requests.put('%s/People/%s' % (API_BASE_URL, self.person2),
+                            data={'updateddate': 12345643}).status_code == 400
+        # Confirm that the lastmodified datestamp hasn't changed.
+        assert lastmodified == requests.get('%s/People/%s' %
+                                            (API_BASE_URL, self.person2)).json().get('updateddate', None)
+        # Remove the resource
+        assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person2)).status_code == 204
+        # Confirm the resource is gone
+        assert requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).status_code == 404
+    def test_readonly_attr_set(self):
+        # Upload the file
+        fhandle = open(self.file1source, 'rb')
+        assert(requests.post('%s/files/' % (FILES_BASE_URL),
+                             data={'name': self.file1name},
+                             files={'file': fhandle}).status_code == 201)
+        # Fail to set the checksum
+        assert(requests.put('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)),
+                            data={'sha3256sum': self.file1sha3_256sum_wrong}).status_code == 403)
+        # Confirm the checksum is correct
+        assert(requests.get('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file1name))).json()['sha3256sum'] == self.file1sha3_256sum )
+        # Delete the file
+        requests.delete('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file1name)))
 
 #@pytest.mark.dependency(depends=["TestAttributesBasic::test_add_and_remove_single_attribute"])
 class TestRelationshipsBasic(unittest.TestCase):
@@ -448,6 +503,7 @@ class TestSchemaBasic(unittest.TestCase):
                     {
                         "name": "description",
                         "description": "Clarification of what the tag means.",
+                        "read-only": None,
                         "values": None
                         }
                     ],
