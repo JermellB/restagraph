@@ -187,3 +187,42 @@
                         '("RGinbound" . "!/Things/this/SUBTHINGS/Things/that/RELATES_TO")
                         schema
                         "People")))))
+
+(fiveam:test
+  any-readonly-attrs
+  "Test the process of checking for read-only attributes."
+  (restagraph::log-message :debug ";TEST: Simplest case: null vs null.")
+  (fiveam:is (null (restagraph::any-readonly-attrs
+                     (restagraph::make-schema-rtypes :name "EmptyType")
+                     '())))
+  (restagraph::log-message :debug ";TEST: Non-empty parameters, only non-read-only attrs.")
+  (fiveam:is (null (restagraph::any-readonly-attrs
+                     (restagraph::make-schema-rtypes
+                       :name "NonReadOnly"
+                       :description "Has attributes, but none are read-only."
+                       :attributes (list
+                                     (restagraph::make-schema-rtype-attrs :name "foo")))
+                     '(("foo" . "bar")
+                       ("baz" . "quux")))))
+  (restagraph::log-message :debug ";TEST: Null resourcetype")
+  (fiveam:is (null (restagraph::any-readonly-attrs nil '())))
+  (restagraph::log-message :debug ";TEST: One read-only attribute in both.")
+  (fiveam:is (equal (restagraph::any-readonly-attrs
+                      (restagraph::make-schema-rtypes
+                        :name "OneReadOnly"
+                        :description "Has a single read-only attribute."
+                        :attributes (list
+                                      (restagraph::make-schema-rtype-attrs :name "sha3256sum"
+                                                                           :read-only t)))
+                      '(("sha3256sum" . "asdh2676trhfgh")))
+                    '("sha3256sum")))
+  (restagraph::log-message :debug ";TEST: One read-only attribute in schema, none in input.")
+  (fiveam:is (equal (restagraph::any-readonly-attrs
+                      (restagraph::make-schema-rtypes
+                        :name "OneReadOnly"
+                        :description "Has a single read-only attribute."
+                        :attributes (list
+                                      (restagraph::make-schema-rtype-attrs :name "sha3256sum"
+                                                                           :read-only t)))
+                      '(("foo" . "bar")))
+                    nil)))

@@ -279,6 +279,21 @@
       (restagraph::delete-schema-version *server* schema-version))))
 
 (fiveam:test
+  resources-attributes-read-only
+  :depends-on '(resources-attributes-enums any-readonly-attrs)
+  "Confirm that read-only attributes are correctly recorded as such in the database."
+  (let ((files-attrs (restagraph::attributes
+                       (gethash "Files" (restagraph::fetch-current-schema *server*)))))
+    (fiveam:is (restagraph::read-only
+                 (elt (remove-if-not #'(lambda (attr) (equal "mimetype" (restagraph::name attr)))
+                                     files-attrs)
+                      0)))
+    (fiveam:is (not (restagraph::read-only
+                      (elt (remove-if-not #'(lambda (attr) (equal "title" (restagraph::name attr)))
+                                          files-attrs)
+                           0))))))
+
+(fiveam:test
   resources-dependent-simple
   :depends-on 'resources-basic
   "Basic operations on dependent resources"
