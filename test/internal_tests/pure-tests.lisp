@@ -113,21 +113,21 @@
                                 :description "It needed a name, alright?"
                                 :attr-values '("one" "two" "three")))))
     ;; On with the tests
-    (restagraph::log-message :DEBUG "TEST: null filter")
+    (restagraph::log-message :DEBUG ";TEST: null filter")
     (fiveam:is (null (restagraph::process-filter '() schema "any")))
-    (restagraph::log-message :DEBUG "TEST: regex filter")
+    (restagraph::log-message :DEBUG ";TEST: regex filter")
     (fiveam:is (equal "n.foo =~ '.*foo.*'"
                       (restagraph::process-filter '("foo" . ".*foo.*") schema "People")))
-    (restagraph::log-message :DEBUG "TEST: negated regex filter")
+    (restagraph::log-message :DEBUG ";TEST: negated regex filter")
     (fiveam:is (equal "NOT n.foo =~ '.*foo.*'"
                       (restagraph::process-filter '("foo" . "!.*foo.*") schema "People")))
-    (restagraph::log-message :DEBUG "TEST: existence filter")
+    (restagraph::log-message :DEBUG ";TEST: existence filter")
     (fiveam:is (equal "exists(n.foo)"
                       (restagraph::process-filter '("foo" . "exists") schema "People")))
-    (restagraph::log-message :DEBUG "TEST: negated existence filter")
+    (restagraph::log-message :DEBUG ";TEST: negated existence filter")
     (fiveam:is (equal "NOT exists(n.foo)"
                       (restagraph::process-filter '("foo" . "!exists") schema "People")))
-    (restagraph::log-message :DEBUG "TEST: enum filter")
+    (restagraph::log-message :DEBUG ";TEST: enum filter")
     (fiveam:is (equal "n.carl IN [\"one\"]"
                       (restagraph::process-filter '("carl" . "one") schema "EnumTest")))
     (fiveam:is (equal "n.carl IN [\"one\", \"three\"]"
@@ -136,13 +136,13 @@
     ;; However, that will have to wait until I figure out how to usefull report on invalid filters.
     (fiveam:is (equal "n.carl IN [\"four\"]"
                       (restagraph::process-filter '("carl" . "four") schema "EnumTest")))
-    (restagraph::log-message :DEBUG "TEST: text filter")
+    (restagraph::log-message :DEBUG ";TEST: text filter")
     (fiveam:is (equal "n.displayname = 'blah'"
                       (restagraph::process-filter '("displayname" . "blah") schema "People")))
-    (restagraph::log-message :DEBUG "TEST: negated text filter")
+    (restagraph::log-message :DEBUG ";TEST: negated text filter")
     (fiveam:is (equal "NOT n.foo = 'blah'"
                       (restagraph::process-filter '("foo" . "!blah") schema "People")))
-    (restagraph::log-message :DEBUG "TEST: outbound filters")
+    (restagraph::log-message :DEBUG ";TEST: outbound filters")
     (fiveam:is (equal "(n)-[:TAGS]->(:Tags { uid: 'thisTag' })"
                       (restagraph::process-filter '("RGoutbound" . "/TAGS/Tags/thisTag")
                                                   schema
@@ -152,7 +152,7 @@
                         '("RGoutbound" . "/THINGS/Things/this/RELATES_TO/Things/that")
                         schema
                         "People")))
-    (restagraph::log-message :DEBUG "TEST: negated outbound filters")
+    (restagraph::log-message :DEBUG ";TEST: negated outbound filters")
     (fiveam:is (equal "NOT (n)-[:TAGS]->(:Tags { uid: 'thisTag' })"
                       (restagraph::process-filter '("RGoutbound" . "!/TAGS/Tags/thisTag")
                                                   schema
@@ -162,12 +162,12 @@
                         '("RGoutbound" . "!/THINGS/Things/this/RELATES_TO/Things/that")
                         schema
                         "People")))
-    (restagraph::log-message :DEBUG "TEST: inbound filters")
+    (restagraph::log-message :DEBUG ";TEST: inbound filters")
     (fiveam:is (equal "(:Things { uid: 'this' })-[:RELATES_TO]->(n)"
                       (restagraph::process-filter '("RGinbound" . "/Things/this/RELATES_TO")
                                                   schema
                                                   "People")))
-    (restagraph::log-message :DEBUG "TEST: inbound filters with wildcards")
+    (restagraph::log-message :DEBUG ";TEST: inbound filters with wildcards")
     (fiveam:is (equal "(:Things)-[:RELATES_TO]->(n)"
                       (restagraph::process-filter '("RGinbound" . "/Things/*/RELATES_TO")
                                                   schema
@@ -177,7 +177,7 @@
                         '("RGinbound" . "/Things/this/SUBTHINGS/Things/that/RELATES_TO")
                         schema
                         "People")))
-    (restagraph::log-message :DEBUG "TEST: negated inbound filters")
+    (restagraph::log-message :DEBUG ";TEST: negated inbound filters")
     (fiveam:is (equal "NOT (:Things { uid: 'this' })-[:RELATES_TO]->(n)"
                       (restagraph::process-filter '("RGinbound" . "!/Things/this/RELATES_TO")
                                                   schema
