@@ -318,7 +318,6 @@
                                          new-attrs)))))
             (log-message :debug (format nil "Installing resourcetype-attribute definitions with this query: ~A"
                                         query))
-            (log-message :debug "Dummy message to flush the log-printing queue.")
             (handler-case
               (neo4cl:neo4j-transaction db `((:STATEMENTS ((:STATEMENT . ,query)))))
               (neo4cl:transient-error (e) (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
