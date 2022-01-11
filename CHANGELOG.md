@@ -4,8 +4,39 @@ All notable changes
 
 ## [Unreleased]
 
-Changelog starts here.
+### Added
 
+- API/Schema: Define read-only attributes.
+  These are really only useful in conjunction with server-side logic which auto-populates attributes, and are mostly FYI for regular users. However, they mean that you can now rely on things like the SHA3-256 checksum and MIME-type of an uploaded image, because now you know that these can't be overwritten by a client.
+
+
+### Changed
+
+- Logging improvement in `pure-tests.lisp`: log-messages starting with "TEST" now start with ";TEST" to better show up in a SLIME session.
+- Core schema: change the cardinality of `any/CREATOR/People` from `1:many` to `many:1`. Many things should be able to be created by one person, and only one person.
+- Update the client test to match the core schema: change the expected cardinality and description of the `/any/CREATOR/People` relationship, to match the changes in the core schema.
+- Update `run_test_neo4` to use Neo4j 4.3.9.
+- Upgrade SBCL from 2.1.9 to 2.1.10 in `default.nix`.
+
+
+### Removed
+
+- Dummy log message in `install-subschema-resourcetype`.
+- Redundant handler-case from `store-resource`.
+- Remove `libyaml` from `default.nix`: it's been commented out for long enough to be sure that it's now cruft.
+
+
+### Security
+
+- Read-only attributes (see "Added" section above) remove a data-integrity issue.
+
+
+### Deprecated
+
+Nothing deprecated in this release.
+
+
+## [0.7.0b15]
 
 ### Added
 
