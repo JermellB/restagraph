@@ -378,6 +378,26 @@ class TestRelationshipsBasic(unittest.TestCase):
         assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
 
 @pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
+class TestRelationshipFailures(unittest.TestCase):
+    '''
+    Regression tests for relationships
+    '''
+    person1 = 'Travis'
+    tag1 = 'villain'
+    def test_create_relationship_without_relationship(self):
+        # Request creation of a relationship, but leave the relationship off the source URL
+        #
+        # Setup
+        requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
+        requests.post('%s/Tags/' % (API_BASE_URL), data={"uid": self.tag1})
+        # Test
+        assert requests.post('%s/People/%s' % (API_BASE_URL, self.person1),
+                             data={'target': '/Tags/%s' % (self.tag1)}).status_code == 400
+        # Teardown
+        requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code
+        requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code
+
+@pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
 class TestFilesApi(unittest.TestCase):
     '''
     Upload, download, metadata and deletion of files.

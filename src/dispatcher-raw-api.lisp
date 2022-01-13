@@ -52,6 +52,15 @@
            (setf (tbnl:return-code*) tbnl:+http-not-found+)
            (format nil "No resources found for ~A" uri-parts)))
         ;;
+        ;; Mistaken attempt to create a relationship from a primary resource,
+        ;; forgetting to include the relationship in the URL
+        ((and (equal :POST (tbnl:request-method*))
+              (equal 2 (length uri-parts)))
+         (log-message :debug "Client attempted to create a relationship from a primary resource, without specifying the relationship.")
+         (setf (tbnl:content-type*) "text/plain")
+         (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+         "Request not valid. Did you forget to specify the relationship?")
+        ;;
         ;; GET -> Retrieve something
         ;;
         ;; Single resource was requested
