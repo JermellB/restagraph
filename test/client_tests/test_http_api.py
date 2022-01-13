@@ -299,7 +299,7 @@ class TestAttributesBasic(unittest.TestCase):
         # Delete the file
         requests.delete('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file1name)))
 
-#@pytest.mark.dependency(depends=["TestAttributesBasic::test_add_and_remove_single_attribute"])
+@pytest.mark.dependency(depends=["TestAttributesBasic::test_add_and_remove_single_attribute"])
 class TestRelationshipsBasic(unittest.TestCase):
     '''
     The most rudimentary of relationship testing
