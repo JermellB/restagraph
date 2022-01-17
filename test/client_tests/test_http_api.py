@@ -394,8 +394,8 @@ class TestRelationshipFailures(unittest.TestCase):
         assert requests.post('%s/People/%s' % (API_BASE_URL, self.person1),
                              data={'target': '/Tags/%s' % (self.tag1)}).status_code == 400
         # Teardown
-        requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code
-        requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code
+        requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1))
+        requests.delete('%s/People/%s' % (API_BASE_URL, self.person1))
 
 @pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
 class TestFilesApi(unittest.TestCase):
