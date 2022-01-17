@@ -276,48 +276,48 @@
            (equal (mod (length uri-parts) 3) 2))
          (handler-case
            (let ((resourcetype (first uri-parts)))
-                 (cond
-                   ;; Attempt to update one or more read-only attributes.
-                   ((any-readonly-attrs (gethash resourcetype (schema tbnl:*acceptor*))
-                                        (append (tbnl:post-parameters*)
-                                                (tbnl:get-parameters*)))
-                    (progn
-                      (log-message :debug "Client tried to set 1+ read-only attributes.")
-                      (setf (tbnl:content-type*) "text/plain")
-                      ;; Using 403 here instead of 400, because the request is understood and
-                      ;; _semantically_ valid, but the client is trying to do something it's not
-                      ;; allowed/authorised to do.
-                      (setf (tbnl:return-code*) tbnl:+http-forbidden+)
-                      "Invalid attempt to set read-only attributes."))
-                   ;; Default case: we're good, carry on.
-                   (t
-                    (progn
-                      (log-message
-                        :debug
-                        (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
-                      (update-resource-attributes
-                        (datastore tbnl:*acceptor*)
-                        (schema tbnl:*acceptor*)
-                        uri-parts
-                        (remove-if #'(lambda (param)
-                                       (or (null (cdr param))
-                                           (equal (cdr param) "")))
-                                   (append (tbnl:post-parameters*)
-                                           (tbnl:get-parameters*))))
-                      ;; Return 200/Updated in accordance with the Working Group spec:
-                      ;; https://httpwg.org/specs/rfc7231.html#PUT
-                      ;; Technically, it'd be more correct to return 201/Created if a new attribute is set,
-                      ;; but there are two issues with this:
-                      ;; - all attributes are null by default in this system
-                      ;; - multiple attributes can be updated in a single PUT request, leading to a conflict
-                      ;;   where one or more is updated, and one or more is not.
-                      ;;   The simplest solution to this conflict is to use the one return-code shared by
-                      ;;   these cases, and interpret the spec as "ensure that these attributes have these
-                      ;;   values" rather than "conditionally update whichever of these attributes doesn't
-                      ;;   already have the value specified in this request."
-                      (setf (tbnl:content-type*) "text/plain")
-                      (setf (tbnl:return-code*) tbnl:+http-ok+)
-                      "Updated"))))
+             (cond
+               ;; Attempt to update one or more read-only attributes.
+               ((any-readonly-attrs (gethash resourcetype (schema tbnl:*acceptor*))
+                                    (append (tbnl:post-parameters*)
+                                            (tbnl:get-parameters*)))
+                (progn
+                  (log-message :debug "Client tried to set 1+ read-only attributes.")
+                  (setf (tbnl:content-type*) "text/plain")
+                  ;; Using 403 here instead of 400, because the request is understood and
+                  ;; _semantically_ valid, but the client is trying to do something it's not
+                  ;; allowed/authorised to do.
+                  (setf (tbnl:return-code*) tbnl:+http-forbidden+)
+                  "Invalid attempt to set read-only attributes."))
+               ;; Default case: we're good, carry on.
+               (t
+                 (progn
+                   (log-message
+                     :debug
+                     (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
+                   (update-resource-attributes
+                     (datastore tbnl:*acceptor*)
+                     (schema tbnl:*acceptor*)
+                     uri-parts
+                     (remove-if #'(lambda (param)
+                                    (or (null (cdr param))
+                                        (equal (cdr param) "")))
+                                (append (tbnl:post-parameters*)
+                                        (tbnl:get-parameters*))))
+                   ;; Return 200/Updated in accordance with the Working Group spec:
+                   ;; https://httpwg.org/specs/rfc7231.html#PUT
+                   ;; Technically, it'd be more correct to return 201/Created if a new attribute is set,
+                   ;; but there are two issues with this:
+                   ;; - all attributes are null by default in this system
+                   ;; - multiple attributes can be updated in a single PUT request, leading to a conflict
+                   ;;   where one or more is updated, and one or more is not.
+                   ;;   The simplest solution to this conflict is to use the one return-code shared by
+                   ;;   these cases, and interpret the spec as "ensure that these attributes have these
+                   ;;   values" rather than "conditionally update whichever of these attributes doesn't
+                   ;;   already have the value specified in this request."
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-ok+)
+                   "Updated"))))
            ;; Attempted violation of db integrity
            (integrity-error (e) (return-integrity-error (message e)))
            ;; Generic client errors
@@ -338,21 +338,37 @@
         ((and (equal (tbnl:request-method*) :DELETE)
               (equal (mod (length uri-parts) 3) 2))
          (log-message :debug "Attempting to delete a resource on an arbitrary path")
-         (handler-case
-           (progn
-             (delete-resource-by-path
-               (datastore tbnl:*acceptor*)
-               sub-uri
-               (schema tbnl:*acceptor*)
-               :recursive (and (tbnl:parameter "recursive")
-                               (not (equal "" (tbnl:parameter "recursive")))))
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-no-content+)
-             "")
-           ;; Attempted violation of db integrity
-           (integrity-error (e) (return-integrity-error (message e)))
-           ;; Generic client errors
-           (client-error (e) (return-client-error (message e)))))
+         ;; Try to get a copy of the resource
+         (let ((resource (get-resources (datastore tbnl:*acceptor*) sub-uri)))
+           (handler-case
+             (if resource
+               ;; If the resource is there, delete it
+               (progn
+                 (delete-resource-by-path
+                   (datastore tbnl:*acceptor*)
+                   sub-uri
+                   (schema tbnl:*acceptor*)
+                   :recursive (and (tbnl:parameter "recursive")
+                                   (not (equal "" (tbnl:parameter "recursive")))))
+                 (setf (tbnl:content-type*) "text/plain")
+                 ;; If the client requested "yoink" then return a representation of what we just deleted.
+                 (if (tbnl:get-parameter "yoink")
+                   (progn
+                     (setf (tbnl:return-code*) tbnl:+http-ok+)
+                     (cl-json:encode-json-to-string resource))
+                   ;; If they didn't, just acknowledge
+                   (progn
+                     (setf (tbnl:return-code*) tbnl:+http-no-content+)
+                     "")))
+               ;; Resource is not there
+               (progn
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-no-content+)
+                 ""))
+             ;; Attempted violation of db integrity
+             (integrity-error (e) (return-integrity-error (message e)))
+             ;; Generic client errors
+             (client-error (e) (return-client-error (message e))))))
         ;;
         ;; Delete a relationship on an arbitrary path
         ((and (equal (tbnl:request-method*) :DELETE)

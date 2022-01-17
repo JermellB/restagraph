@@ -353,6 +353,8 @@ Returns 204 (no content) on success.
 
 If the parameter `recursive=true` is supplied, all dependent resources depending on this one will also be deleted, from the bottom up. That parameter is accepted in both GET-style (within the URL) and POST-style (within the request body).
 
+If the parameter `yoink=true` is supplied, the resource's representation will be returned in the body of the reply in the same manner as a GET request.
+
 
 ## Create a relationship from one resource to another
 Note that, due to the way Neo4J works, these are always directional.

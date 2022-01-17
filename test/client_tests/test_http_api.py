@@ -60,6 +60,8 @@ class TestResources(unittest.TestCase):
     invalidtype = 'interfaces'
     invaliduid = 'eth0'
     adminuser = 'RgAdmin'
+    refcopy = None
+    yoinkcopy = None
 
     @pytest.mark.dependency()
     def test_create_and_delete_single_resource(self):
@@ -103,6 +105,23 @@ class TestResources(unittest.TestCase):
         print('Test: Fail to create an instance of an invalid resourcetype')
         assert requests.post('%s/%s' % (API_BASE_URL, self.invalidtype),
                              data={'uid': self.invaliduid}).status_code == 400
+    @pytest.mark.dependency(depends=["TestResources::test_create_and_delete_single_resource"])
+    def test_yoink_parameter(self):
+        print('Test: Delete a resource, and receive a representation as a parting gift.')
+        requests.post('%s/%s/' % (API_BASE_URL, self.restype), data={'uid': self.resuid})
+        # Confirm that it's now there, and grab a reference copy.
+        self.refcopy = requests.get('%s/%s/%s' % (API_BASE_URL,
+                                                 self.restype,
+                                                 sanitise_uid(self.resuid))).json()
+        # Delete it
+        self.yoinkcopy = requests.delete('%s/%s/%s?yoink=true' % (API_BASE_URL,
+                                                  self.restype,
+                                                  sanitise_uid(self.resuid)))
+        # Check that the copy we got from yoinking matches the reference copy
+        assert self.yoinkcopy.json() == self.refcopy
+        # Confirm it's gone
+        assert requests.get('%s/%s/%s' % (
+            API_BASE_URL, self.restype, sanitise_uid(self.resuid))).status_code == 404
 
 
 @pytest.mark.dependency(depends=["TestResources::test_create_and_delete_single_resource"])
