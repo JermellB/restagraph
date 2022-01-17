@@ -295,7 +295,8 @@ class TestAttributesBasic(unittest.TestCase):
         assert(requests.put('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file1name)),
                             data={'sha3256sum': self.file1sha3_256sum_wrong}).status_code == 403)
         # Confirm the checksum is correct
-        assert(requests.get('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file1name))).json()['sha3256sum'] == self.file1sha3_256sum )
+        assert(requests.get('%s/Files/%s' % (API_BASE_URL, sanitise_uid(self.file1name))).json()['sha3256sum']
+               == self.file1sha3_256sum)
         # Delete the file
         requests.delete('%s/%s' % (FILES_BASE_URL, sanitise_uid(self.file1name)))
 
