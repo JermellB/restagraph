@@ -18,6 +18,8 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
 
 - API/Schema: Define read-only attributes.
   These are really only useful in conjunction with server-side logic which auto-populates attributes, and are mostly FYI for regular users. However, they mean that you can now rely on things like the SHA3-256 checksum and MIME-type of an uploaded image, because now you know that these can't be overwritten by a client.
+- API: Add "yoink" parameter to DELETE operations (#82)
+  If the client appends `yoink=true` as a GET-style URL parameter, the server will return a representation of the resource being deleted.
 
 
 ### Changed
