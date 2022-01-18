@@ -1,6 +1,9 @@
 # Changelog
 
-All notable changes 
+All notable changes.
+
+Issue references of the form #<number> refer to tickets on Github: https://github.com/equill/restagraph/issues
+
 
 ## [Unreleased]
 
