@@ -9,7 +9,7 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
 
 ### Bugs fixed
 
-- [Github issue 67](https://github.com/equill/restagraph/issues/67): API hang in response to a POST request with a 2-element URI, i.e. a single resource.
+- API hang in response to a POST request with a 2-element URI, i.e. a single resource (#67)
     - Previously, the server tried to handle this as a request to move a dependent resource to a new parent, which led to a stracktrace when it tried to use an element from the URI that wasn't there.
     - This is now met with a 400/Bad Request error, and a prompt that you may have intended to link that resource to another one, but forgotten to include the relationship at the end of the URI.
 
