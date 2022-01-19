@@ -1,57 +1,138 @@
 {
-  "name": "movies_demo",
+  "name": "Movies",
   "resourcetypes": [
     {
-      "name": "Movies",
-      "dependent": "false",
-      "notes": "Moving picture, usually including sound.",
+      "name": "Movie",
+      "dependent": false,
+      "description": "Moving picture, often including sound.",
       "attributes": [
         {
-          "name": "year_released",
-          "description": "The year in which this movie was first released.",
+          "name": "title",
+          "description": "Full title of the movie.",
+          "values": null
+        },
+        {
+          "name": "released",
+          "description": "Year of release.",
+          "values": null
+        },
+        {
+          "name": "tagline",
+          "description": "Promotional catch-phrase.",
           "values": null
         }
       ]
     },
     {
-      "name": "TvSeries",
-      "dependent": "false",
-      "notes": "Several episodes, sometimes even with seasons.",
-      "attributes": null
+      "name": "TV_Series",
+      "dependent": false,
+      "description": "A television show with multiple episodes.",
+      "attributes": []
+    },
+    {
+      "name": "Role",
+      "dependent": true,
+      "description": "A role within a single movie.",
+      "attributes": []
+    },
+    {
+      "name": "People",
+      "dependent": false,
+      "description": "A real person.",
+      "attributes": [
+        {
+          "name": "name",
+          "description": "The person's full name",
+          "values": null
+        },
+        {
+          "name": "born",
+          "description": "The year in which this person was born.",
+          "values": null
+        }
+      ]
     }
   ],
   "relationships": [
     {
-      "source-type": "People",
-      "name": "ACTED_IN",
-      "target-type": "Movies",
-      "cardinality": "many:many",
-      "dependent": false,
-      "notes": "This person acted in that movie."
+      "source-type": "Movie",
+      "name": "CONTAINS",
+      "target-type": "Role",
+      "cardinality": "1:many",
+      "dependent": true,
+      "description": "That role exists in the context of this movie, and thus depends on this movie for its existence. One movie may contain many roles, but each role is specific to that movie, even if it corresponds to a role in a different movie, hence the 1:many cardinality."
     },
     {
-      "source-type": "Movies",
-      "name": "ACTORS",
+      "source-type": "Role",
+      "name": "APPEARS_IN",
+      "target-type": "Movie",
+      "cardinality": "many:1",
+      "dependent": false,
+      "description": "This role appeared in that movie. It's likely that other roles also appeared in it. Note that this relationship is _not_ dependent, even though roles depend on movies, because this is a separate relationship in the other direction."
+    },
+    {
+      "source-type": "Role",
+      "name": "CORRESPONDS_TO",
+      "target-type": "Role",
+      "cardinality": "many:many",
+      "dependent": false,
+      "description": "Connects appearances of the same role in multiple movies. Although Role is a dependent resource, a role does not depend on another role for its existence, so this _relationship_ is not a dependent one. A role may be connected to its appearances in several other movies, hence the many:many cardinality. It's entirely valid to create this relationship in both directions between a pair of roles."
+    },
+    {
+      "source-type": "People",
+      "name": "PERFORMED",
+      "target-type": "Role",
+      "cardinality": "many:many",
+      "dependent": false,
+      "description": "This person performed that role. It's possible that they shared this role with other people."
+    },
+    {
+      "source-type": "Role",
+      "name": "PERFORMED_BY",
       "target-type": "People",
       "cardinality": "many:many",
       "dependent": false,
-      "notes": "That person acted in this movie."
+      "description": "This role was performed by that person, and possibly by others."
     },
     {
       "source-type": "People",
-      "name": "ACTED_IN",
-      "target-type": "TvSeries",
+      "name": "DIRECTED",
+      "target-type": "Movie",
       "cardinality": "many:many",
       "dependent": false,
-      "notes": "That person appeared in this series, at least once."
+      "description": "This person directed that movie, possibly in conjunction with other people."
     },
     {
-      "source-type": "TvSeries",
-      "name": "ACTORS",
+      "source-type": "Movie",
+      "name": "DIRECTED_BY",
       "target-type": "People",
       "cardinality": "many:many",
       "dependent": false,
-      "notes": "One of the characters in this series was played by that person."
+      "description": "This movie was directed by that person, possibly in conjunction with others."
+    },
+    {
+      "source-type": "People",
+      "name": "WROTE",
+      "target-type": "Movie",
+      "cardinality": "many:many",
+      "dependent": false,
+      "description": "This person wrote that movie, possibly in conjunction with other people."
+    },
+    {
+      "source-type": "People",
+      "name": "WROTE",
+      "target-type": "TV_Series",
+      "cardinality": "many:many",
+      "dependent": false,
+      "description": "This person wrote that movie, possibly in conjunction with other people."
+    },
+    {
+      "source-type": "Movie",
+      "name": "WRITTEN_BY",
+      "target-type": "People",
+      "cardinality": "many:many",
+      "dependent": false,
+      "description": "This movie was written by that person, possibly along with others."
     }
   ]
 }
