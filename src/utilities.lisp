@@ -13,11 +13,34 @@
 
 ;;; Utility functions
 
+(defun unreserved-char-p (c)
+  "Test whether a character is unreserved, per section 2.3 of RFC 3986."
+  (or (alphanumericp c)
+      (char= #\- c)
+      (char= #\. c)
+      (char= #\_ c)
+      (char= #\~ c)))
+
+;; Design-decision note
+;;
+;; Two options here:
+;; - Replace unfriendly characters with something neutral, like an underscore.
+;; - Remove unfriendly characters altogether.
+;;
+;; For almost all cases, replacing them will make for a crappy-looking URL with very little gain.
+;; However, preserving some kind of separation between words can improve URL readability at low cost.
+;;
+;; Even though the API itself is unlikely to actually be used directly by humans,
+;; URIs do get reflected in user interfaces in various ways, such as in the URL of a web GUI,
+;; which people sometimes need to transcribe or communicate verbally.
+;; Because of that, human-friendliness of identifiers is important in a way that
+;; compactness in _paths_ is not.
 (defun sanitise-uid (uid)
-  "Replace UID-unfriendly characters in UIDs with something safe"
+  "Strip out UID-unfriendly characters, after replacing whitespace with underscores.
+   UID-friendly means being an unreserved character as defined in RFC 3986."
   (declare (type (string) uid))
-  (escape-neo4j
-    (cl-ppcre:regex-replace-all "[/ ]" uid "_")))
+  (remove-if-not #'unreserved-char-p
+                 (substitute #\_ #\Space uid)))
 
 (defun get-sub-uri (uri base-uri)
   (declare (type (string) uri base-uri))
