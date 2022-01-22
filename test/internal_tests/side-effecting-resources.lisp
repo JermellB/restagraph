@@ -1016,7 +1016,7 @@
                     :name "Dogs"
                     :attributes (list (restagraph::make-incoming-rtype-attrs :name attr1name))))
          (uid "Spot")
-         (attr1val "Röver Edwárd Petrusky the fourth")
+         (attr1val "Röver Edwárd Petrusky the fourth"))
     ;; Create a resource
     (restagraph::log-message :info ";TEST Set up the fixtures")
     ;; Install the core schema in the new schema-version
