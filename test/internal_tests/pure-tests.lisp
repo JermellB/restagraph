@@ -172,6 +172,15 @@
                       (restagraph::process-filter '("RGinbound" . "/Things/*/RELATES_TO")
                                                   schema
                                                   "People")))
+    (restagraph::log-message :DEBUG ";TEST: inbound filters with misplaced wildcards")
+    (fiveam:is (equal "(:Things)-[:]->(n)"
+                      (restagraph::process-filter '("RGinbound" . "/Things/*/*")
+                                                  schema
+                                                  "People")))
+    (fiveam:is (equal "(:Things { uid: 'that' })-[:]->(n)"
+                      (restagraph::process-filter '("RGinbound" . "/Things/that/*")
+                                                  schema
+                                                  "People")))
     (fiveam:is (equal "(:Things { uid: 'this' })-[:SUBTHINGS]->(:Things { uid: 'that' })-[:RELATES_TO]->(n)"
                       (restagraph::process-filter
                         '("RGinbound" . "/Things/this/SUBTHINGS/Things/that/RELATES_TO")

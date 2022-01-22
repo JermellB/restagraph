@@ -377,7 +377,15 @@ Return an error if
            ;; Simple format: /path/to/source/relationship
            ((equal name "RGinbound")
             (log-message :debug (format nil "Inbound link detected: ~A" value))
-            (uri-node-helper (get-uri-parts value) :marker "n"))
+            ;; Do basically the same thing as get-uri-parts, *except*
+            ;; don't sanitise the wildcard #\* character.
+            (uri-node-helper (loop for val in (cdr (cl-ppcre:split "/" value))
+                                   for i from 1
+                                   collecting (if (and (equal 2 (mod i 3))
+                                                       (string= "*" val))
+                                                val
+                                                (sanitise-uid val)))
+                             :marker "n"))
            ;; Regex match
            ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
            ((regex-p value)

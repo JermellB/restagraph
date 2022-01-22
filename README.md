@@ -201,6 +201,7 @@ That is, instances of a resourcetype. Their attributes are:
 
 - The UID (Unique IDentifier)
     - This is how the resource is addressed via the API, so it needs to be UID-safe. Restagraph automatically sanitises these on the way in.
+        - The list of acceptable characters is the unaccented Latin alphabet, digits, plus four non-alphanumeric characters (`-`, `_`, `.` and `~`). This is the set of "unreserved characters" from section 2.3 of [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt).
     - This is the only attribute you're _required_ to specify, when you create a resource.
 - Original UID
     - The un-sanitised version of the requested UID, regardless of whether it's different from the sanitised version.

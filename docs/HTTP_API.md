@@ -241,7 +241,9 @@ curl -X POST -d 'uid=Blake' http://localhost:4950/raw/v1/People
 
 The UID must be unique for each resource-type. That is, if you define a `routers` resource and a `switches` resource, no two routers can have the same UID, but a router and a switch can. Bear this in mind when designing your schema.
 
-On success, returns a status code of 201, and the URI for the newly-created resource, e.g. `/People/Blake`.
+UIDs must also be URL-safe, so they're restricted to the set of "unreserved characters" from section 2.3 of [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt): this is the unaccented Latin alphabet (a-z and A-Z), digits 0-9, and the four non-alphanumeric characters `-`, `_`, `.` and `~`.
+
+On success, the server returns a status code of 201, and the URI for the newly-created resource, e.g. `/People/Blake`.
 
 Note that it will return a 400 error if you try to set the `createddate` or `lastmodified` datestamps, and a 403 if you try to set any attribute whose `read-only` value in the schema is `True`.
 
@@ -304,6 +306,9 @@ You can add filters to this request, as parameters in the URL.
 - Resource has an outbound link to another resource: `RGoutbound=</RELATIONSHIP/Resourcetype/uid>`, e.g. `RGoutbound=/TAGS/Tags/fooTag`
     - You can drop the UID, to filter for resources with an outbound connection to _any_ resource of a given type, e.g. `RGoutbound=/TAGS/Tags" will require that the resource is tagged, without specifying a particular tag.
     - The target path can be of any length; you just need to remember that you're following a path outward from the target resource, and relationships need to be present in that direction. E.g, you can link to this IPv4 address on that interface of this router via `RGoutbound=/CONNECTS_TO/Ipv4Addresses/192.168.1.1/CONFIGURED_ON/EthernetInterface/eth0/PRESENT_ON/Devices/thisRouter`
+- Another resource links to this one: `RGinbound=</Resourcetype/resource/RELATIONSHIP>`, e.g. `RGinbound=/Movie/Speed_Racer/DIRECTED_BY`
+    - The path to that resource can be any length - it doesn't have to be a primary resource.
+    - UIDs in that path can be replaced with `*`, as a basic wildcard mechanism. E.g, you can find all tags associated with movies via `http://192.0.2.1:4950/raw/v1/Tags?RGinbound=/Movie/*/TAGS`
 - Enum attributes can be filtered on multiple values, by supplying a comma-separated list.
     - E.g, `priority=high,medium`
     - Note that the separater is a comma, _not_ comma-plus-space.

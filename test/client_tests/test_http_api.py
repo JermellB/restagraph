@@ -44,12 +44,23 @@ def sanitise_uid(uid):
     '''
     Sanitise a UID string in the same way Restagraph does
     '''
-    return re.sub('[/ ]', '_', uid)
+    return re.sub('[^A-Za-z0-9._~-]', '', re.sub('[/ ]', '_', uid))
 
 
 # Tests
 
 @pytest.mark.dependency()
+class TestSanitiseUid(unittest.TestCase):
+    "Check that sanitise_uid() does what I want it to."
+    def test_sanitise_uid(self):
+        assert sanitise_uid("foo bar") == "foo_bar"
+        assert sanitise_uid("foo-bar") == "foo-bar"
+        assert sanitise_uid("foo1bar") == "foo1bar"
+        assert sanitise_uid('foo=bar') == 'foobar'
+        assert sanitise_uid('foo,bar') == 'foobar'
+        assert sanitise_uid('foo$bar') == 'foobar'
+
+@pytest.mark.dependency(depends=["TestSanitise_Uid"])
 class TestResources(unittest.TestCase):
     '''
     Basic CRD functions for resources
@@ -213,7 +224,10 @@ class TestBasicResourceErrors(unittest.TestCase):
     '''
     invalid_resourcetype = 'IjustMadeThisUp'
     valid_resourcetype = 'People'
-    valid_uid = 'Soolin'
+    valid_uid1 = 'Soolin'
+    valid_uid2 = 'Del-Tarrant'
+    invalid_uid1 = 'Jenna$Stannis'
+    invalid_uid2 = "Dayna'Mellanby"
     @pytest.mark.dependency()
     def test_basic_resource_errors(self):
         print('Test: test_basic_resource_errors')
@@ -227,8 +241,18 @@ class TestBasicResourceErrors(unittest.TestCase):
                          400)
         # Invalid non-UID parameters
         self.assertEqual(requests.post('%s/%s' % (API_BASE_URL, self.valid_resourcetype),
-                                       data={'uid': self.valid_uid, 'foo': 'bar'}).status_code,
+                                       data={'uid': self.valid_uid1, 'foo': 'bar'}).status_code,
                          400)
+        # Test filtering of valid/invalid UID characters
+        assert requests.post('%s/People' % (API_BASE_URL),
+                             data={'uid': self.valid_uid1}).text == '/People/%s' % (sanitise_uid(self.valid_uid1))
+        requests.delete('%s/People/%s' % (API_BASE_URL, sanitise_uid(self.valid_uid1)))
+        assert requests.post('%s/People' % (API_BASE_URL),
+                             data={'uid': self.invalid_uid1}).text == '/People/%s' % (sanitise_uid(self.invalid_uid1))
+        requests.delete('%s/People/%s' % (API_BASE_URL, sanitise_uid(self.invalid_uid1)))
+        assert requests.post('%s/People' % (API_BASE_URL),
+                             data={'uid': self.invalid_uid2}).text == '/People/%s' % (sanitise_uid(self.invalid_uid2))
+        requests.delete('%s/People/%s' % (API_BASE_URL, sanitise_uid(self.invalid_uid2)))
 
 @pytest.mark.dependency(depends=[
     "TestMultipleResources::test_create_and_retrieve_multiple_resources",
