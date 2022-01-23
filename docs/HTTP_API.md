@@ -306,7 +306,7 @@ You can add filters to this request, as parameters in the URL.
     - The target path can be of any length; you just need to remember that you're following a path outward from the target resource, and relationships need to be present in that direction. E.g, you can link to this IPv4 address on that interface of this router via `RGoutbound=/CONNECTS_TO/Ipv4Addresses/192.168.1.1/CONFIGURED_ON/EthernetInterface/eth0/PRESENT_ON/Devices/thisRouter`
 - Enum attributes can be filtered on multiple values, by supplying a comma-separated list.
     - E.g, `priority=high,medium`
-    - Note that the separater is a comma, _not_ a comma plus a space.
+    - Note that the separater is a comma, _not_ comma-plus-space.
 
 Each of these can be applied as a negation, by prepending `!`. E.g, `!uid=foo` means "UID is _not_ equal to 'foo'".
 

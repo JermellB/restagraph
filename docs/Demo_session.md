@@ -182,7 +182,7 @@ Now there's also an `updateddate` timestamp, so you can see when a resource was 
 Add a movie she directed. I've stuck with Neo4j's convention of using the singular for node-labels when naming resourcetypes, so this is a "Movie" resource:
 
     $ curl -X POST -d 'uid=Speed Racer' -d 'released=2008' -d 'tagline=Speed has no limits' http://192.0.2.1:4950/raw/v1/Movie
-    /Movies/Speed_Racer
+    /Movie/Speed_Racer
 
 New thing here: when you create a resource, you can set some or all of its attributes at the same time - you don't have to do set them afterwards via PUT requests. In this case, 
 
