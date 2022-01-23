@@ -1,6 +1,6 @@
 # Restagraph - what is it?
 
-Restagraph is an application that dynamically generates an HTTP API in front of a [Neo4j](https://neo4j.com/) graph database, based on a schema defined within that same database. The auto-generated API is regular and consistent, making it easy to build automation against it.
+Restagraph is an application that dynamically generates an HTTP API in front of a [Neo4j](https://neo4j.com/) graph database, based on a schema defined inside that database. The auto-generated API is regular and consistent, making it easy to build automation and GUIs on top of it.
 
 This includes features such as:
 
@@ -18,6 +18,47 @@ There is explicit support for dependent resources, i.e. resources that only make
 - Consistent data structure: it ensures that the data that goes _in_ to a Neo4j database follows a consistent and predictable structure.
 - Language independence: the REST API means that any language can be used to build applications on top of this structure.
 - Development speed: with a single JSON file, you define both the database schema and the API.
+
+
+## What does it look like?
+
+Screenshots don't help much, because it's an HTTP API, so here's a quick demo of the very heart of it:
+
+Create a JSON file with the following contents:
+
+    {
+      "name": "Movies",
+      "resourcetypes": [
+        { "name": "Movie" }
+      ],
+      "relationships": [
+        {
+          "source-type": "People",
+          "name": "ACTED_IN",
+          "target-type": "Movie",
+          "cardinality": "many:many"
+        }
+      ]
+    }
+
+This defines a resourcetype called `Movie`, and a relationship from `People` to `Movie` (and only in that direction) called `ACTED_IN`. For this relationship, any number of people can be recorded to have acted in a movie, and a person can have acted in many movies. You don't need to define the "People" resourcetype, because that's predefined in Restagraph.
+
+Upload that file to the server, via a command like this:
+
+    curl -X POST --data-urlencode schema@core_demo.json http://192.0.2.1:4950/schema/v1
+
+Now create a person and a movie, and link them:
+
+    curl -X POST -d 'uid=Keanu Reeves' http://192.0.2.1:4950/raw/v1/People
+    curl -X POST -d 'uid=The Matrix' http://192.0.2.1:4950/raw/v1/Movie
+    curl -X POST -d 'target=/Movie/The_Matrix' http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves/ACTED_IN
+
+Ask the server what movies Keanu has acted in:
+
+    curl -s http://192.0.2.1:4950/raw/v1/People/Keanu_Reeves/ACTED_IN
+    [{"type":"Movie","uid":"The_Matrix","createddate":3851927697,"original_uid":"The Matrix"}]
+
+For full detail about what it's capable of, read the [HTTP API docs](docs/HTTP_API.md); for a detailed walkthrough of how to use it with the Neo4j movies dataset, read the [demo session](docs/Demo_session.md).
 
 
 ## Where to get it
@@ -58,66 +99,6 @@ To inspect the built-in schema: `curl http://192.0.2.1:4950/schema/v1`. It's out
 When you look at the schema, pay attention to the `any` resourcetype. It's a special case: relationships from the `any` type can be created with, well, _any_ resourcetype as the source. E.g, you can link any resource in the database to a tag or a group. It's useful to note that the server only checks for a relationship from the source type to the target type _after_ checking for one between those two resourcetypes, which means, you can override or pre-empt the relationship from `any` and use it as a catch-all fallback.
 
 You can change most of the details in `docker-compose.yml` to suit your own needs. There's nothing significant about the port numbers, volume names or network name, Restagraph doesn't _need_ to listen on all possible addresses, and it's always good practice to change the database password.
-
-
-## API examples
-
-Using `curl` for convenience, as it's the definitive command-line tool for the job. Also using `jq` to format the responses into human-readable form, because the API assumes it'll mostly be talking to other applications.
-
-Commands are prefixed with `$` to indicate the command-line prompt, and responses from the server are shown without a prefix.
-
-Create a resource representing a person:
-
-    $ curl -X POST -d 'uid=Kenny Who' http://192.0.2.1:4950/raw/v1/People
-    /People/Kenny_Who
-
-Note that the space in his name was automatically converted to an underscore, so you can use it in a URL without any workarounds.
-
-Create a tag:
-
-    $ curl -X POST -d 'uid=Artist' -d 'description=Creative people. A bit sensitive sometimes.' http://192.0.2.1:4950/raw/v1/Tags
-    /Tags/Artist
-
-Connect the tag to the person:
-
-    $ curl -X POST -d 'target=/Tags/Artist' http://192.0.2.1:4950/raw/v1/People/Kenny_Who/TAGS
-    /People/Kenny_Who/TAGS/Tags/Artist
-
-Look at Kenny's details:
-
-    $ curl -s http://192.0.2.1:4950/raw/v1/People/Kenny_Who | jq .
-    {
-      "uid": "Kenny_Who",
-      "createddate": 3848054079,
-      "original_uid": "Kenny Who"
-    }
-
-Check his tags:
-
-    $ curl -s http://localhost:4950/raw/v1/People/Kenny_Who/TAGS | jq .
-    [
-      {
-        "type": "Tags",
-        "uid": "Artist",
-        "createddate": 3848054682,
-        "original_uid": "Artist",
-        "description": "Creative people. A bit sensitive sometimes."
-      }
-    ]
-
-Find all people who are tagged as an artist:
-
-    $ curl -s http://localhost:4950/raw/v1/People?RGoutbound=/TAGS/Tags/Artist | jq .
-    [
-      {
-        "uid": "Kenny_Who",
-        "createddate": 3848054079,
-        "original_uid": "Kenny Who"
-      }
-    ]
-
-
-A more comprehensive walkthrough is at [docs/Demo_session.md](docs/Demo_session.md)
 
 
 # The schema - how it works
