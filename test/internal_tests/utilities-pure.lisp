@@ -110,7 +110,3 @@
 #+(or)
 (fiveam:test
   replace-all)
-
-#+(or)
-(fiveam:test
-  escape-neo4j)

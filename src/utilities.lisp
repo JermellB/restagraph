@@ -74,14 +74,14 @@
   (cond
     ;; End of the list; terminate the path with the marker.
     ((null uri-parts)
-     (format nil "~A(~A)" path (escape-neo4j marker)))
+     (format nil "~A(~A)" path marker))
     ;; 1-element URI; terminate the path with the marker identifying a resourcetype.
     ((equal (length uri-parts) 1)
-     (format nil "~A(~A:~A)" path (escape-neo4j marker) (first uri-parts)))
+     (format nil "~A(~A:~A)" path marker (first uri-parts)))
     ;; 2-element URI; terminate the path with the marker identifying a specific resource.
     ((equal (length uri-parts) 2)
      (format nil "~A(~A:~A { uid: '~A' })"
-             path (escape-neo4j marker) (first uri-parts) (second uri-parts)))
+             path marker (first uri-parts) (second uri-parts)))
     ;; 3-element URI; terminate the path with a relationship from a resource to the marker.
     ((equal (length uri-parts) 3)
      (format nil "~A(:~A~A)-[:~A]->(~A)"
@@ -96,7 +96,7 @@
              ;; Relationship to target
              (sanitise-uid (third uri-parts))
              ;; Target
-             (escape-neo4j marker)))
+             marker))
     ;; The URI is longer than 3 elements.
     ;; Extend the path with its first 3 elements, then recurse through this function
     ;; with whatever is left over.
@@ -251,8 +251,3 @@
                            :end (or pos (length string)))
           when pos do (write-string replacement out)
           while pos)))
-
-(defun escape-neo4j (str)
-  "Escape any undesirable characters in a string, e.g. the single-quote."
-  (declare (type (string) str))
-  (replace-all str "'" "\\'"))

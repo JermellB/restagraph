@@ -21,10 +21,8 @@
   (declare (type (or null cons) params))
   (log-message :debug "Formatting a set of POST parameters for use as Neo4j properties.")
   (mapcar #'(lambda (param)
-              (cons (intern (escape-neo4j (string-downcase (car param))) :keyword)
-                    (if (stringp (cdr param))
-                      (escape-neo4j (cdr param))
-                      (cdr param))))
+              (cons (intern (string-downcase (car param)) :keyword)
+                    (cdr param)))
           params))
 
 (defun validate-attributes (requested defined &key (invalid '()) (badvalue '()))

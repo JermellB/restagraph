@@ -318,9 +318,9 @@ Return an error if
 
 (defun process-filter (filter schema rtype)
   "Process a single filter from a GET parameter, expecting a dotted cons.
-   Assumes uri-node-helper was called with its default marker, which is 'n'.
-   Returns NIL when the cdr of the filter is NIL.
-   Helper-function for `process-filters`."
+  Assumes uri-node-helper was called with its default marker, which is 'n'.
+  Returns NIL when the cdr of the filter is NIL.
+  Helper-function for `process-filters`."
   (declare (type list filter)
            (type hash-table schema) ; Specific to checking enums
            (type string rtype))     ; Specific to checking enums
@@ -344,14 +344,14 @@ Return an error if
             (negationp (string= "!" (cdr filter) :end2 1))
             ;; Get the value of the expression.
             ;; If it's negated, drop the leading `!`.
-            (value (escape-neo4j (if negationp
-                                     (subseq (cdr filter) 1)
-                                     (cdr filter)))))
+            (value (if negationp
+                     (subseq (cdr filter) 1)
+                     (cdr filter))))
        (log-message :debug (format nil "De-negated value: '~A'" value))
        ;; Log whether negation was detected
        (if negationp
-           (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
-           (log-message :debug "Negation not detected. Double-negative in progress."))
+         (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
+         (log-message :debug "Negation not detected. Double-negative in progress."))
        (format
          nil
          "~A~A"
@@ -363,7 +363,7 @@ Return an error if
            ;; Simple format: relationship/path/to/target
            ((equal name "RGoutbound")
             (let* ((parts (get-uri-parts value))
-                   (relationship (escape-neo4j (first parts))))
+                   (relationship (first parts)))
               (log-message :debug (format nil "Outbound link detected: ~A" value))
               ;; FIXME: needs sanity-checking that (not (equal (mod (length parts) 3) 1))
               ;; because that would be an outbound relationship to a relationship,
@@ -389,28 +389,21 @@ Return an error if
            ;; Regex match
            ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
            ((regex-p value)
-            (format
-              nil "n.~A =~~ '~A'"
-              (escape-neo4j name)
-              ;; Drop the first character if we're negating the match,
-              ;; otherwise use the whole string.
-              (escape-neo4j value)))
+            (format nil "n.~A =~~ '~A'" name value))
            ;;
            ;; Simple existence check
-           ((string= "exists" (escape-neo4j value))
-            (format nil "exists(n.~A)" (escape-neo4j name)))
+           ((string= "exists" value)
+            (format nil "exists(n.~A)" name))
            ;;
            ;; Enum attribute
            ((and
-              (get-attribute (gethash rtype schema) (escape-neo4j name))
-              (attr-values (get-attribute (gethash rtype schema) (escape-neo4j name))))
-            (format nil "n.~A IN [~{\"~A\"~^, ~}]"
-                    (escape-neo4j name)
-                    (mapcar #'escape-neo4j (cl-ppcre:split "," value))))
+              (get-attribute (gethash rtype schema) name)
+              (attr-values (get-attribute (gethash rtype schema) name)))
+            (format nil "n.~A IN [~{\"~A\"~^, ~}]" name (cl-ppcre:split "," value)))
            ;;
            ;; Default case: exact text match
            (t
-            (format nil "n.~A = '~A'" (escape-neo4j name) (escape-neo4j value)))))))
+             (format nil "n.~A = '~A'" name value))))))
     (t
       (log-message :warn "Invalid filter")
       nil)))
