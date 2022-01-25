@@ -12,6 +12,8 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
 - API hang in response to a POST request with a 2-element URI, i.e. a single resource (#67)
     - Previously, the server tried to handle this as a request to move a dependent resource to a new parent, which led to a stracktrace when it tried to use an element from the URI that wasn't there.
     - This is now met with a 400/Bad Request error, and a prompt that you may have intended to link that resource to another one, but forgotten to include the relationship at the end of the URI.
+- API hangs in response to a POST request where the UID contains an apostrophe (#65)
+    - Sanitisation of UIDs is now much stricter.
 
 
 ### Added
@@ -29,6 +31,7 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
 - Update the client test to match the core schema: change the expected cardinality and description of the `/any/CREATOR/People` relationship, to match the changes in the core schema.
 - Update `run_test_neo4` to use Neo4j 4.3.9.
 - Upgrade SBCL from 2.1.9 to 2.1.10 in `default.nix`.
+- UIDs are now only permitted to include "unreserved characters" as defined in section 2.3 of RFC 3986, to ensure URL-safety.
 
 
 ### Removed
