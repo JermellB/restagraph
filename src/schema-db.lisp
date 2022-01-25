@@ -615,10 +615,14 @@
     :debug
     (format nil "Retrieving the relationship ~A from ~A to ~A."
             relationship source-type target-type))
-  (find-if #'(lambda (rel)
-               (and (equal relationship (name rel))
-                    (equal target-type (name (target-type rel)))))
-           (relationships (gethash source-type db))))
+  ;; First, try to fetch the definition of the source-type
+  (let ((sourcetype-def (gethash source-type db)))
+    ;; *If* we have the source-type, search through its relationships for this one.
+    (when sourcetype-def
+      (find-if #'(lambda (rel)
+                   (and (equal relationship (name rel))
+                        (equal target-type (name (target-type rel)))))
+               (relationships sourcetype-def)))))
 
 (defmethod get-relationship ((db neo4cl:neo4j-rest-server)
                              (source-type string)
