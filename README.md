@@ -12,6 +12,8 @@ Thus, it gives you a schema and constraints similar in spirit to a relational da
 
 There is explicit support for dependent resources, i.e. resources that only make sense in the context of another.
 
+For convenient reference, [the docs are on Github Pages](https://equill.github.io/restagraph/).
+
 
 ## Benefits, a.k.a. the point of this thing
 
