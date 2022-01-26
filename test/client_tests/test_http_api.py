@@ -6,7 +6,7 @@ Test package for Restagraph's REST API.
 '''
 
 
-#   Copyright 2017-2021 James Fleming <james@electronic-quill.net>
+#   Copyright 2017-2022 James Fleming <james@electronic-quill.net>
 #
 #   Licensed under the GNU General Public License
 #   - for details, see LICENSE.txt in the top-level directory
@@ -666,7 +666,7 @@ class TestAttributeValues(unittest.TestCase):
     # - duplicate relationship definitions
     #     - both within the same document, and in a subsequent one
 
-@pytest.mark.dependency(["TestSchemaUpdates"])
+#@pytest.mark.dependency(["TestSchemaUpdates"])
 class TestDependentResources(unittest.TestCase):
     res1type = "Buildings"
     res1uid = "Xenon"
@@ -678,6 +678,9 @@ class TestDependentResources(unittest.TestCase):
     depres2uid = "Toolshed"
     owner1type = "People"
     owner1uid = "Frank"
+    invalidparenttype1 = "Building"   # Minor typo, for added realism
+    invalidreltype1 = "FLOOR"
+    invaliddeptype1 = "Floor"
     def test_dependent_resourcetypes_basic(self):
         # Add the test schema
         requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
@@ -840,6 +843,45 @@ class TestDependentResources(unittest.TestCase):
         # Clean up the schema we added
         versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
         requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
+        ## Test failure modes
+    def test_dependent_resourcetypes_failures(self):
+        # Add the test schema
+        requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
+        # Try to link a parent resource of invalid type to a dependent resource, neither of which actually exist.
+        # Yes, this is a real test. Yes, the server stacktraced if you did that, so it's a regression test.
+        assert requests.post('%s/%s/%s/%s' % (API_BASE_URL, self.invalidparenttype1 , self.res1uid, self.depres1rel),
+                             data={"target": '/%s/%s' % (self.depres1type, self.depres1uid)}).status_code == 409
+        # Try to link a parent resource to a dependent resource of invalid type, neither of which exist.
+        assert requests.post('%s/%s/%s/%s' % (API_BASE_URL, self.res1type , self.res1uid, self.depres1rel),
+                             data={"target": '/%s/%s' % (self.invaliddeptype1, self.depres1uid)}).status_code == 409
+        # Try to link a parent resource to a dependent resource, neither of which exist, via an invalid relationship.
+        assert requests.post('%s/%s/%s/%s' % (API_BASE_URL, self.res1type , self.res1uid, self.invalidreltype1),
+                             data={"target": '/%s/%s' % (self.depres1type, self.depres1uid)}).status_code == 409
+        # Try to add a dependent resource from a nonexistent parent type
+        assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                              self.invalidparenttype1,
+                                              self.res1uid,
+                                              self.depres1rel,
+                                              self.depres1type),
+                             data={"uid": self.depres1uid}).status_code == 400
+        # Try to add a dependent resource of a type that doesn't exist
+        assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                              self.res1type,
+                                              self.res1uid,
+                                              self.depres1rel,
+                                              self.invaliddeptype1),
+                             data={"uid": self.depres1uid}).status_code == 400
+        # Try to create a dependent resource of a parent that doesn't exist, where both types are valid.
+        assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                              self.res1type,
+                                              self.res1uid,
+                                              self.depres1rel,
+                                              self.depres1type),
+                             data={"uid": self.depres1uid}).status_code == 400
+        # Clean up the schema we added
+        versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
+    #
     # Check that `recursive=true` _only_ deletes dependent resources,
     # and _doesn't_ go on a rampage.
     # Check that _only_ dependent resources can be created with a dependent relationship.
