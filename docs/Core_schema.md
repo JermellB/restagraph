@@ -15,7 +15,6 @@ Note that some of these things are specifically for IP Address Management (or IP
 - Attributes: none.
 - Outbound relationships:
     - `/TAGS/Tags` - many:many - Any resourcetype can be tagged.
-    - `/GROUPS/Groups` - many:many - Any resourcetype can be assigned to a group.
     - `/CREATOR/People` - 1:many - All resources are linked to their creator. This is the first part of the permissions-management system.
 
 
@@ -24,14 +23,6 @@ Note that some of these things are specifically for IP Address Management (or IP
 - Description: For categorising resources of any type. Useful in searches.
 - Attributes:
     - `description` - Clarification of what the tag means.
-- Outbound relationships: none
-
-
-## Groups
-
-- Description: For collecting resources into explicit groups.
-- Attributes:
-    - `description` - Clarification of what the group means.
 - Outbound relationships: none
 
 

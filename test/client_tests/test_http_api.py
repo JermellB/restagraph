@@ -350,7 +350,7 @@ class TestRelationshipsBasic(unittest.TestCase):
     '''
     person1 = 'Blake'
     tag1 = 'Idealist'
-    group1 = 'Seven'
+    invalidrel1 = 'Tagged'
     rgadmin = 'RgAdmin'
     def test_tag_a_person(self):
         # Setup
@@ -401,24 +401,24 @@ class TestRelationshipsBasic(unittest.TestCase):
     def test_fail_to_create_invalid_relationship(self):
         # Setup
         requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
-        requests.post('%s/Groups/' % (API_BASE_URL), data={"uid": self.group1})
+        requests.post('%s/%s/' % (API_BASE_URL, self.invalidrel1), data={"uid": self.tag1})
         # Test
         assert requests.post('%s/People/%s/MEMBER_OF' % (API_BASE_URL, self.person1),
-                             data={'target': '/Groups/%s' % (self.group1)}).status_code == 409
+                             data={'target': '/%s/%s' % (self.invalidrel1, self.tag1)}).status_code == 409
         # Teardown
-        assert requests.delete('%s/Groups/%s' % (API_BASE_URL, self.group1)).status_code == 204
+        assert requests.delete('%s/%s/%s' % (API_BASE_URL, self.invalidrel1, self.tag1)).status_code == 204
         assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
     def test_fail_to_delete_invalid_relationship(self):
         # Setup
         requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
-        requests.post('%s/Groups/' % (API_BASE_URL), data={"uid": self.group1})
+        requests.post('%s/Tags/' % (API_BASE_URL), data={"uid": self.tag1})
         # Test
         response = requests.delete('%s/People/%s/MEMBER_OF' % (API_BASE_URL, self.person1),
-                                   data={'target': '/Groups/%s' % (self.group1)})
+                                   data={'target': '/Tags/%s' % (self.tag1)})
         assert response.status_code == 400
         assert response.text == "Client error: There is no relationship between these resource-types. Are you sure there's something here to delete?"
         # Teardown
-        assert requests.delete('%s/Groups/%s' % (API_BASE_URL, self.group1)).status_code == 204
+        assert requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 204
         assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person1)).status_code == 204
 
 @pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
@@ -543,13 +543,6 @@ class TestSchemaBasic(unittest.TestCase):
                         "cardinality": "many:1",
                         "description": "All resources are linked to their creator. This is the first part of the permissions-management system.",
                         "target-type": "People"
-                        },
-                    {
-                        "name": "GROUPS",
-                        "dependent": None,
-                        "cardinality": "many:many",
-                        "description": "Any resourcetype can be assigned to a group.",
-                        "target-type": "Groups"
                         },
                     {
                         "name": "TAGS",

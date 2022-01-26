@@ -39,25 +39,6 @@
     </div>
     <div>
       <table>
-        <tr><th colspan="2"><a name="Groups">Groups</a></th></tr>
-      <tr><td class="heading">Description: </td><td>For collecting resources into explicit groups.</td></tr>
-      <tr><td>Dependent: </td><td>false</td></tr>
-      <tr>
-        <td>Attributes: </td>
-        <td>
-          <ul>
-            <li><span class="attribute-name">description</span>: Clarification of what the group means. </li>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <td>Relationships: </td>
-        </td>
-      </tr>
-      </table>
-    </div>
-    <div>
-      <table>
         <tr><th colspan="2"><a name="Ipv4Addresses">Ipv4Addresses</a></th></tr>
       <tr><td class="heading">Description: </td><td>IPv4 Addresses. Unqualified, so really only useful for allocating.</td></tr>
       <tr><td>Dependent: </td><td>true</td></tr>
@@ -272,8 +253,7 @@
         <td>Relationships: </td>
         <td>
           <ul>
-            <li>CREATOR/<a href="#People">People</a><br>All resources are linked to their creator. This is the first part of the permissions-management system.<br>1:many, dependent: false</li>
-            <li>GROUPS/<a href="#Groups">Groups</a><br>Any resourcetype can be assigned to a group.<br>many:many, dependent: false</li>
+            <li>CREATOR/<a href="#People">People</a><br>All resources are linked to their creator. This is the first part of the permissions-management system.<br>many:1, dependent: false</li>
             <li>TAGS/<a href="#Tags">Tags</a><br>Any resourcetype can be tagged.<br>many:many, dependent: false</li>
           </ul>
         </td>

@@ -13,6 +13,11 @@
 
 ;;; Utility functions
 
+;; Handy reference of definitions from RFC 3986
+;(defvar unreserved (list #\- #\. #\_ #\~))
+;(defvar delimiters (list #\: #\/ #\? #\# #\[ #\] #\@))
+;(defvar sub-delimiters (list #\! #\$ #\& #\' #\( #\) #\* #\+ #\, #\; #\=))
+
 (defun unreserved-char-p (c)
   "Test whether a character is unreserved, per section 2.3 of RFC 3986."
   (or (alphanumericp c)

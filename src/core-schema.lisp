@@ -29,12 +29,6 @@
                                 :name "description"
                                 :description "Clarification of what the tag means.")))
           (make-incoming-rtypes
-            :name "Groups"
-            :description "For collecting resources into explicit groups."
-            :attributes (list (make-incoming-rtype-attrs
-                                :name "description"
-                                :description "Clarification of what the group means.")))
-          (make-incoming-rtypes
             :name "Organisations"
             :description "Any kind of organisation: professional, social or other."
             :dependent nil
@@ -125,11 +119,6 @@
                                              :target-type "Tags"
                                              :cardinality "many:many"
                                              :description "Any resourcetype can be tagged.")
-                         (make-incoming-rels :name "GROUPS"
-                                             :source-type "any"
-                                             :target-type "Groups"
-                                             :cardinality "many:many"
-                                             :description "Any resourcetype can be assigned to a group.")
                          (make-incoming-rels :name "CREATOR"
                                              :source-type "any"
                                              :target-type "People"
