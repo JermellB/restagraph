@@ -312,18 +312,18 @@ class TestAttributesBasic(unittest.TestCase):
         # Confirm that the lastmodified datestamp is null.
         # Try to set the lastmodified datestamp. This should fail, too.
         # Confirm that the lastmodified datestamp is _still_ null.
-        assert requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).json().get('updateddate', None) is None
+        assert requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).json().get('lastmodified', None) is None
         # Set an attribute.
         assert requests.put('%s/People/%s' % (API_BASE_URL, self.person2),
                                               data={self.attr2name: self.attr2val}).status_code == 200
         # Get the updated lastmodified datestamp.
-        lastmodified = requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).json().get('updateddate', None)
+        lastmodified = requests.get('%s/People/%s' % (API_BASE_URL, self.person2)).json().get('lastmodified', None)
         # Try to set the lastmodified datestamp; the server should return an error.
         assert requests.put('%s/People/%s' % (API_BASE_URL, self.person2),
-                            data={'updateddate': 12345643}).status_code == 400
+                            data={'lastmodified': 12345643}).status_code == 400
         # Confirm that the lastmodified datestamp hasn't changed.
         assert lastmodified == requests.get('%s/People/%s' %
-                                            (API_BASE_URL, self.person2)).json().get('updateddate', None)
+                                            (API_BASE_URL, self.person2)).json().get('lastmodified', None)
         # Remove the resource
         assert requests.delete('%s/People/%s' % (API_BASE_URL, self.person2)).status_code == 204
         # Confirm the resource is gone

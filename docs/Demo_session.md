@@ -174,10 +174,10 @@ Back to the API. Look at Lana and now we see the extra details we just added:
       "createddate": 3851667010,
       "original_uid": "Lana W",
       "displayname": "Lana Wachowski",
-      "updateddate": 3851667136
+      "lastmodified": 3851667136
     }
 
-Now there's also an `updateddate` timestamp, so you can see when a resource was last changed, separately from when it was created.
+Now there's also an `lastmodified` timestamp, so you can see when a resource was last changed, separately from when it was created.
 
 Add a movie she directed. I've stuck with Neo4j's convention of using the singular for node-labels when naming resourcetypes, so this is a "Movie" resource:
 
@@ -301,7 +301,7 @@ We already knew how to do that, so what was the point of running through it a se
         "createddate": 3851667010,
         "original_uid": "Lana W",
         "displayname": "Lana Wachowski",
-        "updateddate": 3851667136
+        "lastmodified": 3851667136
       },
       {
         "type": "People",
@@ -373,7 +373,7 @@ So far, so good, but that only allows us to filter "things relating to this one 
         "createddate": 3851667010,
         "original_uid": "Lana W",
         "displayname": "Lana Wachowski",
-        "updateddate": 3851667136
+        "lastmodified": 3851667136
       },
       {
         "uid": "Lilly_W",
@@ -409,14 +409,14 @@ Conversely, you can also use `RGinbound` to pick out, say, all people who happen
         "createddate": 3851667010,
         "original_uid": "Lana W",
         "displayname": "Lana Wachowski",
-        "updateddate": 3851667136
+        "lastmodified": 3851667136
       },
       {
         "uid": "Lilly_W",
         "createddate": 3851680082,
         "original_uid": "Lilly W",
         "displayname": "Lilly Wachowski",
-        "updateddate": 3851683911
+        "lastmodified": 3851683911
       }
     ]
 
@@ -430,7 +430,7 @@ For bonus points, we can negate those filters, using `!` at the start of the reg
         "createddate": 3851667010,
         "original_uid": "Lana W",
         "displayname": "Lana Wachowski",
-        "updateddate": 3851667136
+        "lastmodified": 3851667136
       },
       {
         "uid": "Christina_R",

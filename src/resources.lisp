@@ -551,7 +551,7 @@ The returned list contains 3-element lists of relationship, type and UID."))
                          schema
                          (car (last (butlast path)))
                          attributes))
-            `(("updateddate" . ,(get-universal-time))))))
+            `(("lastmodified" . ,(get-universal-time))))))
     (when attrs
       (log-message
         :debug
