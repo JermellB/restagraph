@@ -9,7 +9,7 @@ stdenv.mkDerivation rec {
         # Lisp env
         #pkgs.libyaml
         pkgs.openssl
-        pkgs.sbcl_2_1_10
+        pkgs.sbcl
         # Python env
         pkgs.python39Full
         pkgs.python39Packages.pip
