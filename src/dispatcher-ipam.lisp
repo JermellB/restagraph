@@ -29,48 +29,52 @@
       ((and (equal (tbnl:request-method*) :POST)
             (tbnl:post-parameter "subnet")
             (tbnl:post-parameter "org"))
-       (log-message :debug
-                    (format nil "Dispatching POST request for URI ~A"
-                            (tbnl:request-uri*)))
-       (cond
-         ;; Sanity-check: does the organisation exist?
-         ((not (get-resources
-                 (datastore *restagraph-acceptor*)
-                 (concatenate 'string "/Organisations/" (tbnl:post-parameter "org"))))
-          (return-client-error
-            (format nil "Organisation '~A' does not exist" (tbnl:post-parameter "org"))))
-         ;; It's passed all the sanity checks so far; insert it
-         (t
-           (let ((result
-                   (insert-subnet (datastore *restagraph-acceptor*)
-                                  (tbnl:post-parameter "org")
-                                  (or (tbnl:post-parameter "vrf") "")
-                                  (if (ipaddress:ipv4-subnet-p (tbnl:post-parameter "subnet"))
-                                    (ipaddress:make-ipv4-subnet (tbnl:post-parameter "subnet"))
-                                    (ipaddress:make-ipv6-subnet (tbnl:post-parameter "subnet")))
-                                  (schema *restagraph-acceptor*)
-                                  (post-policy (access-policy *restagraph-acceptor*)))))
-             ;; Return it to the client for confirmation
-             (log-message
-               :debug
-               (format nil
-                       (if result
-                         "Stored subnet ~A. Now retrieving it for positive confirmation."
-                         "Subnet ~A was already present. Retrieving it for positive confirmation.")
-                       (tbnl:post-parameter "subnet")))
-             (setf (tbnl:content-type*) "application/json")
-             (setf (tbnl:return-code*) (if result
-                                         tbnl:+http-created+
-                                         tbnl:+http-ok+))
-             (format-subnet-path
-               (tbnl:post-parameter "org")
-               (tbnl:post-parameter "vrf")
-               (find-subnet (datastore *restagraph-acceptor*)
-                            (tbnl:post-parameter "org")
-                            (or (tbnl:post-parameter "vrf") "")
-                            (if (ipaddress:ipv4-subnet-p (tbnl:post-parameter "subnet"))
-                              (ipaddress:make-ipv4-subnet (tbnl:post-parameter "subnet"))
-                              (ipaddress:make-ipv6-subnet (tbnl:post-parameter "subnet")))))))))
+       (log-message :debug (format nil "Dispatching POST request for URI ~A" (tbnl:request-uri*)))
+       (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+         (cond
+           ;; Sanity-check: does the organisation exist?
+           ((not (get-resources
+                   session
+                   (concatenate 'string "/Organisations/" (tbnl:post-parameter "org"))))
+            (neo4cl:disconnect session)
+            (return-client-error
+              (format nil "Organisation '~A' does not exist" (tbnl:post-parameter "org"))))
+           ;; It's passed all the sanity checks so far; insert it
+           (t
+             (let ((result
+                     (insert-subnet session
+                                    (tbnl:post-parameter "org")
+                                    (or (tbnl:post-parameter "vrf") "")
+                                    (if (ipaddress:ipv4-subnet-p (tbnl:post-parameter "subnet"))
+                                      (ipaddress:make-ipv4-subnet (tbnl:post-parameter "subnet"))
+                                      (ipaddress:make-ipv6-subnet (tbnl:post-parameter "subnet")))
+                                    (schema *restagraph-acceptor*)
+                                    (post-policy (access-policy *restagraph-acceptor*))))
+                   (returnval
+                     (format-subnet-path
+                       (tbnl:post-parameter "org")
+                       (tbnl:post-parameter "vrf")
+                       (find-subnet session
+                                    (tbnl:post-parameter "org")
+                                    (or (tbnl:post-parameter "vrf") "")
+                                    (if (ipaddress:ipv4-subnet-p (tbnl:post-parameter "subnet"))
+                                      (ipaddress:make-ipv4-subnet (tbnl:post-parameter "subnet"))
+                                      (ipaddress:make-ipv6-subnet (tbnl:post-parameter "subnet")))))))
+               ;; Clean up the Bolt connection that's served its purpose
+               (neo4cl:disconnect session)
+               ;; Return it to the client for confirmation
+               (log-message
+                 :debug
+                 (format nil
+                         (if result
+                           "Stored subnet ~A. Now retrieving it for positive confirmation."
+                           "Subnet ~A was already present. Retrieving it for positive confirmation.")
+                         (tbnl:post-parameter "subnet")))
+               (setf (tbnl:content-type*) "application/json")
+               (setf (tbnl:return-code*) (if result
+                                           tbnl:+http-created+
+                                           tbnl:+http-ok+))
+               returnval)))))
       ;;
       ;; Search for a subnet
       ((and (equal (tbnl:request-method*) :GET)
@@ -80,12 +84,15 @@
                                    (tbnl:request-uri*)))
        ;; Go look for it
        (handler-case
-         (let ((result (find-subnet (datastore *restagraph-acceptor*)
-                                    (tbnl:get-parameter "org")
-                                    (or (tbnl:get-parameter "vrf") "")
-                                    (if (ipaddress:ipv4-subnet-p (tbnl:get-parameter "subnet"))
-                                      (ipaddress:make-ipv4-subnet (tbnl:get-parameter "subnet"))
-                                      (ipaddress:make-ipv6-subnet (tbnl:get-parameter "subnet"))))))
+         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                (result (find-subnet session
+                                     (tbnl:get-parameter "org")
+                                     (or (tbnl:get-parameter "vrf") "")
+                                     (if (ipaddress:ipv4-subnet-p (tbnl:get-parameter "subnet"))
+                                       (ipaddress:make-ipv4-subnet (tbnl:get-parameter "subnet"))
+                                       (ipaddress:make-ipv6-subnet (tbnl:get-parameter "subnet"))))))
+           ;; Clean up the session already
+           (neo4cl:disconnect session)
            ;; Did we find one?
            (if (or (null result)
                    (equal result ""))
@@ -116,13 +123,15 @@
             (tbnl:post-parameter "org"))
        (log-message :debug (format nil "Dispatching DELETE request for URI ~A"
                                    (tbnl:request-uri*)))
-       (delete-subnet (datastore *restagraph-acceptor*)
-                      (tbnl:post-parameter "org")
-                      (or (tbnl:post-parameter "vrf") "")
-                      (if (ipaddress:ipv4-subnet-p (tbnl:post-parameter "subnet"))
-                        (ipaddress:make-ipv4-subnet (tbnl:post-parameter "subnet"))
-                        (ipaddress:make-ipv6-subnet (tbnl:post-parameter "subnet")))
-                      (schema *restagraph-acceptor*))
+       (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+         (delete-subnet session
+                        (tbnl:post-parameter "org")
+                        (or (tbnl:post-parameter "vrf") "")
+                        (if (ipaddress:ipv4-subnet-p (tbnl:post-parameter "subnet"))
+                          (ipaddress:make-ipv4-subnet (tbnl:post-parameter "subnet"))
+                          (ipaddress:make-ipv6-subnet (tbnl:post-parameter "subnet")))
+                        (schema *restagraph-acceptor*))
+         (neo4cl:disconnect session))
        (setf (tbnl:content-type*) "text/plain")
        (setf (tbnl:return-code*) tbnl:+http-no-content+)
        "")
@@ -165,30 +174,37 @@
             (tbnl:post-parameter "address")
             (tbnl:post-parameter "org"))
        (log-message :debug (format nil "Dispatching POST request for URI ~A" (tbnl:request-uri*)))
-       (insert-ipaddress (datastore *restagraph-acceptor*)
-                         (schema *restagraph-acceptor*)
-                         (make-instance (if (ipaddress:ipv4-address-p (tbnl:post-parameter "address"))
-                                          'ipaddress:ipv4-address
-                                          'ipaddress:ipv6-address)
-                                        :address (tbnl:post-parameter "address"))
-                         (tbnl:post-parameter "org")
-                         (or (tbnl:post-parameter "vrf") "")
-                         (post-policy (access-policy *restagraph-acceptor*)))
-       ;; Return it to the client for confirmation
-       (log-message :debug
-                    (format nil "Stored address ~A. Now retrieving it for positive confirmation."
-                            (tbnl:post-parameter "address")))
-       (setf (tbnl:content-type*) "application/json")
-       (setf (tbnl:return-code*) tbnl:+http-created+)
-       (format-address-path (tbnl:post-parameter "org")
-                            (or (tbnl:post-parameter "vrf") "")
-                            (find-ipaddress (datastore *restagraph-acceptor*)
-                                            (make-instance (if (ipaddress:ipv4-address-p (tbnl:post-parameter "address"))
-                                                             'ipaddress:ipv4-address
-                                                             'ipaddress:ipv6-address)
-                                                           :address (tbnl:post-parameter "address"))
-                                            (tbnl:post-parameter "org")
-                                            (or (tbnl:post-parameter "vrf") ""))))
+       (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+         (insert-ipaddress session
+                           (schema *restagraph-acceptor*)
+                           (make-instance (if (ipaddress:ipv4-address-p (tbnl:post-parameter "address"))
+                                            'ipaddress:ipv4-address
+                                            'ipaddress:ipv6-address)
+                                          :address (tbnl:post-parameter "address"))
+                           (tbnl:post-parameter "org")
+                           (or (tbnl:post-parameter "vrf") "")
+                           (post-policy (access-policy *restagraph-acceptor*)))
+         (log-message :debug
+                      (format nil "Stored address ~A. Now retrieving it for positive confirmation."
+                              (tbnl:post-parameter "address")))
+         (let ((returnval 
+                 (format-address-path
+                   (tbnl:post-parameter "org")
+                   (or (tbnl:post-parameter "vrf") "")
+                   (find-ipaddress session
+                                   (make-instance (if (ipaddress:ipv4-address-p
+                                                        (tbnl:post-parameter "address"))
+                                                    'ipaddress:ipv4-address
+                                                    'ipaddress:ipv6-address)
+                                                  :address (tbnl:post-parameter "address"))
+                                   (tbnl:post-parameter "org")
+                                   (or (tbnl:post-parameter "vrf") "")))))
+           ;; Clean up the Bolt session we no longer need here
+           (neo4cl:disconnect session)
+           ;; Return it to the client for confirmation
+           (setf (tbnl:content-type*) "application/json")
+           (setf (tbnl:return-code*) tbnl:+http-created+)
+           returnval)))
       ;;
       ;; Search for an address
       ((and (equal (tbnl:request-method*) :GET)
@@ -197,14 +213,17 @@
        (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
        ;; Go look for it
        (handler-case
-         (let ((result (find-ipaddress
-                         (datastore *restagraph-acceptor*)
+         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                (result (find-ipaddress
+                         session
                          (make-instance (if (ipaddress:ipv4-address-p (tbnl:get-parameter "address"))
                                           'ipaddress:ipv4-address
                                           'ipaddress:ipv6-address)
                                         :address (tbnl:get-parameter "address"))
                          (tbnl:get-parameter "org")
                          (or (tbnl:get-parameter "vrf") ""))))
+           ;; Clean up the Bolt session
+           (neo4cl:disconnect session)
            ;; Did we find one?
            (if (or (null result)
                    (equal result ""))
@@ -230,14 +249,16 @@
             (tbnl:post-parameter "address")
             (tbnl:post-parameter "org"))
        (log-message :debug (format nil "Dispatching DELETE request for URI ~A" (tbnl:request-uri*)))
-       (delete-ipaddress (datastore *restagraph-acceptor*)
-                         (schema *restagraph-acceptor*)
-                         (make-instance (if (ipaddress:ipv4-address-p (tbnl:post-parameter "address"))
-                                          'ipaddress:ipv4-address
-                                          'ipaddress:ipv6-address)
-                                        :address (tbnl:post-parameter "address"))
-                         (tbnl:post-parameter "org")
-                         (or (tbnl:post-parameter "vrf") ""))
+       (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+         (delete-ipaddress session
+                           (schema *restagraph-acceptor*)
+                           (make-instance (if (ipaddress:ipv4-address-p (tbnl:post-parameter "address"))
+                                            'ipaddress:ipv4-address
+                                            'ipaddress:ipv6-address)
+                                          :address (tbnl:post-parameter "address"))
+                           (tbnl:post-parameter "org")
+                           (or (tbnl:post-parameter "vrf") ""))
+         (neo4cl:disconnect session))
        (setf (tbnl:content-type*) "text/plain")
        (setf (tbnl:return-code*) tbnl:+http-no-content+)
        "")

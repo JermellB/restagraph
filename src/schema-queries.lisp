@@ -15,15 +15,6 @@
 
 
 ;; Helper function
-(defun format-post-params-as-properties (params)
-  "Take an alist, as returned by (tbnl:post-parameters*), and transform it into the kind of map
-  that Neo4J expects in the :PROPERTIES section of a query."
-  (declare (type (or null cons) params))
-  (log-message :debug "Formatting a set of POST parameters for use as Neo4j properties.")
-  (mapcar #'(lambda (param)
-              (cons (intern (string-downcase (car param)) :keyword)
-                    (cdr param)))
-          params))
 
 (defun validate-attributes (requested defined &key (invalid '()) (badvalue '()))
   "Recursive helper function to validate the requested attributes against those defined for the resourcetype.
@@ -115,18 +106,17 @@
         (log-message :debug (format nil "Confirmed: resourcetype '~A' exists" resourcetype))
         ;; Now validate the attributes and return the results.
         (log-message :debug "Checking the supplied attributes.")
-        (let ((results (validate-attributes requested-attributes (attributes (gethash resourcetype schema)))))
+        (let ((results (validate-attributes requested-attributes
+                                            (attributes (gethash resourcetype schema)))))
           ;; Were the requested attributes all valid?
           (if (and (null (first results))
                    (null (second results)))
-              ;; If so, return the supplied attributes to the caller, properly formatted for Neo4j.
+              ;; If so, return the supplied attributes to the caller, alist-formatted for Neo4cl.
               (let ((formatted-params
-                      (format-post-params-as-properties
-                        ;requested-attributes
-                        (acons "uid" (sanitise-uid original-uid)
+                      (acons "uid" (sanitise-uid original-uid)
                                (acons "original_uid" original-uid
                                       (remove-if #'(lambda (param) (equal (car param) "uid"))
-                                                 params))))))
+                                                 params)))))
                 (log-message :debug (format nil "Returning formatted parameters ~A" formatted-params))
                 formatted-params)
               ;; If not, report the problem.

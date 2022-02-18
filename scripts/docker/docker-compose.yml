@@ -36,7 +36,7 @@ services:
       TEMPLATE_PATH: "/templates/"
       # The Neo4j server
       NEO4J_HOSTNAME: "neo4j"
-      NEO4J_PORT: 7474
+      BOLT_PORT: 7687
       NEO4J_USER: "neo4j"
       NEO4J_PASSWORD: "wombat"
       # Uncomment the following line to enable debug-logging

@@ -21,11 +21,26 @@
 (fiveam:in-suite main)
 
 
-(defparameter *server*
+(defparameter *http-server*
   (make-instance 'neo4cl:neo4j-rest-server
                  :hostname (getf restagraph::*config-vars* :dbhostname)
                  :dbname (getf restagraph::*config-vars* :dbname)
                  :dbuser (getf restagraph::*config-vars* :dbusername)
                  :dbpasswd (getf restagraph::*config-vars* :dbpasswd)))
+
+(defparameter *bolt-auth-basic*
+  (make-instance 'neo4cl:bolt-auth-basic
+                 :username "neo4j"
+                 :password "wallaby"))
+
+(defparameter *bolt-auth-none*
+  (make-instance 'neo4cl:bolt-auth-none
+                 :username "neo4j"))
+
+(defparameter *bolt-server*
+  (make-instance 'neo4cl:bolt-server
+                 ;:hostname "192.0.2.1"
+                 :hostname "localhost"
+                 :auth-token *bolt-auth-basic*))
 
 (defparameter *admin-user* "RgAdmin")

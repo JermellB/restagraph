@@ -32,9 +32,10 @@
   `(:listen-address "localhost"
     :listen-port 4950
     :dbhostname "192.0.2.1"
-    :dbport 7474
+    :db-bolt-port 7687
+    :bolt-auth-scheme "basic"
     :dbname "neo4j"
-    :dbusername "neo4j"
+    :neo4juser "neo4j"
     :dbpasswd "wallaby"
     :api-uri-base "/raw/v1"
     :schema-uri-base "/schema/v1"

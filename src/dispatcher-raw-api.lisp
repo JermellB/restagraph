@@ -69,15 +69,15 @@
               (member (mod (length uri-parts) 3)
                       '(2 0)))
          (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
-         (let ((result (get-resources (datastore tbnl:*acceptor*) sub-uri)))
+         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                (result (get-resources session sub-uri)))
+           (neo4cl:disconnect session)
            (log-message :debug (format nil "Fetched content ~A" result))
            (if result
              (progn
                (setf (tbnl:content-type*) "application/json")
                (setf (tbnl:return-code*) tbnl:+http-ok+)
-               (if (equal (mod (length uri-parts) 3) 2)
-                 (cl-json:encode-json-alist-to-string result)
-                 (cl-json:encode-json-to-string result)))
+               (cl-json:encode-json-to-string result))
              (progn
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-not-found+)
@@ -87,12 +87,14 @@
         ((and (equal (tbnl:request-method*) :GET)
               (= (mod (length uri-parts) 3) 1))
          (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
-         (let ((result (get-resources (datastore tbnl:*acceptor*)
-                                      sub-uri
-                                      :filters (process-filters
-                                                 (tbnl:get-parameters*)
-                                                 (schema tbnl:*acceptor*)
-                                                 (car (last uri-parts))))))
+         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                (result (get-resources session
+                                       sub-uri
+                                       :filters (process-filters
+                                                  (tbnl:get-parameters*)
+                                                  (schema tbnl:*acceptor*)
+                                                  (car (last uri-parts))))))
+           (neo4cl:disconnect session)
            (log-message :debug (format nil "Fetched content ~A" result))
            (setf (tbnl:content-type*) "application/json")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
@@ -107,7 +109,8 @@
            (equal (length uri-parts) 1)
            (tbnl:post-parameter "uid"))
          (let ((resourcetype (first uri-parts))
-               (uid (tbnl:post-parameter "uid")))
+               (uid (tbnl:post-parameter "uid"))
+               (session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
            (log-message
              :debug
              (format nil "Attempting to dispatch a POST request for resource type ~A" resourcetype))
@@ -116,10 +119,11 @@
            (cond
              ;; Do we already have one of these?
              ((get-resources
-                (datastore tbnl:*acceptor*)
+                session
                 (format nil "/~A/~A" resourcetype (sanitise-uid uid)))
               ;; It's already there; return 304 "Not modified"
               (progn
+                (neo4cl:disconnect session)
                 (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
                                             resourcetype (sanitise-uid uid)))
                 (setf (tbnl:content-type*) "text/plain")
@@ -129,6 +133,7 @@
              ((any-readonly-attrs (gethash resourcetype (schema tbnl:*acceptor*))
                                   (tbnl:post-parameters*))
               (progn
+                (neo4cl:disconnect session)
                 (log-message :debug "Client tried to set 1+ read-only attributes.")
                 (setf (tbnl:content-type*) "text/plain")
                 ;; Using 403 here instead of 400, because the request is understood and
@@ -146,13 +151,15 @@
                               nil
                               "/~A/~A"
                               resourcetype
-                              (store-resource (datastore tbnl:*acceptor*)
+                              (store-resource session
                                               (schema tbnl:*acceptor*)
                                               resourcetype
                                               (tbnl:post-parameters*)
                                               (get-creator
                                                 (post-policy
                                                   (access-policy *restagraph-acceptor*)))))))
+                   ;; Close the Bolt session
+                   (neo4cl:disconnect session)
                    ;; Return 201 and the URI
                    (log-message :debug (format nil "Stored the new resource with URI '~A'" uri))
                    (setf (tbnl:content-type*) "text/plain")
@@ -181,11 +188,13 @@
                (let ((new-uri (format nil "~{/~A~}/~A/~A"
                                       uri-parts    ; Path down to the relationship
                                       (car (last (get-uri-parts dest-path) 2))  ; Target resourcetype
-                                      (car (last (get-uri-parts dest-path)))))) ; Target UID
-                 (create-relationship-by-path (datastore tbnl:*acceptor*)
+                                      (car (last (get-uri-parts dest-path)))))  ; Target UID
+                     (session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+                 (create-relationship-by-path session
                                               sub-uri
                                               dest-path
                                               (schema tbnl:*acceptor*))
+                 (neo4cl:disconnect session)
                  ;; Report success to the client, plus the URI
                  (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-created+)
@@ -204,41 +213,45 @@
            (equal (mod (length uri-parts) 3) 1)
            (tbnl:post-parameter "uid"))
          ;; Do we already have one of these?
-         (if (get-resources
-               (datastore tbnl:*acceptor*)
-               (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
-           ;; It's already there; return 200/OK
-           (progn
-             (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
-                                         (car uri-parts) (sanitise-uid (tbnl:post-parameter "uid"))))
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-ok+)
-             (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
-           ;; We don't already have one of these; store it
-           (handler-case
-             (let ((newtype (car (last uri-parts)))
-                   (uid (tbnl:post-parameter "uid"))
-                   (new-uri (format nil "~{/~A~}/~A"
-                                    uri-parts
-                                    (sanitise-uid (tbnl:post-parameter "uid")))))
-               (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
-                                           newtype uid sub-uri))
-               (store-dependent-resource
-                 (datastore tbnl:*acceptor*)
-                 (schema tbnl:*acceptor*)
-                 sub-uri
-                 (tbnl:post-parameters*)
-                 (get-creator (post-policy (access-policy *restagraph-acceptor*))))
+         (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+           (if (get-resources session (format nil
+                                              "~{/~A~}/~A"
+                                              uri-parts
+                                              (sanitise-uid (tbnl:post-parameter "uid"))))
+             ;; It's already there; return 200/OK
+             (progn
+               (neo4cl:disconnect session)
+               (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
+                                           (car uri-parts) (sanitise-uid (tbnl:post-parameter "uid"))))
                (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-created+)
-               (setf (tbnl:header-out "Location") new-uri)
-               ;; Return the URI to the resource at the end of the newly-created resource
-               new-uri)
-             ;; Attempted violation of db integrity
-             (integrity-error (e) (return-integrity-error (message e)))
-             ;; Generic client errors
-             (client-error (e) (return-client-error (message e)))
-             (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))
+               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
+             ;; We don't already have one of these; store it
+             (handler-case
+               (let ((newtype (car (last uri-parts)))
+                     (uid (tbnl:post-parameter "uid"))
+                     (new-uri (format nil "~{/~A~}/~A"
+                                      uri-parts
+                                      (sanitise-uid (tbnl:post-parameter "uid")))))
+                 (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
+                                             newtype uid sub-uri))
+                 (store-dependent-resource
+                   session
+                   (schema tbnl:*acceptor*)
+                   sub-uri
+                   (tbnl:post-parameters*)
+                   (get-creator (post-policy (access-policy tbnl:*acceptor*))))
+                 (neo4cl:disconnect session)
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 (setf (tbnl:header-out "Location") new-uri)
+                 ;; Return the URI to the resource at the end of the newly-created resource
+                 new-uri)
+               ;; Attempted violation of db integrity
+               (integrity-error (e) (return-integrity-error (message e)))
+               ;; Generic client errors
+               (client-error (e) (return-client-error (message e)))
+               (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))))
         ;;
         ;; Re-home a dependent resource
         ((and
@@ -252,12 +265,14 @@
            (let ((new-uri (format nil "~{/~A~}/~A/~A"
                                   (get-uri-parts (tbnl:post-parameter "target"))
                                   (car (last uri-parts 2))
-                                  (car (last uri-parts)))))
+                                  (car (last uri-parts))))
+                 (session (neo4cl:establish-bolt-session (datastore tbnl:*session*))))
              (move-dependent-resource
-               (datastore tbnl:*acceptor*)
+               session 
                sub-uri
                (tbnl:post-parameter "target")
                (schema tbnl:*acceptor*))
+             (neo4cl:disconnect session)
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-created+)
              (setf (tbnl:header-out "Location") new-uri)
@@ -291,12 +306,12 @@
                   "Invalid attempt to set read-only attributes."))
                ;; Default case: we're good, carry on.
                (t
-                 (progn
+                 (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
                    (log-message
                      :debug
                      (format nil "Attempting to update attributes of resource ~{/~A~}" uri-parts))
                    (update-resource-attributes
-                     (datastore tbnl:*acceptor*)
+                     session
                      (schema tbnl:*acceptor*)
                      uri-parts
                      (remove-if #'(lambda (param)
@@ -304,6 +319,7 @@
                                         (equal (cdr param) "")))
                                 (append (tbnl:post-parameters*)
                                         (tbnl:get-parameters*))))
+                   (neo4cl:disconnect session)
                    ;; Return 200/Updated in accordance with the Working Group spec:
                    ;; https://httpwg.org/specs/rfc7231.html#PUT
                    ;; Technically, it'd be more correct to return 201/Created if a new attribute is set,
@@ -339,17 +355,19 @@
               (equal (mod (length uri-parts) 3) 2))
          (log-message :debug "Attempting to delete a resource on an arbitrary path")
          ;; Try to get a copy of the resource
-         (let ((resource (get-resources (datastore tbnl:*acceptor*) sub-uri)))
+         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                (resource (get-resources session sub-uri)))
            (handler-case
              (if resource
                ;; If the resource is there, delete it
                (progn
                  (delete-resource-by-path
-                   (datastore tbnl:*acceptor*)
+                   session
                    sub-uri
                    (schema tbnl:*acceptor*)
                    :recursive (and (tbnl:parameter "recursive")
                                    (not (equal "" (tbnl:parameter "recursive")))))
+                 (neo4cl:disconnect session)
                  (setf (tbnl:content-type*) "text/plain")
                  ;; If the client requested "yoink" then return a representation of what we just deleted.
                  (if (tbnl:get-parameter "yoink")
@@ -362,6 +380,7 @@
                      "")))
                ;; Resource is not there
                (progn
+                 (neo4cl:disconnect session)
                  (setf (tbnl:content-type*) "text/plain")
                  (setf (tbnl:return-code*) tbnl:+http-no-content+)
                  ""))
@@ -379,12 +398,13 @@
          (if (equal "CREATOR" (car (last uri-parts)))
            (forbidden)
            (handler-case
-             (progn
+             (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
                (log-message :debug (format nil "Attempting to delete a relationship on an arbitrary path: ~A" sub-uri))
-               (delete-relationship-by-path (datastore tbnl:*acceptor*)
+               (delete-relationship-by-path session
                                             (schema tbnl:*acceptor*)
                                             sub-uri
                                             (tbnl:parameter "target"))
+               (neo4cl:disconnect session)
                (setf (tbnl:content-type*) "text/plain")
                (setf (tbnl:return-code*) tbnl:+http-no-content+)
                "")

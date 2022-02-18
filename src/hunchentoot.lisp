@@ -67,12 +67,13 @@
       (when (null acceptor) (setf acceptor (make-default-acceptor)))
       ;; Make it available as a dynamic variable, for shutdown to work on
       (defparameter *restagraph-acceptor* acceptor)
-      ;; Sanity-check whether the database is available
-      (unless (confirm-db-is-running (datastore acceptor) :max-count 25)
-        (error "Database is not available"))
-      ;; Update the schema, if one has been specified
-      (ensure-current-schema (datastore acceptor) *core-schema*)
-      (setf (schema acceptor) (fetch-current-schema (datastore acceptor)))
+        ;; Sanity-check whether the database is available
+        (unless (confirm-db-is-running (datastore acceptor) :max-count 25)
+          (error "Database is not available"))
+        ;; Update the schema, if one has been specified
+      (let ((session (neo4cl:establish-bolt-session (datastore acceptor))))
+        (ensure-current-schema session *core-schema*)
+        (setf (schema acceptor) (fetch-current-schema session)))
       ;; Methods
       ;; Set the dispatch table
       (log-message :info "Configuring the dispatch table")

@@ -83,17 +83,34 @@
                  :message-log-destination (make-synonym-stream 'cl:*standard-output*)
                  ;; Datastore object - for specialising all the db methods on
                  :datastore (make-instance
-                              'neo4cl:neo4j-rest-server
+                              'neo4cl:bolt-server
                               :hostname (or (sb-ext:posix-getenv "NEO4J_HOSTNAME")
-                                            (getf *config-vars* :dbhostname))
+                                            (getf *config-vars* :dbhostname)
+                                            "localhost")
                               :port (or (when (sb-ext:posix-getenv "NEO4J_PORT")
                                           (parse-integer (sb-ext:posix-getenv "NEO4J_PORT")))
-                                        (getf *config-vars* :dbport))
-                              :dbname (or (sb-ext:posix-getenv "NEO4J_DBNAME")
-                                          (getf *config-vars* :dbname))
-                              :dbuser (or (sb-ext:posix-getenv "NEO4J_USER")
-                                          (getf *config-vars* :dbusername))
-                              :dbpasswd (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
-                                            (getf *config-vars* :dbpasswd)))
+                                        (getf *config-vars* :db-http-port)
+                                        7687)
+                              ;; Adapt to the authentication scheme in effect
+                              :auth-token (if (and (or (sb-ext:posix-getenv "NEO4J_USER")
+                                                       (getf *config-vars* :neo4juser))
+                                                   (equal "basic"
+                                                          (or (sb-ext:posix-getenv "BOLT_AUTH_SCHEME")
+                                                              (getf *config-vars* :bolt-auth-scheme))))
+                                            ;; Basic auth
+                                            (make-instance
+                                              'neo4cl:bolt-auth-basic
+                                              :username (or (sb-ext:posix-getenv "NEO4J_USER")
+                                                            (getf *config-vars* :neo4juser)
+                                                            "neo4j")
+                                              :password (or (sb-ext:posix-getenv "NEO4J_PASSWORD")
+                                                            (getf *config-vars* :dbpasswd)
+                                                            "neo4j"))
+                                            ;; Default to None
+                                            (make-instance
+                                              'neo4cl:bolt-auth-none
+                                              :username (or (sb-ext:posix-getenv "NEO4J_USER")
+                                                            (getf *config-vars* :dbusername)
+                                                            "neo4j"))))
                  :access-policy (define-policy (or (sb-ext:posix-getenv "ACCESS_POLICY")
                                                    "open"))))

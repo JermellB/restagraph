@@ -25,7 +25,7 @@
 (fiveam:test
   confirm-db-is-running
   "Can we even log into the thing?"
-  (fiveam:is (restagraph::confirm-db-is-running *server*)))
+  (fiveam:is (restagraph::confirm-db-is-running *bolt-server*)))
 
 
 ;; FIXME: write these tests

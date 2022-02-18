@@ -24,10 +24,13 @@
         ((and
            (equal (tbnl:request-method*) :GET)
            (equal "list" (tbnl:get-parameter "version")))
-         (setf (tbnl:content-type*) "application/json")
-         (setf (tbnl:return-code*) tbnl:+http-ok+)
-         (cl-json:encode-json-alist-to-string
-           (list-schema-versions (datastore tbnl:*acceptor*))))
+         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                (version-list (list-schema-versions session)))
+           ;; Disconnect from the db before doing anything else
+           (neo4cl:disconnect session)
+           (setf (tbnl:content-type*) "application/json")
+           (setf (tbnl:return-code*) tbnl:+http-ok+)
+           (cl-json:encode-json-alist-to-string version-list)))
         ;; Get the description of a single resource-type
         ((and
            (equal (tbnl:request-method*) :GET)
@@ -98,18 +101,21 @@
            (log-message :info (format nil "Attempting to set schema version to ~A"
                                       (tbnl:parameter "version")))
            (setf (tbnl:content-type*) "text/plain")
-           (let ((versions (list-schema-versions (datastore tbnl:*acceptor*)))
-                 (new-version (parse-integer (tbnl:parameter "version")
-                                             :junk-allowed t)))
+           (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                  (versions (list-schema-versions session))
+                  (new-version (parse-integer (tbnl:parameter "version")
+                                              :junk-allowed t)))
              ;; Do we have that version in the database?
              (if (member new-version (cdr (assoc :versions versions))
                          :test #'equal)
                ;; It's there; ensure it's current.
                (handler-case
                  (progn
-                   (when (set-current-schema-version (datastore tbnl:*acceptor*) new-version)
+                   (when (set-current-schema-version session new-version)
                      ;; If there was an update, reload the working schema
-                     (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*))))
+                     (setf (schema tbnl:*acceptor*) (fetch-current-schema session)))
+                   ;; Disconnect from the db, because we won't need it any more in this branch
+                   (neo4cl:disconnect session)
                    ;; Return a success message
                    (setf (tbnl:return-code*) tbnl:+http-ok+)
                    "OK")
@@ -132,6 +138,8 @@
                         (format nil "~A" e)))
                ;; No such version
                (progn
+                   ;; Disconnect from the db, because we don't need it here
+                   (neo4cl:disconnect session)
                  (setf (tbnl:return-code*) tbnl:+http-not-found+)
                  "This version doesn't exist")))))
         ((equal (tbnl:request-method*) :POST)
@@ -150,31 +158,33 @@
                (progn
                  (log-message :info "Received request to create new schema")
                  ;; Create the new version-root
-                 (let ((version (create-new-schema-version (datastore tbnl:*acceptor*))))
+                 (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                        (version (create-new-schema-version session)))
                    ;; Install the core schema
                    (log-message
                      :info
                      (format nil "Created new schema version ~D. Installing core schema."version))
-                   (install-subschema (datastore tbnl:*acceptor*) *core-schema* version))
-                 ;; Reload the in-memory schema
-                 ;; Do this even if a new subschema has been uploaded, for robustness:
-                 ;; if the upload fails, the server should still have a working schema.
-                 (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*)))))
+                   (install-subschema session *core-schema* version)
+                   ;; Reload the in-memory schema
+                   ;; Do this even if a new subschema has been uploaded, for robustness:
+                   ;; if the upload fails, the server should still have a working schema.
+                   (setf (schema tbnl:*acceptor*) (fetch-current-schema session)))))
              ;; Upload a schema to install in the db
              ;; Expects URL-encoded file upload, as in this example:
              ;; curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
              (when (tbnl:post-parameter "schema")
                (log-message :info "Received schema for upload.")
-               (let ((schemasource (tbnl:post-parameter "schema")))
+               (let ((schemasource (tbnl:post-parameter "schema"))
+                     (session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
                  (if
                    (install-uploaded-schema
                      ;; Adapt to either file or inline data (string)
                      (if (stringp schemasource) (cl-json:decode-json-from-string schemasource)
                        (cl-json:decode-json-from-source (first schemasource)))
-                     (datastore tbnl:*acceptor*))
+                     session)
                    (progn
                      (log-message :info "Successfull installed uploaded schema; reloading.")
-                     (setf (schema tbnl:*acceptor*) (fetch-current-schema (datastore tbnl:*acceptor*))))
+                     (setf (schema tbnl:*acceptor*) (fetch-current-schema session)))
                    (progn
                      (setf (tbnl:content-type*) "text/plain")
                      (setf (tbnl:return-code*) tbnl:+http-internal-server-error+)
@@ -224,7 +234,9 @@
            (handler-case
              ;; The happy path: the version was successfully deleted
              (progn
-               (delete-schema-version (datastore tbnl:*acceptor*) version)
+               (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+                 (delete-schema-version session version)
+                 (neo4cl:disconnect session))
                (setf (tbnl:return-code*) tbnl:+http-ok+)
                "OK")
              ;; Basic error-handling

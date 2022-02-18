@@ -61,11 +61,12 @@
             (checksum (hash-file filepath-temp))
             (mimetype (get-file-mime-type (namestring filepath-temp)))
             (filepath-target (digest-to-filepath (make-pathname :defaults (files-location tbnl:*acceptor*))
-                                                 checksum)))
+                                                 checksum))
+            (session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
        ;; Does a file of this name already exist?
        (log-message :debug (format nil "Checking for an existing file by name '~A'"
                                    (sanitise-uid requested-filename)))
-       (if (get-resources (datastore tbnl:*acceptor*)
+       (if (get-resources session
                           (format nil "/Files/~A" (sanitise-uid requested-filename)))
          ;; If it already exists, bail out now.
          (progn
@@ -89,7 +90,7 @@
              (let ((uri (concatenate
                           'string
                           "/Files/"
-                          (store-resource (datastore tbnl:*acceptor*)
+                          (store-resource session
                                           (schema tbnl:*acceptor*)
                                           "Files"
                                           `(("uid" . ,(sanitise-uid requested-filename))
@@ -170,23 +171,24 @@
      (let* ((filename (first (get-uri-parts
                                (get-sub-uri (tbnl:request-uri*)
                                             (uri-base-files tbnl:*acceptor*)))))
+            (session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
             ;; Do it separately because we use it again later in this function.
             ;; Get the search result
-            (result (get-resources (datastore tbnl:*acceptor*)
-                                   (format nil "/Files/~A" filename))))
+            (result (get-resources session (format nil "/Files/~A" filename))))
+       (neo4cl:disconnect session)
        (log-message :debug (format nil "Retrieved resource details ~A" result))
        ;; Return the file to the client if it's present
        (cond
          ((not (null result))
           (let* ((source-path (digest-to-filepath
                                 (make-pathname :defaults (files-location tbnl:*acceptor*))
-                                (cdr (assoc :sha3256sum result)))))
+                                (gethash "sha3256sum" result))))
             (log-message :debug (format nil "Returning the file from source-path '~A'"
                                         source-path))
             (tbnl:handle-static-file
               source-path
               ;; Specify the mime-type
-              (cdr (assoc :mime-type result)))))
+              (gethash "mimetype" result))))
          ;; Fallthrough for not finding the file
          (t
            (log-message :debug "Null result returned")
@@ -201,7 +203,8 @@
                                             (uri-base-files tbnl:*acceptor*))))))
        (log-message :debug (format nil "Client requested deletion of file '~A'" filename))
        ;; Check whether the file is present.
-       (let ((result (get-resources (datastore tbnl:*acceptor*)
+       (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+              (result (get-resources session
                                     (format nil "/Files/~A" filename))))
          (log-message :debug (format nil "Got result '~A'" result))
          (if result
@@ -210,22 +213,23 @@
              (log-message :debug (format nil "Found file details '~A'" result))
              ;; Delete the metadata
              (delete-resource-by-path
-               (datastore tbnl:*acceptor*)
+               session
                (concatenate 'string "/Files/" filename)
                (schema tbnl:*acceptor*)
                :recursive nil)
              ;; Now delete the file itself
+             (log-message :debug "File deleted from db. Now removing from filesystem.")
              (when (null (get-resources
-                           (datastore *restagraph-acceptor*)
+                           session
                            "/Files"
                            :filters (process-filters
-                                      '(("sha3256sum" .
-                                         (cdr (assoc :SHA3256SUM (cdr result)))))
+                                      `(("sha3256sum" .
+                                         ,(gethash "sha3256sum" result)))
                                       (schema tbnl:*acceptor*)
                                       "Files")))
                (let* ((source-path (digest-to-filepath
                                      (make-pathname :defaults (files-location tbnl:*acceptor*))
-                                     (cdr (assoc :sha3256sum result)))))
+                                     (gethash "sha3256sum" result))))
                  (if (probe-file source-path)
                    (progn
                      (log-message :debug (format nil "Deleting the file at source-path '~A'"
@@ -233,12 +237,16 @@
                      (delete-file source-path))
                    (log-message :warn (format nil "No file found at source-path '~A'"
                                               source-path)))))
+             ;; Don't need that session any more
+             (neo4cl:disconnect session)
              ;; Now return a suitable message to the client
              (setf (tbnl:content-type*) "text/plain")
              (setf (tbnl:return-code*) tbnl:+http-no-content+)
              "")
            ;; If not, return 404
            (progn
+             ;; Don't need the session here; clean it up.
+             (neo4cl:disconnect session)
              (log-message :debug (format nil "Requested file '~A' not found. Returning 404" filename))
              (four-oh-four :file-p t))))))
     ;;

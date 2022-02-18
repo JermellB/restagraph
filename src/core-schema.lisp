@@ -21,10 +21,12 @@
     (list (make-incoming-rtypes
             :name "any"
             :description "Special-case meta-resource, representing an instance of any type of resource. This is used for defining relationships where either the source or target could be, well, any resourcetype. The server refuses to create an instance of this resourcetype."
+            :dependent nil
             :attributes ())
           (make-incoming-rtypes
             :name "Tags"
             :description "For categorising resources of any type. Useful in searches."
+            :dependent nil
             :attributes (list (make-incoming-rtype-attrs
                                 :name "description"
                                 :description "Clarification of what the tag means.")))
@@ -38,6 +40,7 @@
           (make-incoming-rtypes
             :name "People"
             :description "Real people, imaginary people, security roles, members of an external organisation... if they're a person, this is the type."
+            :dependent nil
             :attributes (list (make-incoming-rtype-attrs
                                 :name "displayname"
                                 :description "The human-friendly version of their name, to be displayed in the UI.")
@@ -47,12 +50,14 @@
           (make-incoming-rtypes
             :name "Pronouns"
             :description "The pronouns by which a person prefers to be addressed."
+            :dependent nil
             :attributes (list (make-incoming-rtype-attrs
                                 :name "text"
                                 :description "The full, non-URL-safe text of the pronoun set. E.g, They/them.")))
           (make-incoming-rtypes
             :name "Files"
             :description "Metadata about files uploaded by users. The files themselves are stored separately, using the sha3-256 checksum as the filename."
+            :dependent nil
             :attributes (list (make-incoming-rtype-attrs
                                 :name "title"
                                 :description "The requested filename, recorded verbatim instead of having to be sanitised for URI-safety.")

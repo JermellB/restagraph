@@ -195,15 +195,15 @@
 
 (defun confirm-db-is-running (server &key (counter 1) (max-count 5) (sleep-time 5))
   "Check whether the database server is running by polling the discovery endpoint."
-  (declare (type (integer) counter max-count sleep-time))
+  (declare (type neo4cl:bolt-server server)
+           (type integer counter max-count sleep-time))
   (log-message :debug (format nil "Checking whether the database is running on ~A:~A"
                               (neo4cl:hostname server) (neo4cl:port server)))
   (handler-case
-    ;; First check whether the port is open
-    (when (drakma:http-request
-            (format nil "http://~A:~A" (neo4cl:hostname server) (neo4cl:port server)))
-      ;; Iff the port is open, then try to authenticate
-      (ensure-db-passwd server))
+    ;; Try to run a non-destructive transaction
+    (let ((session (neo4cl:establish-bolt-session server)))
+      (neo4cl:bolt-transaction-autocommit session "RETURN 'hello'")
+      (neo4cl:disconnect session))
     ;; If the port isn't open, pause for a few seconds before trying again.
     (USOCKET:CONNECTION-REFUSED-ERROR
       (e)

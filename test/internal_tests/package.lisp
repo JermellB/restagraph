@@ -7,6 +7,9 @@
   (:use #:cl)
   (:export main
            pure
-           side-effecting
+           schema
+           bolt-side-effecting-resources
+           bolt-side-effecting-relationships
            utilities-pure
+           utilities-side-effecting
            ipam))

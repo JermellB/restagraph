@@ -57,7 +57,7 @@
   (:documentation "Try to locate a subnet, given the organisation and VRF to check under.
                    If VRF is NIL, assume the subnet is in the default VRF and thus directly attached to the organisation."))
 
-(defmethod find-subnet ((db neo4cl:neo4j-rest-server)
+(defmethod find-subnet ((db neo4cl:bolt-session)
                         (org string)
                         (vrf string)
                         (subnet ipaddress:ip-subnet)
@@ -83,16 +83,16 @@
     (if (and
           match
           (equal (ipaddress:prefix-length subnet)
-                 (cdr (assoc :prefixlength match))))
+                 (gethash "prefixlength" match)))
         (progn
-          (log-message :debug (format nil "Found match: ~A" match))
-          (let ((newpath (append
-                           path
-                           (list (make-instance (if (= 6 (ipaddress:ip-version subnet))
-                                                    'ipaddress:ipv6-subnet
-                                                    'ipaddress:ipv4-subnet)
-                                                :address (cdr (assoc :netaddress match))
-                                                :prefix-length (cdr (assoc :prefixlength match)))))))
+          (let* ((quarry (make-instance
+                           (if (= 6 (ipaddress:ip-version subnet))
+                             'ipaddress:ipv6-subnet
+                             'ipaddress:ipv4-subnet)
+                           :address (gethash "netaddress" match)
+                           :prefix-length (gethash "prefixlength" match)))
+                 (newpath (append path (list quarry))))
+          (log-message :debug (format nil "Found match: ~A" (ipaddress:as-cidr quarry)))
             (log-message
               :debug
               (format nil "Found exact match for '~A'. Returning subnet path '~{/~A~}'."
@@ -101,11 +101,12 @@
         ;; If not, check whether we have a supernet of the subnet we're looking for
         (let* ((candidates
                  (mapcar #'(lambda (s)
-                             (make-instance (if (= 6 (ipaddress:ip-version subnet))
-                                                'ipaddress:ipv6-subnet
-                                                'ipaddress:ipv4-subnet)
-                                            :address (cdr (assoc :netaddress s))
-                                            :prefix-length (cdr (assoc :prefixlength s))))
+                             (make-instance
+                               (if (= 6 (ipaddress:ip-version subnet))
+                                 'ipaddress:ipv6-subnet
+                                 'ipaddress:ipv4-subnet)
+                               :address (gethash "netaddress" s)
+                               :prefix-length (gethash "prefixlength" s)))
                          (get-resources
                            db
                            (format nil
@@ -152,7 +153,7 @@
   (:documentation "Find the subnet with the longest prefix-length that could plausibly be a parent subnet to the one supplied. Return a URI representing the path.
                    Expects a canonicalised (full-length) subnet descriptor in CIDR format."))
 
-(defmethod find-parent-subnet ((db neo4cl:neo4j-rest-server)
+(defmethod find-parent-subnet ((db neo4cl:bolt-session)
                                (subnet ipaddress:ip-address)
                                (org string)
                                (vrfgroup string)
@@ -164,35 +165,37 @@
   ;; Get a list of candidate supernets
   (let* ((candidates
            ;; Remove nulls from the list returned by the enclosed query
-           (remove-if #'null
-                      (mapcar
-                        #'(lambda
-                            (c)
-                            (log-message
-                              :debug (format nil "Testing candidate parent subnet ~A" c))
-                            ;; Create an ip-subnet object from the candidate
-                            ;; - make the comparison code simpler by a call to ipaddress:subnetp
-                            ;; - we now already have a subnet object to return
-                            (let ((supernet (make-instance (if (= 6 (ipaddress:ip-version subnet))
-                                                               'ipaddress:ipv6-subnet
-                                                               'ipaddress:ipv4-subnet)
-                                                           :address (cdr (assoc :netaddress c))
-                                                           :prefix-length (cdr (assoc :prefixlength c)))))
-                              ;; Test whether it's plausibly a supernet of this subnet
-                              (when (ipaddress:subnetp subnet supernet)
-                                ;; If it is, return the supernet. Otherwise, default to NIL.
-                                supernet)))
-                        ;; Extract the list of candidate supernets
-                        (get-resources
-                          db
-                          (format nil (if (= 6 (ipaddress:ip-version subnet))
-                                          "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/SUBNETS/Ipv6Subnets"
-                                          "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/SUBNETS/Ipv4Subnets")
-                                  org
-                                  (if (equal vrfgroup "")
-                                      ""
-                                      (format nil "/VRF_GROUPS/VrfGroups/~A" vrfgroup))
-                                  (mapcar 'make-subnet-uid path)))))))
+           (remove-if
+             #'null
+             (mapcar
+               #'(lambda
+                   (c)
+                   (log-message
+                     :debug (format nil "Testing candidate parent subnet ~A" c))
+                   ;; Create an ip-subnet object from the candidate
+                   ;; - make the comparison code simpler by a call to ipaddress:subnetp
+                   ;; - we now already have a subnet object to return
+                   (let ((supernet
+                           (make-instance (if (= 6 (ipaddress:ip-version subnet))
+                                            'ipaddress:ipv6-subnet
+                                            'ipaddress:ipv4-subnet)
+                                          :address (gethash "netaddress" c)
+                                          :prefix-length (gethash "prefixlength" c))))
+                     ;; Test whether it's plausibly a supernet of this subnet
+                     (when (ipaddress:subnetp subnet supernet)
+                       ;; If it is, return the supernet. Otherwise, default to NIL.
+                       supernet)))
+               ;; Extract the list of candidate supernets
+               (get-resources
+                 db
+                 (format nil (if (= 6 (ipaddress:ip-version subnet))
+                               "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/SUBNETS/Ipv6Subnets"
+                               "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/SUBNETS/Ipv4Subnets")
+                         org
+                         (if (equal vrfgroup "")
+                           ""
+                           (format nil "/VRF_GROUPS/VrfGroups/~A" vrfgroup))
+                         (mapcar 'make-subnet-uid path)))))))
     (log-message
       :debug
       (format nil "Candidate supernets for ~A under ~{/~A~}: ~{~A~^, ~}"
@@ -226,7 +229,7 @@
                    If the vrf argument is the empty string, create it directly, implying the default VRF.
                    Return t on success, and NIL if the subnet already exists."))
 
-(defmethod insert-subnet ((db neo4cl:neo4j-rest-server)
+(defmethod insert-subnet ((db neo4cl:bolt-session)
                           (org string)
                           (vrf string)
                           (subnet ipaddress:ip-subnet)
@@ -279,8 +282,8 @@
                                                  (if (= 6 (ipaddress:ip-version subnet))
                                                    'ipaddress:ipv6-subnet
                                                    'ipaddress:ipv4-subnet)
-                                                 :address (cdr (assoc :netaddress s))
-                                                 :prefix-length (cdr (assoc :prefixlength s)))))
+                                                 :address (gethash "netaddress" s)
+                                                 :prefix-length (gethash "prefixlength" s))))
                                  ;; If it's a subnet of the new one, return the object
                                  (log-message
                                    :debug
@@ -312,7 +315,7 @@
                                                (if (= 6 (ipaddress:ip-version subnet))
                                                  'ipaddress:ipv6-address
                                                  'ipaddress:ipv4-address)
-                                               :address (cdr (assoc :uid a)))))
+                                               :address (gethash "uid" a))))
                                  (log-message
                                    :debug
                                    (format nil "Checking whether address ~A belongs in new subnet ~A"
@@ -435,7 +438,7 @@
                    Note: it silently deletes and other kinds of relationship between the target subnet and other resources - if you want those reassigned, you need to do it yourself first.
                    If you want to recursively delete a subnet and everything under it, use delete-resource in recursive mode."))
 
-(defmethod delete-subnet ((db neo4cl:neo4j-rest-server)
+(defmethod delete-subnet ((db neo4cl:bolt-session)
                           (org string)
                           (vrf string)
                           (subnet ipaddress:ip-subnet)
@@ -450,8 +453,9 @@
       :debug
       (format nil "Relocating subnets of ~A before deleting it" (ipaddress:as-cidr subnet)))
     (mapcar #'(lambda (s)
-                (log-message :debug (format nil "Relocating subnet ~A"
-                                                       (cdr (assoc :uid s))))
+                (log-message
+                  :debug
+                  (format nil "Relocating subnet ~A" (gethash "uid" s)))
                 (move-dependent-resource
                   db
                   schema
@@ -462,7 +466,7 @@
                               ""
                               (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                           (append (mapcar #'make-subnet-uid subnet-path)
-                                  (list (cdr (assoc :uid s)))))
+                                  (list (gethash "uid" s))))
                   ;; New parent path
                   (format nil "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/SUBNETS"
                           org
@@ -501,7 +505,7 @@
                               ""
                               (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                           (mapcar #'make-subnet-uid subnet-path)
-                          (cdr (assoc :uid a)))
+                          (gethash "uid" a))
                   ;; New parent path
                   (format nil
                           (if (= 6 (ipaddress:ip-version subnet))
@@ -542,7 +546,7 @@
 (defgeneric find-ipaddress (db address org vrf)
             (:documentation "Find the path to an IPv4 address in the IPAM section"))
 
-(defmethod find-ipaddress ((db neo4cl:neo4j-rest-server)
+(defmethod find-ipaddress ((db neo4cl:bolt-session)
                            (address ipaddress:ip-address)
                            (org string)
                            (vrf string))
@@ -567,13 +571,13 @@
                       (make-instance (if (= 6 (ipaddress:ip-version address))
                                        'ipaddress:ipv6-address
                                        'ipaddress:ipv4-address)
-                                     :address (cdr (assoc :uid result)))))))))))
+                                     :address (gethash "uid" result))))))))))
 
 
 (defgeneric insert-ipaddress (db schema address org vrf policy)
   (:documentation "Add an IP address to the IPAM section"))
 
-(defmethod insert-ipaddress ((db neo4cl:neo4j-rest-server)
+(defmethod insert-ipaddress ((db neo4cl:bolt-session)
                              (schema hash-table)
                              (address ipaddress:ip-address)
                              (org string)
@@ -631,7 +635,7 @@
 (defgeneric delete-ipaddress (db schema address org vrf)
             (:documentation "Remove an IP address from the IPAM section"))
 
-(defmethod delete-ipaddress ((db neo4cl:neo4j-rest-server)
+(defmethod delete-ipaddress ((db neo4cl:bolt-session)
                              (schema hash-table)
                              (address ipaddress:ip-address)
                              (org string)
