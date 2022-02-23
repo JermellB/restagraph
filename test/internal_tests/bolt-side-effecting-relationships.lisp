@@ -88,8 +88,8 @@
                                    from-uid
                                    (restagraph::name relationship))))))
         (fiveam:is (equal (restagraph::name to-type)
-                          (car result)))
-        (fiveam:is (equal to-uid (gethash "uid" (neo4cl:node-properties (cdr result))))))
+                          (gethash "type" result)))
+        (fiveam:is (equal to-uid (gethash "uid" result))))
       ;; Delete the relationship
       (restagraph::log-message :info (format nil ";TEST Delete the relationship from /~A/~A/~A to /~A/~A"
                                              (restagraph::name from-type)
@@ -229,13 +229,13 @@
                                                             from-uid
                                                             (restagraph::name relationship))))))
         (restagraph::log-message :debug (format nil "Received result ~A" result))
-        (fiveam:is (equal 3 (hash-table-count (neo4cl:node-properties (cdr result)))))
-        (fiveam:is (not (null (car result))))
+        (fiveam:is (equal 4 (hash-table-count result)))
+        (fiveam:is (not (null (gethash "type" result))))
         (fiveam:is (equal (restagraph::name to-type)
-                          (car result)))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties (cdr result))))))
+                          (gethash "type" result)))
+        (fiveam:is (not (null (gethash "uid" result))))
         (fiveam:is (equal to-uid
-                          (gethash "uid" (neo4cl:node-properties (cdr result))))))
+                          (gethash "uid" result))))
       ;; Confirm we get what we expect when checking what's at the end of the path
       (restagraph::log-message :info ";TEST Confirm that we get what we expect at the end of the path.")
       (let ((result (car (restagraph::get-resources session
@@ -243,13 +243,13 @@
                                                             (restagraph::name from-type)
                                                             from-uid
                                                             (restagraph::name relationship))))))
-        (fiveam:is (equal 3 (hash-table-count (neo4cl:node-properties (cdr result)))))
-        (fiveam:is (not (null (car result))))
+        (fiveam:is (equal 4 (hash-table-count result)))
+        (fiveam:is (not (null (gethash "type" result))))
         (fiveam:is (equal (restagraph::name to-type)
-                          (car result)))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties (cdr result))))))
+                          (gethash "type" result)))
+        (fiveam:is (not (null (gethash "uid" result))))
         (fiveam:is (equal to-uid
-                          (gethash "uid" (neo4cl:node-properties (cdr result))))))
+                          (gethash "uid" result))))
       ;; Attempt to create a duplicate relationship between them
       (restagraph::log-message :info ";TEST Attempt to create a duplicate relationship.")
       (fiveam:signals (restagraph::integrity-error
@@ -271,13 +271,13 @@
                                                             (restagraph::name from-type)
                                                             from-uid
                                                             (restagraph::name relationship))))))
-        (fiveam:is (equal 3 (hash-table-count (neo4cl:node-properties (cdr result)))))
-        (fiveam:is (not (null (car result))))
+        (fiveam:is (equal 4 (hash-table-count result)))
+        (fiveam:is (not (null (gethash "type" result))))
         (fiveam:is (equal (restagraph::name to-type)
-                          (car result)))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties (cdr result))))))
+                          (gethash "type" result)))
+        (fiveam:is (not (null (gethash "uid" result))))
         (fiveam:is (equal to-uid
-                          (gethash "uid" (neo4cl:node-properties (cdr result))))))
+                          (gethash "uid" result))))
       ;; Delete the relationship
       (restagraph::log-message :info ";TEST Delete the relationship.")
       (fiveam:is (null (restagraph::delete-relationship-by-path
