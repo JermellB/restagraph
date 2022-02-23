@@ -33,10 +33,9 @@
     ;; Check that the resources are actually there
     (fiveam:is (equal *admin-user*
                       (gethash "uid"
-                               (neo4cl:node-properties
-                                 (restagraph::get-resources
-                                   session
-                                   (format nil "/People/~A" *admin-user*))))))
+                               (restagraph::get-resources
+                                 session
+                                 (format nil "/People/~A" *admin-user*)))))
     ;; Remove the schema we added for this test
     (restagraph::delete-schema-version session schema-version)
     ;; Clean up the session
@@ -77,11 +76,11 @@
       ;; (Test get-resources with mod/3 == 2)
       (restagraph::log-message :info ";TEST Confirm the resource is present")
       (let ((result (restagraph::get-resources session (format nil "/~A/~A" restype uid))))
-        (fiveam:is (gethash "uid" (neo4cl:node-properties result)))
+        (fiveam:is (gethash "uid" result))
         (fiveam:is (equal (restagraph::sanitise-uid uid)
-                          (gethash "uid" (neo4cl:node-properties result))))
-        (fiveam:is (gethash "original_uid" (neo4cl:node-properties result)))
-        (fiveam:is (equal uid (gethash "original_uid" (neo4cl:node-properties result)))))
+                          (gethash "uid" result)))
+        (fiveam:is (gethash "original_uid" result))
+        (fiveam:is (equal uid (gethash "original_uid" result))))
       ;; Confirm we can't create a duplicate
       (restagraph::log-message :info ";TEST Confirm refusal to create duplicate resources")
       (fiveam:signals
@@ -98,16 +97,14 @@
       (restagraph::store-resource session schema "Tags" `(("uid" . ,tag2)) *admin-user*)
       (fiveam:is (equal tag1
                         (gethash "uid"
-                                 (neo4cl:node-properties
-                                   (restagraph::get-resources
-                                     session
-                                     (format nil "/Tags/~A" tag1))))))
+                                 (restagraph::get-resources
+                                   session
+                                   (format nil "/Tags/~A" tag1)))))
       (fiveam:is (equal tag2
                         (gethash "uid"
-                                 (neo4cl:node-properties
                                    (restagraph::get-resources
                                      session
-                                     (format nil "/Tags/~A" tag2))))))
+                                     (format nil "/Tags/~A" tag2)))))
       ;; Tag the user
       (restagraph::create-relationship-by-path session
                                                (format nil "/People/~A/TAGS" uid)
@@ -253,9 +250,9 @@
                          session
                          (format nil "/~A/~A" (restagraph::name restype) uid))))
         (fiveam:is (equal uid
-                          (gethash "uid" (neo4cl:node-properties attr-test))))
+                          (gethash "uid" attr-test)))
         (fiveam:is (equal attr1valgood
-                          (gethash attr1name (neo4cl:node-properties attr-test)))))
+                          (gethash attr1name attr-test))))
       ;; Remove it again
       (restagraph::delete-resource-by-path session
                                            (format nil "/~A/~A"
@@ -281,9 +278,9 @@
                                  (restagraph::name restype)
                                  uid))))
         (fiveam:is (equal uid
-                          (gethash "uid" (neo4cl:node-properties attr-test))))
+                          (gethash "uid" attr-test)))
         (fiveam:is (equal attr1valgood
-                          (gethash attr1name (neo4cl:node-properties attr-test)))))
+                          (gethash attr1name attr-test))))
       ;; Remove the resource again
       (restagraph::delete-resource-by-path session
                                            (format nil "/~A/~A"
@@ -341,7 +338,7 @@
                                                      :dependent t
                                                      :cardinality "1:many"
                                                      :target-type (restagraph::name child-type)))
-         (parent-uid "bikini")
+         (parent-uid "trinity")
          (child-uid "eth0")
          (invalid-child-type "routers")
          (invalid-child-uid "whitesands")
@@ -406,15 +403,15 @@
                                 (restagraph::name parent-type)
                                 parent-uid
                                 relationship)))))
-        (fiveam:is (not (null (car result))))
+        (fiveam:is (not (null (gethash "type" result))))
         (fiveam:is (equal (restagraph::sanitise-uid (restagraph::name child-type))
-                          (car result)))
-        (fiveam:is (gethash "uid" (neo4cl:node-properties (cdr result))))
+                          (gethash "type" result)))
+        (fiveam:is (gethash "uid" result))
         (fiveam:is (equal (restagraph::sanitise-uid child-uid)
-                          (gethash "uid" (neo4cl:node-properties (cdr result)))))
-        (fiveam:is (gethash "original_uid" (neo4cl:node-properties (cdr result))))
+                          (gethash "uid" result)))
+        (fiveam:is (gethash "original_uid" result))
         (fiveam:is (equal (restagraph::sanitise-uid child-uid)
-                          (gethash "original_uid" (neo4cl:node-properties (cdr result))))))
+                          (gethash "original_uid" result))))
       ;; Delete the dependent resource
       (restagraph::log-message :debug ";TEST Delete the dependent resource")
       (let ((child-path (format nil "/~A/~A/~A/~A/~A"
@@ -585,7 +582,7 @@
                                :DEPENDENT t
                                :SOURCE-TYPE (restagraph::name child-type)
                                :TARGET-TYPE (restagraph::name grandchild-type)))
-         (parent-uid "bikini")
+         (parent-uid "marshall")
          (child-uid "eth0")
          (grandchild-uid "192.168.24.1")
          (session (neo4cl:establish-bolt-session *bolt-server*))
@@ -790,12 +787,12 @@
                               (restagraph::name p2-target-rel)
                               (restagraph::name target-type)
                               target-uid))))
-        (fiveam:is (gethash "uid" (neo4cl:node-properties result)))
+        (fiveam:is (gethash "uid" result))
         (fiveam:is (equal (restagraph::sanitise-uid target-uid)
-                          (gethash "uid" (neo4cl:node-properties result))))
-        (fiveam:is (gethash "original_uid" (neo4cl:node-properties result)))
+                          (gethash "uid" result)))
+        (fiveam:is (gethash "original_uid" result))
         (fiveam:is (equal (restagraph::sanitise-uid target-uid)
-                          (gethash "original_uid" (neo4cl:node-properties result)))))
+                          (gethash "original_uid" result))))
       (let ((result (restagraph::get-resources
                       session
                       (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
@@ -808,9 +805,9 @@
                               (restagraph::name target-type)
                               target-uid))))
         (fiveam:is (equal target-uid
-                          (gethash "uid" (neo4cl:node-properties result))))
+                          (gethash "uid" result)))
         (fiveam:is (equal target-uid
-                          (gethash "original_uid" (neo4cl:node-properties result)))))
+                          (gethash "original_uid" result))))
       ;; Confirm the target resource is no longer present at the original path
       (fiveam:is
         (null
@@ -871,12 +868,12 @@
       (let ((result (car (restagraph::get-resources
                            session
                            (format nil "/~A" (restagraph::name resourcetype))))))
-        (fiveam:is (equal 3 (hash-table-count (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash "original_uid" (neo4cl:node-properties result)))))
-        (fiveam:is (not (null (gethash "createddate" (neo4cl:node-properties result)))))
-        (fiveam:is (integerp (gethash "createddate" (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties result)))))
-        (fiveam:is (equal res1uid (gethash "uid" (neo4cl:node-properties result)))))
+        (fiveam:is (equal 3 (hash-table-count result)))
+        (fiveam:is (not (null (gethash "original_uid" result))))
+        (fiveam:is (not (null (gethash "createddate" result))))
+        (fiveam:is (integerp (gethash "createddate" result)))
+        (fiveam:is (not (null (gethash "uid" result))))
+        (fiveam:is (equal res1uid (gethash "uid" result))))
       ;; Add a second of that kind of resource
       (restagraph::store-resource session
                                   schema
@@ -890,13 +887,13 @@
         (fiveam:is (equal (list (restagraph::sanitise-uid res1uid)
                                 (restagraph::sanitise-uid res2uid))
                           (sort (mapcar #'(lambda (res)
-                                            (gethash "uid" (neo4cl:node-properties res)))
+                                            (gethash "uid" res))
                                         result)
                                 #'string<)))
         (fiveam:is (equal (restagraph::sanitise-uid res1uid)
-                          (gethash "uid" (neo4cl:node-properties (first result)))))
+                          (gethash "uid" (first result))))
         (fiveam:is (equal (restagraph::sanitise-uid res2uid)
-                          (gethash "uid" (neo4cl:node-properties (second result))))))
+                          (gethash "uid" (second result)))))
       ;; Add a third of that kind of resource
       (restagraph::store-resource session
                                   schema
@@ -911,7 +908,7 @@
                                 (restagraph::sanitise-uid res2uid)
                                 (restagraph::sanitise-uid res3uid))
                           (sort (mapcar #'(lambda (res)
-                                            (gethash "uid" (neo4cl:node-properties res)))
+                                            (gethash "uid" res))
                                         result)
                                 #'string<))))
       ;; Delete all the resources we added
@@ -978,11 +975,11 @@
                                       `(("uid" . ,r1uid))
                                       schema
                                       (restagraph::name r1type))))))
-        (fiveam:is (equal 3 (hash-table-count (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties result)))))
-        (fiveam:is (equal r1uid (gethash "uid" (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash "original_uid" (neo4cl:node-properties result)))))
-        (fiveam:is (not (null (gethash "createddate" (neo4cl:node-properties result))))))
+        (fiveam:is (equal 3 (hash-table-count result)))
+        (fiveam:is (not (null (gethash "uid" result))))
+        (fiveam:is (equal r1uid (gethash "uid" result)))
+        (fiveam:is (not (null (gethash "original_uid" result))))
+        (fiveam:is (not (null (gethash "createddate" result)))))
       ;; Search for it by type and partial UID
       (let ((result (car (restagraph::get-resources
                       session
@@ -991,11 +988,11 @@
                                  `(("uid" . ,r1partial))
                                  schema
                                  (restagraph::name r1type))))))
-        (fiveam:is (equal 3 (hash-table-count (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash "original_uid" (neo4cl:node-properties result)))))
-        (fiveam:is (not (null (gethash "createddate" (neo4cl:node-properties result)))))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties result)))))
-        (fiveam:is (equal r1uid (gethash "uid" (neo4cl:node-properties result)))))
+        (fiveam:is (equal 3 (hash-table-count result)))
+        (fiveam:is (not (null (gethash "original_uid" result))))
+        (fiveam:is (not (null (gethash "createddate" result))))
+        (fiveam:is (not (null (gethash "uid" result))))
+        (fiveam:is (equal r1uid (gethash "uid" result))))
       ;; Add a dependent resource to search for
       (restagraph::log-message :info ";TEST Creating the secondary resource")
       (restagraph::store-dependent-resource
@@ -1029,13 +1026,13 @@
                                       `(("uid" . ,(restagraph::sanitise-uid r2uid)))
                                       schema
                                       (restagraph::name r2type))))))
-        (fiveam:is (equal 4 (hash-table-count (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash "original_uid" (neo4cl:node-properties result)))))
-        (fiveam:is (not (null (gethash "createddate" (neo4cl:node-properties result)))))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties result)))))
+        (fiveam:is (equal 4 (hash-table-count result)))
+        (fiveam:is (not (null (gethash "original_uid" result))))
+        (fiveam:is (not (null (gethash "createddate" result))))
+        (fiveam:is (not (null (gethash "uid" result))))
         (fiveam:is (equal (restagraph::sanitise-uid r2uid)
-                          (gethash "uid" (neo4cl:node-properties result))))
-        (fiveam:is (equal r2uid (gethash "original_uid" (neo4cl:node-properties result)))))
+                          (gethash "uid" result)))
+        (fiveam:is (equal r2uid (gethash "original_uid" result))))
       ;; Search for it by type and partial UID
       (let ((result (car (restagraph::get-resources
                            session
@@ -1048,13 +1045,13 @@
                                       `(("uid" . ,r2partial))
                                       schema
                                       (restagraph::name r2type))))))
-        (fiveam:is (equal 4 (hash-table-count (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash "original_uid" (neo4cl:node-properties result)))))
-        (fiveam:is (not (null (gethash "createddate" (neo4cl:node-properties result)))))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties result)))))
+        (fiveam:is (equal 4 (hash-table-count result)))
+        (fiveam:is (not (null (gethash "original_uid" result))))
+        (fiveam:is (not (null (gethash "createddate" result))))
+        (fiveam:is (not (null (gethash "uid" result))))
         (fiveam:is (equal (restagraph::sanitise-uid r2uid)
-                          (gethash "uid" (neo4cl:node-properties result))))
-        (fiveam:is (equal r2uid (gethash "original_uid" (neo4cl:node-properties result)))))
+                          (gethash "uid" result)))
+        (fiveam:is (equal r2uid (gethash "original_uid" result))))
       ;; Clean up: delete the primary and dependent resources.
       (restagraph::log-message :info ";TEST Cleanup: removing the resources")
       (restagraph::delete-resource-by-path
@@ -1107,13 +1104,13 @@
       (let ((result (restagraph::get-resources
                       session (format nil "/~A/~A"
                                       (restagraph::name restype) uid))))
-        (fiveam:is (not (null (gethash "uid" (neo4cl:node-properties result)))))
+        (fiveam:is (not (null (gethash "uid" result))))
         (fiveam:is (equal (restagraph::sanitise-uid uid)
-                          (gethash "uid" (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash "original_uid" (neo4cl:node-properties result)))))
-        (fiveam:is (equal uid (gethash "original_uid" (neo4cl:node-properties result))))
-        (fiveam:is (not (null (gethash attr1name (neo4cl:node-properties result)))))
-        (fiveam:is (equal attr1val (gethash attr1name (neo4cl:node-properties result)))))
+                          (gethash "uid" result)))
+        (fiveam:is (not (null (gethash "original_uid" result))))
+        (fiveam:is (equal uid (gethash "original_uid" result)))
+        (fiveam:is (not (null (gethash attr1name result))))
+        (fiveam:is (equal attr1val (gethash attr1name result))))
       ;; Delete the resource
       (restagraph::log-message :info ";TEST Remove the fixtures")
       (restagraph::delete-resource-by-path session
