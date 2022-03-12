@@ -89,7 +89,7 @@
                                             "localhost")
                               :port (or (when (sb-ext:posix-getenv "NEO4J_PORT")
                                           (parse-integer (sb-ext:posix-getenv "NEO4J_PORT")))
-                                        (getf *config-vars* :db-http-port)
+                                        (getf *config-vars* :db-bolt-port)
                                         7687)
                               ;; Adapt to the authentication scheme in effect
                               :auth-token (if (and (or (sb-ext:posix-getenv "NEO4J_USER")
