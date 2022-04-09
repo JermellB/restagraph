@@ -98,15 +98,13 @@
                    (format nil "Checking for a duplicate many:1 relationship from this source to another target. Using this query: ~A"
                            query-string))
                  (>
-                   (parse-integer
-                     (cdr (assoc "count"
-                                 (car (neo4cl:bolt-transaction-autocommit db query-string))
-                                 :test #'equal)))
+                   (cdr (assoc "count"
+                               (car (neo4cl:bolt-transaction-autocommit db query-string))
+                               :test #'equal))
                    0)))
-             (let ((message "Relationshp already exists."
-                     ;(format nil"~{~A~^/~} already has a many:1 ~A relationship with a resource of type ~A"
-                     ;               source-parts relationship dest-type)
-                     ))
+             (let ((message
+                     (format nil"~{~A~^/~} already has a many:1 ~A relationship with a resource of type ~A"
+                             source-parts relationship dest-type)))
                (log-message :debug message)
                (error 'integrity-error :message message)))
             ;; Go ahead and create the relationship
