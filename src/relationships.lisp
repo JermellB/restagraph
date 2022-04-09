@@ -126,6 +126,8 @@
                                        (sourcepath string)
                                        (relationship string)
                                        (destpath string))
+  (log-message :debug (format nil "Checking for an existing relationship ~A from ~A to ~A"
+                              relationship sourcepath destpath))
   (neo4cl:bolt-transaction-autocommit
     db
     (format nil "MATCH ~A-[r:~A]->~A RETURN labels(a) AS a_labels, a.uid AS a_uid, r AS relationship, labels(b) AS b_labels, b.uid AS b_uid"
