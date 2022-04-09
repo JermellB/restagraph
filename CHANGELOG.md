@@ -5,7 +5,7 @@ All notable changes.
 Issue references of the form #<number> refer to tickets on Github: https://github.com/equill/restagraph/issues
 
 
-## [Unreleased]
+## [0.8.1]
 
 ### Bugs fixed
 
@@ -14,6 +14,8 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
     - This is now met with a 400/Bad Request error, and a prompt that you may have intended to link that resource to another one, but forgotten to include the relationship at the end of the URI.
 - API hangs in response to a POST request where the UID contains an apostrophe (#65)
     - Sanitisation of UIDs is now much stricter.
+- #92 API hangs when creating a many:1 relationship.
+- Default-resources test now installs the default resources before testing for their presence.
 
 
 ### Added
@@ -39,6 +41,7 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
 - Dummy log message in `install-subschema-resourcetype`.
 - Redundant handler-case from `store-resource`.
 - Remove `libyaml` from `default.nix`: it's been commented out for long enough to be sure that it's now cruft.
+- Tests for the Neo4cl HTTP API driver, which has been replaced by the Bolt driver.
 
 
 ### Security
