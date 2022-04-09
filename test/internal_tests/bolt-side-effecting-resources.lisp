@@ -30,6 +30,8 @@
          (schema-version (restagraph::create-new-schema-version session)))
     ;; Install the core schema into that new schema-version
     (restagraph::install-subschema session restagraph::*core-schema* schema-version)
+    ;; Install the default resources
+    (restagraph::install-default-resources session)
     ;; Check that the resources are actually there
     (fiveam:is (equal *admin-user*
                       (gethash "uid"
