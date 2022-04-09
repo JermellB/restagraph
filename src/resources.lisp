@@ -179,15 +179,14 @@ Return an error if
                   (equal (cardinality relationship-attrs) "many:1"))
                 ;; Look for this parent having this relationship with any other dependent resource
                 (>
-                  (neo4cl:extract-data-from-get-request
-                    (neo4cl:neo4j-transaction
-                      db
-                      `((:STATEMENTS
-                          ((:STATEMENT
-                             .  ,(format nil "MATCH ~A<-[r {dependent: 'true'}]-() RETURN count(r)"
-                                         (uri-node-helper parent-parts
-                                                          :path ""
-                                                          :marker "n"))))))))
+                  (cdr (assoc "count"
+                              (car (neo4cl:bolt-transaction-autocommit
+                                     db
+                                     (format nil "MATCH ~A<-[r {dependent: 'true'}]-() RETURN count(r)"
+                                             (uri-node-helper parent-parts
+                                                              :path ""
+                                                              :marker "n"))))
+                              :test #'equal))
                   0))
               (error 'integrity-error :message
                      (format nil"~{~A~^/~} already has a ~A ~A relationship with a resource of type ~A"

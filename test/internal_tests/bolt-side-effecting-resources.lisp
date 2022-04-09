@@ -754,8 +754,7 @@
                 (restagraph::name p2-type)
                 p2-uid
                 (restagraph::name p2-target-rel)))
-      (let ((result (neo4cl:extract-data-from-get-request
-                      (restagraph::move-dependent-resource
+      (let ((result (restagraph::move-dependent-resource
                         session
                         schema
                         ;; URI
@@ -772,7 +771,7 @@
                                 (restagraph::name p1-p2-rel)
                                 (restagraph::name p2-type)
                                 p2-uid
-                                (restagraph::name p2-target-rel))))))
+                                (restagraph::name p2-target-rel)))))
         (restagraph::log-message :debug (format nil "Result was: ~A" result))
         (fiveam:is (null result)))
       ;; Confirm the target resource is now at the new target path
