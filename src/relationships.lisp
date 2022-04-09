@@ -87,34 +87,43 @@
             ;; Many-to-one, and the source already has this relationship with another such target?
             ((and
                (equal (cardinality relationship-attrs) "many:1")
-               (>
-                 (cdr (assoc "count"
-                             (neo4cl:bolt-transaction-autocommit
-                               db
-                               (format nil "MATCH ~A-[:~A]->(b:~A) RETURN count(b) AS count"
-                                       (uri-node-helper source-parts
-                                                        :path ""
-                                                        :marker "a")
-                                       relationship
-                                       dest-type))
-                             :test #'equal))
-                 0))
-             (let ((message (format nil"~{~A~^/~} already has a many:1 ~A relationship with a resource of type ~A"
-                                    source-parts relationship dest-type)))
+               (let ((query-string (format nil "MATCH ~A-[:~A]->(b:~A) RETURN count(b) AS count"
+                                           (uri-node-helper source-parts
+                                                            :path ""
+                                                            :marker "a")
+                                           relationship
+                                           dest-type)))
+                 (log-message
+                   :debug
+                   (format nil "Checking for a duplicate many:1 relationship from this source to another target. Using this query: ~A"
+                           query-string))
+                 (>
+                   (parse-integer
+                     (cdr (assoc "count"
+                                 (car (neo4cl:bolt-transaction-autocommit db query-string))
+                                 :test #'equal)))
+                   0)))
+             (let ((message "Relationshp already exists."
+                     ;(format nil"~{~A~^/~} already has a many:1 ~A relationship with a resource of type ~A"
+                     ;               source-parts relationship dest-type)
+                     ))
                (log-message :debug message)
                (error 'integrity-error :message message)))
             ;; Go ahead and create the relationship
             (t
-              (neo4cl:bolt-transaction-autocommit
-                db
-                (format nil "MATCH ~A, ~A MERGE (a)-[:~A]->(b)"
-                        (uri-node-helper source-parts
-                                         :path ""
-                                         :marker "a")
-                        (uri-node-helper dest-parts
-                                         :path ""
-                                         :marker "b")
-                        relationship)))))))))
+              (log-message :debug "Sanity checks have all passed. Finally attempting to create the relationship.")
+              (let ((query-string (format nil "MATCH ~A, ~A MERGE (a)-[:~A]->(b)"
+                                          (uri-node-helper source-parts
+                                                           :path ""
+                                                           :marker "a")
+                                          (uri-node-helper dest-parts
+                                                           :path ""
+                                                           :marker "b")
+                                          relationship)))
+                (log-message
+                  :debug
+                  (format nil "Using this query: ~A" query-string))
+                (neo4cl:bolt-transaction-autocommit db query-string)))))))))
 
 
 (defgeneric check-relationship-by-path (db sourcepath relationship destpath)
