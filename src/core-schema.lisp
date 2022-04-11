@@ -129,7 +129,7 @@
                                              :target-type "People"
                                              :cardinality "many:1"
                                              :description "All resources are linked to their creator. This is the first part of the permissions-management system.")
-                         (make-incoming-rels :name "MEMBERS"
+                         (make-incoming-rels :name "HAS_MEMBERS"
                                              :source-type "Organisations"
                                              :target-type "People"
                                              :cardinality "many:many"
