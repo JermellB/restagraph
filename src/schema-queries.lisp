@@ -18,7 +18,7 @@
 
 (defun validate-attributes (requested defined &key (invalid '()) (badvalue '()))
   "Recursive helper function to validate the requested attributes against those defined for the resourcetype.
-  Return a list of three lists:
+  Return a list of two lists:
   - invalid attributes (attributes whose name is not defined for this resourcetype)
   - attributes for which an invalid value was provided"
   (declare (type (or cons null) requested)  ; alist, where the car is the name and the cdr is the value
