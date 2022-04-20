@@ -95,8 +95,8 @@
     (let ((schema-version (restagraph::create-new-schema-version session)))
       ;; Install the core schema in the new schema-version
       (fiveam:is (every #'null (restagraph::install-subschema
-                         session
-                         restagraph::*core-schema* schema-version)))
+                                 session
+                                 restagraph::*core-schema* schema-version)))
       ;; Remember to remove it
       (restagraph::delete-schema-version session schema-version))
     (neo4cl:disconnect session)))
@@ -116,34 +116,28 @@
     ;; Install the core schema
     (restagraph::install-subschema session restagraph::*core-schema* schema-version)
     ;; Install a test-specific resourcetype
+    (restagraph::log-message :debug ";TEST: Install EnumTest resourcetype")
     (restagraph::install-subschema-resourcetype
       session
       (restagraph::make-incoming-rtypes
         :name "EnumTest"
         :description "For testing enum values"
-        :attributes (list (make-instance
-                            'restagraph::incoming-rtype-attrs
-                            :name "carl"
-                            :description "It needed a name, alright?"
-                            :attr-values '("one" "two" "three"))))
+        :attributes (list (restagraph::make-incoming-rtype-attrs
+                            (list :type "varchar"
+                                  :name "carl"
+                                  :maxlength 16
+                                  :readonly nil
+                                  :description "It needed a name, alright?"
+                                  :attrvalues '("one" "two" "three")))))
       schema-version)
     ;; Fetch the schema into memory
+    (restagraph::log-message :debug ";TEST: Fetch the current schema")
     (let ((schema (restagraph::fetch-current-schema session)))
       ;; Now delete the newly-created schema version, because we don't need it any more
+      (restagraph::log-message :debug ";TEST: Delete the schema we created.")
       (restagraph::delete-schema-version session schema-version)
       ;; Now disconnect from the server and release the session resources
       (neo4cl:disconnect session)
-      ;; Add test-specific resourcetypes
-      #+(or)
-      (setf (gethash "EnumTest" schema)
-            (restagraph::make-schema-rtypes
-              :name "EnumTest"
-              :description "For testing enum values"
-              :attributes (list (make-instance
-                                  'restagraph::schema-rtype-attrs
-                                  :name "carl"
-                                  :description "It needed a name, alright?"
-                                  :attr-values '("one" "two" "three")))))
       ;; On with the tests
       (restagraph::log-message :DEBUG ";TEST: null filter")
       (fiveam:is (null (restagraph::process-filter '() schema "any")))

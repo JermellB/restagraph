@@ -56,7 +56,7 @@
                               (map 'list #'(lambda (attr) (name attr)) defined)
                               :test #'equal)
                     ;; Is this an enum attribute?
-                    (let ((enums (attr-values
+                    (let ((enums (attrvalues
                                    (find-if #'(lambda (attr) (equal (caar requested) (name attr)))
                                             defined))))
                       (if (and enums

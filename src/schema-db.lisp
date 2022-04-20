@@ -260,111 +260,108 @@
            (type integer schema-version))
   (log-message :debug (format nil "Attempting to install schema definition for resourcetype '~A'"
                               (name rtype)))
-  (let* ((extant-resourcetypes (get-resourcetype-names session))
-         (schema-base (format nil "MATCH (r:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })"
+  (let* ((schema-base (format nil "MATCH (r:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion { createddate: ~D })"
                               schema-version))
-         (rtype-rels
-           (if (member (name rtype) extant-resourcetypes :test #'equal)
-             ;; It exists; fetch what's there
-             (progn
-               (log-message :debug (format nil "Resourcetype ~A exists. Fetching its attributes."
-                                           (name rtype)))
-               ;; Fetch attributes
-               (mapcar #'(lambda (row)
-                           (let ((values (cdr (assoc "values" row :test #'equal))))
-                             (make-schema-rtype-attrs
-                               :name (cdr (assoc "name" row :test #'equal))
-                               :description (cdr (assoc "description" row :test #'equal))
-                               :read-only (cdr (assoc "readonly" row :test #'equal))
-                               :attr-values (if (and values (stringp values))
-                                              (cl-ppcre:split "," values)
-                                              '()))))
-                       (neo4cl:bolt-transaction-autocommit
-                         session
-                         (format
-                           nil
-                           "~A-[:HAS]->(t:RgResourceType {name: '~A'})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a.name AS name, a.description AS description, a.values AS values, a.readonly AS readonly"
-                           schema-base (name rtype)))))
-             ;; It doesn't exist. Create it, and return nulls for attributes and relationships
-             (let ((query
-                     (format nil "~A CREATE (v)-[:HAS]->(t:RgResourceType {name: $name, dependent: $dependent, description: $description})"
-                             schema-base))
-                   ;; Set the parameters, if applicable
-                   (parameters `(("name" . ,(name rtype))
-                                 ("dependent" . ,(if (dependent rtype) :true :false))
-                                 ("description" . ,(if (and (description rtype)
-                                                            (not (equal "" (description rtype))))
-                                                     (description rtype)
-                                                     :null)))))
-               (log-message
-                 :debug
-                 (format nil "Resourcetype doesn't exist. Attempting to create with query: ~A" query))
-               (log-message :debug (format nil "Using parameters ~A" parameters))
-               ;; Add the resourcetype
-               (neo4cl:bolt-transaction-autocommit session query :parameters parameters)
-               ;; Ensure we have a uniqueness constraint for that resourcetype
-               (handler-case
-                 (ensure-uniqueness-constraint session (name rtype) "name")
-                 (neo4cl:client-error
-                   (e)
-                   ;; If we already have this constraint, catch the error and move on.
-                   (if (and
-                         (equal "Schema" (neo4cl:category e))
-                         (equal "EquivalentSchemaRuleAlreadyExists" (neo4cl:title e)))
-                     nil
-                     ;; If anything else went wrong, log it and pass it on up the stack
-                     (progn
-                       (log-message :debug (format nil "Received error '~A.~A ~A'"
-                                                   (neo4cl:category e)
-                                                   (neo4cl:title e)
-                                                   (neo4cl:message e)))
-                       (return-database-error
-                         (format nil "~A.~A: ~A"
-                                 (neo4cl:category e)
-                                 (neo4cl:title e)
-                                 (neo4cl:message e)))))))
-               ;; Return the null list of attributes
-               '()))))
+         (extant-resource (describe-resource-type session (name rtype) schema-version)))
+    ;; This resourcetype doesn't already exist.
+    ;; Create it, and return nulls for attributes and relationships
+    (unless extant-resource
+      (let ((query
+              (format nil "~A CREATE (v)-[:HAS]->(t:RgResourceType {name: $name, dependent: $dependent, description: $description})"
+                      schema-base))
+            ;; Set the parameters, if applicable
+            (parameters `(("name" . ,(name rtype))
+                          ("dependent" . ,(if (dependent rtype) :true :false))
+                          ("description" . ,(if (and (description rtype)
+                                                     (not (equal "" (description rtype))))
+                                                (description rtype)
+                                                :null)))))
+        (log-message :debug (format nil "Resourcetype doesn't exist. Attempting to create with query: ~A" query))
+        (log-message :debug (format nil "Using parameters ~A" parameters))
+        ;; Add the resourcetype
+        (neo4cl:bolt-transaction-autocommit session query :parameters parameters)
+        ;; Ensure we have a uniqueness constraint for that resourcetype
+        (handler-case
+          (ensure-uniqueness-constraint session (name rtype) "name")
+          (neo4cl:client-error
+            (e)
+            ;; If we already have this constraint, catch the error and move on.
+            (if (and
+                  (equal "Schema" (neo4cl:category e))
+                  (equal "EquivalentSchemaRuleAlreadyExists" (neo4cl:title e)))
+                nil
+                ;; If anything else went wrong, log it and pass it on up the stack
+                (progn
+                  (log-message :debug (format nil "Received error '~A.~A ~A'"
+                                              (neo4cl:category e)
+                                              (neo4cl:title e)
+                                              (neo4cl:message e)))
+                  (return-database-error
+                    (format nil "~A.~A: ~A"
+                            (neo4cl:category e)
+                            (neo4cl:title e)
+                            (neo4cl:message e)))))))
+        ;; Return the null list of attributes
+        '()))
     ;; Identify any attributes not already present, and add them.
-    (let* ((old-attr-names (mapcar #'name rtype-rels))
-           ;; Bear in mind these are instances of 'incoming-rtype-attrs
+    ;; If this resourcetype already exists, enumerate the names of its existing attributes
+    (let* ((old-attr-names (when extant-resource (mapcar #'name (attributes extant-resource))))
+           ;; Now derive the list of attributes to add.
            (new-attrs
-             (remove-if #'(lambda (attr)
-                            (member (name attr) old-attr-names :test #'equal))
-                        (attributes rtype))))
-      ;; If there are any, install them
+             ;; If the resourcetype already exists, disregard any new attributes with the same name
+             ;; as any attributes it already has.
+             (if extant-resource
+                 ;; Bear in mind these are instances of 'incoming-rtype-attrs subclasses
+                 (remove-if #'(lambda (attr) (member (name attr) old-attr-names :test #'equal))
+                            (attributes rtype))
+                 ;; If this is a new resourcetype, _all_ its attributes are new, so the process is simpler.
+                 (attributes rtype))))
+      (if old-attr-names
+          (log-message :debug (format nil "Found existing attributes for ~A: ~{~A~^, ~}"
+                                      rtype old-attr-names))
+          (log-message :debug (format nil "No existing attributes found for resourcetype ~A." rtype)))
+      ;; Install any new attributes that are required
       (if new-attrs
-        (mapcar #'(lambda (attr)
-                    (let ((query (format nil "~A-[:HAS]->(t:RgResourceType {name: '~A'}) CREATE (t)-[:HAS]->(:RgResourceTypeAttribute { name: $name, description: $description, values: $values, readonly: $readonly })"
-                                         schema-base (name rtype)))
-                          (params `(("name" . ,(name attr))
-                                    ("description" . ,(or (description attr) :null))
-                                    ("values" . ,(if (attr-values attr)
-                                                   (format nil "~{~A~^,~}" (attr-values attr))
-                                                   :null))
-                                    ("readonly" . ,(if (read-only attr) :true :false)))))
-                      (log-message
-                        :debug
-                        (format nil "Installing resourcetype-attribute definitions with query: '~A' and params ~A"
-                                                  query params))
-                      (handler-case
-                        (neo4cl:bolt-transaction-autocommit session query :parameters params)
-                        (neo4cl:transient-error (e) (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
-                                                                                (neo4cl:category e)
-                                                                                (neo4cl:title e)
-                                                                                (neo4cl:message e))))
-                        (neo4cl:database-error (e) (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
-                                                                               (neo4cl:category e)
-                                                                               (neo4cl:title e)
-                                                                               (neo4cl:message e))))
-                        (neo4cl:client-error (e) (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
-                                                                             (neo4cl:category e)
-                                                                             (neo4cl:title e)
-                                                                             (neo4cl:message e))))
-                        (error (e) (log-message :fatal (format nil "Unhandled error '~A'" e))))))
-                new-attrs)
-        ;; No new attributes to add to this resourcetype
-        (log-message :debug (format nil "No new attributes found to add for resourcetype ~A. Moving on." (name rtype)))))))
+          (progn
+            (log-message :debug (format nil "New attributes to install for resourcetype ~A: ~{~A~^, ~}."
+                                        rtype (mapcar #'name new-attrs)))
+            (mapcar #'(lambda (attr)
+                        ;; Fetch any extra parameters for this attribute-type
+                        (let* ((extra-attr-params (extra-attr-params attr))
+                               (param-names (append '("name" "description" "readonly")
+                                                    (mapcar #'car extra-attr-params)))
+                               (query (format nil "~A-[:HAS]->(t:RgResourceType {name: '~A'}) CREATE (t)-[:HAS]->(:RgResourceTypeAttribute { ~{~A: $~:*~A~^, ~} })"
+                                              schema-base
+                                              (name rtype)
+                                              param-names))
+                               (params (append
+                                         `(("name" . ,(name attr))
+                                           ("description" . ,(or (description attr) :null))
+                                           ("readonly" . ,(if (readonly attr) :true :false)))
+                                         extra-attr-params)))
+                          (log-message
+                            :debug
+                            (format nil "Installing resourcetype-attribute definitions with query: '~A' and params ~A"
+                                    query params))
+                          (handler-case
+                            (neo4cl:bolt-transaction-autocommit session query :parameters params)
+                            (neo4cl:transient-error (e) (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
+                                                                                    (neo4cl:category e)
+                                                                                    (neo4cl:title e)
+                                                                                    (neo4cl:message e))))
+                            (neo4cl:database-error (e) (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
+                                                                                   (neo4cl:category e)
+                                                                                   (neo4cl:title e)
+                                                                                   (neo4cl:message e))))
+                            (neo4cl:client-error (e) (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
+                                                                                 (neo4cl:category e)
+                                                                                 (neo4cl:title e)
+                                                                                 (neo4cl:message e))))
+                            (error (e) (log-message :fatal (format nil "Unhandled error '~A'" e))))))
+                    new-attrs))
+          ;; No new attributes to add to this resourcetype
+          (log-message :debug (format nil "No new attributes found to add for resourcetype ~A. Moving on."
+                                      (name rtype)))))))
 
 (defun install-subschema-relationship (session rel schema-version)
   "Install a single relationship definition into the database."
@@ -582,12 +579,7 @@
                                     (not (equal "" (cdr (assoc :DESCRIPTION res)))))
                            (cdr (assoc :DESCRIPTION res)))
             :attributes
-            (mapcar #'(lambda (attr)
-                        (make-incoming-rtype-attrs
-                          :name (cdr (assoc :NAME attr))
-                          :description (cdr (assoc :DESCRIPTION attr))
-                          :read-only (cdr (assoc :READ-ONLY attr))
-                          :attr-values (cdr (assoc :VALUES attr))))
+            (mapcar #'(lambda (attr) (make-incoming-rtype-attrs attr))
                     (cdr (assoc :ATTRIBUTES res)))))
       (cdr (assoc :RESOURCETYPES schema-alist)))
     :relationships
@@ -727,16 +719,15 @@
 (defmethod get-resourcetype-attributes ((db neo4cl:bolt-session)
                                         (resourcetype string))
   (log-message :debug (format nil "Getting attributes for resourcetype '~A'" resourcetype))
+  ;; Fetch the name and type for each attribute
   (mapcar #'(lambda (attr)
-              (make-schema-rtype-attrs :name (cdr (assoc "name" attr :test #'equal))
-                                       :description (cdr (assoc "description" attr :test #'equal))
-                                       :read-only (cdr (assoc "readonly" attr :test #'equal))
-                                       :attr-values (cl-ppcre:split "," (cdr (assoc "values" attr :test #'equal)))))
+              (instantiate-schema-rtype-attr
+                (cdr (assoc "a" attr :test #'equal))))
           (neo4cl:bolt-transaction-autocommit
             db
             (format
               nil
-              "MATCH (:RgSchema {name: 'root'})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: '~A'})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a.name AS name, a.description AS description, a.values AS values, a.readonly AS readonly"
+              "MATCH (:RgSchema {name: 'root'})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: '~A'})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a"
               resourcetype))))
 
 

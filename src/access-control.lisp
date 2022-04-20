@@ -51,8 +51,8 @@
     ;; Everything fully open.
     ;; Max convenience, but only do this on your personal computer.
     ((equal "open" policyname) (make-access-policy))
-    ;; Read-only - good for allowing access while you investigate who broke something.
-    ((equal "read-only" policyname)
+    ;; readonly - good for allowing access while you investigate who broke something.
+    ((equal "readonly" policyname)
      (make-access-policy :get-policy :ALLOW-ALL
                          :post-policy :DENY
                          :put-policy :DENY

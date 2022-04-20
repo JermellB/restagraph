@@ -28,96 +28,132 @@
             :description "For categorising resources of any type. Useful in searches."
             :dependent nil
             :attributes (list (make-incoming-rtype-attrs
-                                :name "description"
-                                :description "Clarification of what the tag means.")))
+                                (list :name "description"
+                                      :type "varchar"
+                                      :maxlength 256
+                                      :description "Clarification of what the tag means."))))
           (make-incoming-rtypes
             :name "Organisations"
             :description "Any kind of organisation: professional, social or other."
             :dependent nil
             :attributes (list (make-incoming-rtype-attrs
-                                :name "description"
-                                :description "Notes about this particular organisation.")))
+                                (list :name "description"
+                                      :type "text"
+                                      :description "Notes about this particular organisation."))))
           (make-incoming-rtypes
             :name "People"
             :description "Real people, imaginary people, security roles, members of an external organisation... if they're a person, this is the type."
             :dependent nil
             :attributes (list (make-incoming-rtype-attrs
-                                :name "displayname"
-                                :description "The human-friendly version of their name, to be displayed in the UI.")
+                                (list :name "displayname"
+                                      :type "varchar"
+                                      :maxlength 256
+                                      :description "The human-friendly version of their name, to be displayed in the UI."))
                               (make-incoming-rtype-attrs
-                                :name "notes"
-                                :description "Notes about this person.")))
+                                (list :name "notes"
+                                      :type "text"
+                                      :description "Notes about this person."))))
           (make-incoming-rtypes
             :name "Pronouns"
             :description "The pronouns by which a person prefers to be addressed."
             :dependent nil
             :attributes (list (make-incoming-rtype-attrs
-                                :name "text"
-                                :description "The full, non-URL-safe text of the pronoun set. E.g, They/them.")))
+                                (list :name "text"
+                                      :type "varchar"
+                                      :maxlength 48
+                                      :description "The full, non-URL-safe text of the pronoun set. E.g, They/them."))))
           (make-incoming-rtypes
             :name "Files"
             :description "Metadata about files uploaded by users. The files themselves are stored separately, using the sha3-256 checksum as the filename."
             :dependent nil
             :attributes (list (make-incoming-rtype-attrs
-                                :name "title"
-                                :description "The requested filename, recorded verbatim instead of having to be sanitised for URI-safety.")
+                                (list :name "title"
+                                      :type "varchar"
+                                      :maxlength 512
+                                      :description "The requested filename, recorded verbatim instead of having to be sanitised for URI-safety."))
                               (make-incoming-rtype-attrs
-                                :name "notes"
-                                :description "Notes about this file.")
+                                (list :name "notes"
+                                      :type "text"
+                                      :description "Notes about this file."))
                               (make-incoming-rtype-attrs
-                                :name "mimetype"
-                                :read-only t
-                                :description "The detected MIME-type of this file, i.e. the description used for attaching files to emails or transferring to/from webservers.")
+                                (list :name "mimetype"
+                                      :type "varchar"
+                                      :maxlength 256
+                                      :readonly t
+                                      :description "The detected MIME-type of this file, i.e. the description used for attaching files to emails or transferring to/from webservers."))
                               (make-incoming-rtype-attrs
-                                :name "sha3256sum"
-                                :read-only t
-                                :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions.")))
+                                (list :name "sha3256sum"
+                                      :type "varchar"
+                                      :maxlength 256
+                                      :readonly t
+                                      :description "The SHA3-256 checksum of the file. Chosen for resistance against length-extension collisions."))))
           (make-incoming-rtypes
             :name "VrfGroups"
             :description "VRF Groups, as allocated by an organisation."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
-                                :name "description"
-                                :description "Helpful notes about what this group is for.")))
+                                (list :name "description"
+                                      :type "text"
+                                      :description "Helpful notes about what this group is for."))))
           (make-incoming-rtypes
             :name "Ipv4Subnets"
             :description "IPv4 Subnets, as allocated rather than as configured."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
-                                :name "description"
-                                :description "Who or what this subnet is allocated for, and possibly why.")
+                                (list :name "description"
+                                      :type "text"
+                                      :description "Who or what this subnet is allocated for, and possibly why."))
                               (make-incoming-rtype-attrs
-                                :name "netaddress"
-                                :description "The network address of the subnet.")
+                                (list :name "netaddress"
+                                      :type "integer"
+                                      :minimum 0
+                                      :maximum 4294967295   ; 255.255.255.255 = (- (expt 2 32) 1)
+                                      :description "The network address of the subnet."))
                               (make-incoming-rtype-attrs
-                                :name "prefixlength"
-                                :description "The prefix length of the subnet - an integer between 1 and 32.")))
+                                (list :name "prefixlength"
+                                      :type "integer"
+                                      :minimum 1
+                                      :maximum 32
+                                      :description "The prefix length of the subnet - an integer between 1 and 32."))))
           (make-incoming-rtypes
             :name "Ipv4Addresses"
             :description "IPv4 Addresses. Unqualified, so really only useful for allocating."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
-                                :name "description"
-                                :description "What this address is allocated to, and possibly why.")))
+                                (list :name "description"
+                                      :type "text"
+                                      :description "What this address is allocated to, and possibly why."))))
           (make-incoming-rtypes
             :name "Ipv6Subnets"
             :description "IPv6 Subnets, as allocated rather than as configured."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
-                                :name "description"
-                                :description "Who or what this subnet is allocated for, and possibly why.")
+                                (list :name "description"
+                                      :type "text"
+                                      :description "Who or what this subnet is allocated for, and possibly why."))
                               (make-incoming-rtype-attrs
-                                :name "netaddress"
-                                :description "The network address of the subnet.")
+                                (list :name "netaddress"
+                                      :type "integer"
+                                      :minimum 0
+                                      ;; This produces an "Integer out of range" error,
+                                      ;; so it looks like integer-encoding isn't an option
+                                      ;; for IPv6 addresses.
+                                      ;:maximum 1324055902416102970674609367438786815
+                                      :maximum nil
+                                      :description "The network address of the subnet."))
                               (make-incoming-rtype-attrs
-                                :name "prefixlength"
-                                :description "The prefix length of the subnet - an integer between 1 and 64.")))
+                                (list :name "prefixlength"
+                                      :type "integer"
+                                      :minimum 1
+                                      :maximum 64
+                                      :description "The prefix length of the subnet - an integer between 1 and 64."))))
           (make-incoming-rtypes
             :name "Ipv6Addresses"
             :description "IPv6 Addresses. Unqualified, so really only useful for allocating."
             :dependent t
             :attributes (list (make-incoming-rtype-attrs
-                                :name "description"))
+                                (list :name "description"
+                                      :type "text")))
             :description "What this address is allocated to, and possibly why."))
     :relationships (list (make-incoming-rels :name "TAGS"
                                              :source-type "any"

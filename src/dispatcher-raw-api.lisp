@@ -20,7 +20,7 @@
                            (name resourcetype)))
       (intersection (map 'list
                          'restagraph::name
-                         (remove-if-not 'restagraph::read-only (attributes resourcetype)))
+                         (remove-if-not 'restagraph::readonly (attributes resourcetype)))
                     (mapcar 'car params)
                     :test 'equal))))
 

@@ -351,6 +351,9 @@ Return an error if
           (stringp (cdr filter)))
      (log-message :debug (format nil "Filter ~A looks OK; attempting to process it" (car filter)))
      (let* ((name (car filter))
+            ;; Note that the attribute is an object,
+            ;; so we need to inspect its class for type-matching.
+            (attribute (get-attribute (gethash rtype schema) name))
             ;; Does the value start with "!" to indicate negation?
             (negationp (string= "!" (cdr filter) :end2 1))
             ;; Get the value of the expression.
@@ -362,7 +365,7 @@ Return an error if
        ;; Log whether negation was detected
        (if negationp
          (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
-         (log-message :debug "Negation not detected. Double-negative in progress."))
+         (log-message :debug "Negation not detected. Proceeding in the affirmative."))
        (format
          nil
          "~A~A"
@@ -397,19 +400,23 @@ Return an error if
                                                 val
                                                 (sanitise-uid val)))
                              :marker "n"))
-           ;; Regex match
-           ;; Full reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
-           ((regex-p value)
+           ;; Regex match for string-types
+           ;; Full regex reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
+           ((and attribute
+                 (member (type-of attribute) '(schema-rtype-attr-varchar schema-rtype-attr-text))
+                 (regex-p value))
             (format nil "n.~A =~~ '~A'" name value))
            ;;
            ;; Simple existence check
-           ((string= "exists" value)
+           ((and attribute
+                 (string= "exists" value))
             (format nil "exists(n.~A)" name))
            ;;
            ;; Enum attribute
            ((and
-              (get-attribute (gethash rtype schema) name)
-              (attr-values (get-attribute (gethash rtype schema) name)))
+              attribute
+              (eq (type-of attribute) 'schema-rtype-attr-varchar)
+              (attrvalues (get-attribute (gethash rtype schema) name)))
             (format nil "n.~A IN [~{'~A'~^, ~}]" name (cl-ppcre:split "," value)))
            ;;
            ;; Default case: exact text match
