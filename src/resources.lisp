@@ -335,7 +335,7 @@ Return an error if
   (declare (type list filter)
            (type hash-table schema) ; Specific to checking enums
            (type string rtype))     ; Specific to checking enums
-  (log-message :debug (format nil "Attempting to process filter ~A" filter))
+  (log-message :debug (format nil "Attempting to process filter ~A for resourcetype ~A" filter rtype))
   ;; Sanity-check: is this an empty filter expression?
   ;; These can legitimately be sent via badly-written search pages, for example.
   (cond
@@ -366,6 +366,9 @@ Return an error if
        (if negationp
          (log-message :debug (format nil "Negation detected. negationp = ~A" negationp))
          (log-message :debug "Negation not detected. Proceeding in the affirmative."))
+       (if attribute
+           (log-message :debug (format nil "Fetched attribute with name ~A." (name attribute)))
+           (log-message :debug (format nil "Didn't find an attribute with name ~A." name)))
        (format
          nil
          "~A~A"
