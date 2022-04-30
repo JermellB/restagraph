@@ -703,20 +703,26 @@
                 :parameters `(("version" . ,schema-version)
                               ("rtypename" . ,resourcetype))))))
       ;; Convert to schema-rtypes instances
-      (make-schema-rtypes :name resourcetype
-                          :dependent (cdr (assoc "dependent" rtype :test #'equal))
-                          ;; Convert to boolean:
-                          :description (cdr (assoc "description" rtype :test #'equal))
-                          :relationships ()
-                          :attributes ()))
+      (when rtype
+        (make-schema-rtypes :name resourcetype
+                            :dependent (cdr (assoc "dependent" rtype :test #'equal))
+                            ;; Convert to boolean:
+                            :description (cdr (assoc "description" rtype :test #'equal))
+                            :relationships ()
+                            :attributes ())))
     (error (e)
-           (if (typep e 'neo4cl:client-error)
-             (log-message :fatal (format nil "Neo4j error ~A ~A - ~A"
-                                         (neo4cl:category e)
-                                         (neo4cl:title e)
-                                         (neo4cl:message e)))
-             (progn
-               (log-message :fatal (format nil "Unhandled error '~A'" e)))))))
+           (cond
+             ((typep e 'neo4cl:client-error)
+              (log-message :fatal (format nil "Neo4j client error ~A ~A - ~A"
+                                          (neo4cl:category e)
+                                          (neo4cl:title e)
+                                          (neo4cl:message e))))
+             ((typep e 'neo4cl:bolt-error)
+              (log-message :fatal (format nil "Neo4j Bolt error ~A - ~A"
+                                          (neo4cl:category e)
+                                          (neo4cl:message e))))
+             (t
+              (log-message :fatal (format nil "Unhandled error '~A'" e)))))))
 
 
 (defgeneric get-resourcetype-attributes (db resourcetype schema-version)
