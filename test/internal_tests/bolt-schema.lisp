@@ -142,17 +142,17 @@
       (restagraph::log-message :DEBUG ";TEST: null filter")
       (fiveam:is (null (restagraph::process-filter '() schema "any")))
       (restagraph::log-message :DEBUG ";TEST: regex filter")
-      (fiveam:is (equal "n.foo =~ '.*foo.*'"
-                        (restagraph::process-filter '("foo" . ".*foo.*") schema "People")))
+      (fiveam:is (equal "n.displayname =~ '.*foo.*'"
+                        (restagraph::process-filter '("displayname" . ".*foo.*") schema "People")))
       (restagraph::log-message :DEBUG ";TEST: negated regex filter")
-      (fiveam:is (equal "NOT n.foo =~ '.*foo.*'"
-                        (restagraph::process-filter '("foo" . "!.*foo.*") schema "People")))
+      (fiveam:is (equal "NOT n.displayname =~ '.*foo.*'"
+                        (restagraph::process-filter '("displayname" . "!.*foo.*") schema "People")))
       (restagraph::log-message :DEBUG ";TEST: existence filter")
-      (fiveam:is (equal "exists(n.foo)"
-                        (restagraph::process-filter '("foo" . "exists") schema "People")))
+      (fiveam:is (equal "exists(n.displayname)"
+                        (restagraph::process-filter '("displayname" . "exists") schema "People")))
       (restagraph::log-message :DEBUG ";TEST: negated existence filter")
-      (fiveam:is (equal "NOT exists(n.foo)"
-                        (restagraph::process-filter '("foo" . "!exists") schema "People")))
+      (fiveam:is (equal "NOT exists(n.displayname)"
+                        (restagraph::process-filter '("displayname" . "!exists") schema "People")))
       (restagraph::log-message :DEBUG ";TEST: enum filter")
       (fiveam:is (equal "n.carl IN ['one']"
                         (restagraph::process-filter '("carl" . "one") schema "EnumTest")))
@@ -166,8 +166,8 @@
       (fiveam:is (equal "n.displayname = 'blah'"
                         (restagraph::process-filter '("displayname" . "blah") schema "People")))
       (restagraph::log-message :DEBUG ";TEST: negated text filter")
-      (fiveam:is (equal "NOT n.foo = 'blah'"
-                        (restagraph::process-filter '("foo" . "!blah") schema "People")))
+      (fiveam:is (equal "NOT n.displayname = 'blah'"
+                        (restagraph::process-filter '("displayname" . "!blah") schema "People")))
       (restagraph::log-message :DEBUG ";TEST: outbound filters")
       (fiveam:is (equal "(n)-[:TAGS]->(:Tags { uid: 'thisTag' })"
                         (restagraph::process-filter '("RGoutbound" . "/TAGS/Tags/thisTag")
