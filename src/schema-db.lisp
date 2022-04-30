@@ -475,14 +475,15 @@
   (declare (type neo4cl:bolt-session session))
   (log-message :info "Fetching the current schema from the database.")
   ;; Create a schema structure
-  (let ((schema (make-schema-hash-table)))
+  (let ((schema (make-schema-hash-table))
+        (current-version (current-schema-version session)))
     ;; Populate the schema with resourcetypes
     (mapcar #'(lambda (rtype)
                 (log-message
                   :debug
                   (format nil "Fetching initial details for resourcetype '~A'" rtype))
                 ;; Add it to the main schema hash-table
-                (setf (gethash rtype schema) (describe-resource-type session rtype))
+                (setf (gethash rtype schema) (describe-resource-type session rtype current-version))
                 ;; Confirm what's now in the schema hash-table
                 (log-message :debug (format nil "Added schema entry ~A"
                                             (a-listify (gethash rtype schema))))
@@ -491,7 +492,7 @@
                              (log-message :debug
                                           (format nil "Resourcetype '~A': ~A" name (a-listify rtype-obj))))
                          schema))
-            (get-resourcetype-names session))
+            (get-resourcetype-names session current-version))
     ;; Dump the entire schema for a point-in-time reference
     (log-message :debug (format nil "Full state of schema after loading resourcetypes::~%"))
     (maphash #'(lambda (name rtype-obj)
@@ -508,24 +509,27 @@
                  (set-relationships (gethash rtype schema) relationships)
                  (log-message :debug (format nil "Schema entry is now ~A"
                                              (a-listify (gethash rtype schema)))))
-             (get-relationship-definitions session schema))
+             (inject-relationship-definitions session schema current-version))
     ;; Return the schema we created
     schema))
 
-(defgeneric get-relationship-definitions (session schema)
-  (:documentation "Fetch the list of relationship definitions from the database.
-  Return them as a hash-table:
-  key = resourcetype name
-  value = list of schema-rels instances."))
+;; FIXME: at what point in proceedings should this be used?!
+;; We're assuming the `schema` hash-table has a definitive list of resourcetypes,
+;; but not of relationships.
+(defgeneric inject-relationship-definitions (session schema version)
+  (:documentation "Fetch the list of relationship definitions from the database,
+                   and inject them into the supplied schema hash-table.
+                   Intended to be used in the course of extracing a schema from the database."))
 
-(defmethod get-relationship-definitions ((session neo4cl:bolt-session)
-                                         (schema hash-table))
+(defmethod inject-relationship-definitions ((session neo4cl:bolt-session)
+                                         (schema hash-table)
+                                         (version integer))
   (let ((rels (make-hash-table :test #'equal)))
     ;; Create an entry in the relationships lookup table
     ;; for each resourcetype
     (mapcar #'(lambda (rtype)
                 (setf (gethash rtype rels) ()))
-            (get-resourcetype-names session))
+            (get-resourcetype-names session version))
     ;; Accumulate the relationships for each resourcetype
     (mapcar #'(lambda (rel)
                 (log-message :debug (format nil "Accumulating details for this relationship: ~A" rel))
@@ -556,7 +560,8 @@
                         (gethash source-type rels))))
             (neo4cl:bolt-transaction-autocommit
               session
-              "MATCH (:RgSchema {name: 'root'})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType)<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN s.name AS sourcetype, r.name AS relname, t.name AS targettype, r.cardinality AS cardinality, r.dependent AS dependent, r.description AS description"))
+              "MATCH (:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion {createddate: $version})-[:HAS]->(s:RgResourceType)<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN s.name AS sourcetype, r.name AS relname, t.name AS targettype, r.cardinality AS cardinality, r.dependent AS dependent, r.description AS description"
+              :parameters `(("version" . ,version))))
     ;; Return the accumulated hash-table
     rels))
 
@@ -665,26 +670,28 @@
                (progn
                  (log-message :fatal (format nil "Unhandled error '~A'" e))))))))
 
-(defgeneric describe-resource-type (schema-db resourcetype )
+(defgeneric describe-resource-type (schema-db resourcetype schema-version)
   (:documentation "Return the description of a resource-type, as a schema-rtypes instance."))
 
 (defmethod describe-resource-type ((schema-db neo4cl:bolt-session)
-                                   (resourcetype string))
+                                   (resourcetype string)
+                                   (schema-version integer))
   (log-message :debug (format nil "Describing resource-type '~A'" resourcetype))
   ;; Confirm whether this resourcetype exists at all.
-  (let ((resource (get-resourcetype-definition schema-db resourcetype)))
+  (let ((resource (get-resourcetype-definition schema-db resourcetype schema-version)))
     ;; If it doesn't, automatically return NIL.
     (when resource
-      (set-attributes resource (get-resourcetype-attributes schema-db resourcetype)))
+      (set-attributes resource (get-resourcetype-attributes schema-db resourcetype schema-version)))
     ;; Return the resource object itself
     resource))
 
 
-(defgeneric get-resourcetype-definition (db resourcetype)
+(defgeneric get-resourcetype-definition (db resourcetype schema-version)
   (:documentation "Fetch a resourcetype's structure. Return a stub schema-rtypes instance, with nulls for attributes and relationships."))
 
 (defmethod get-resourcetype-definition ((db neo4cl:bolt-session)
-                                        (resourcetype string))
+                                        (resourcetype string)
+                                        (schema-version integer))
   (log-message :debug
                (format nil "Checking for existence of resourcetype '~A'" resourcetype))
   (handler-case
@@ -692,10 +699,9 @@
             (car
               (neo4cl:bolt-transaction-autocommit
                 db
-                (format
-                  nil
-                  "MATCH (:RgSchema {name: 'root'})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(s:RgResourceType {name: '~A'}) RETURN s.dependent AS dependent, s.description AS description"
-                  resourcetype)))))
+                "MATCH (:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion { createddate: $version })-[:HAS]->(s:RgResourceType {name: $rtypename}) RETURN s.dependent AS dependent, s.description AS description"
+                :parameters `(("version" . ,schema-version)
+                              ("rtypename" . ,resourcetype))))))
       ;; Convert to schema-rtypes instances
       (make-schema-rtypes :name resourcetype
                           :dependent (cdr (assoc "dependent" rtype :test #'equal))
@@ -713,11 +719,12 @@
                (log-message :fatal (format nil "Unhandled error '~A'" e)))))))
 
 
-(defgeneric get-resourcetype-attributes (db resourcetype)
+(defgeneric get-resourcetype-attributes (db resourcetype schema-version)
   (:documentation "Extract the attributes from resource definitions from the database, and return them as a list of schema-rtype-attrs structs."))
 
 (defmethod get-resourcetype-attributes ((db neo4cl:bolt-session)
-                                        (resourcetype string))
+                                        (resourcetype string)
+                                        (schema-version integer))
   (log-message :debug (format nil "Getting attributes for resourcetype '~A'" resourcetype))
   ;; Fetch the name and type for each attribute
   (mapcar #'(lambda (attr)
@@ -727,8 +734,9 @@
             db
             (format
               nil
-              "MATCH (:RgSchema {name: 'root'})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: '~A'})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a"
-              resourcetype))))
+              "MATCH (:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion {createddate: $version})-[:HAS]->(:RgResourceType {name: $rtypename})-[:HAS]->(a:RgResourceTypeAttribute) RETURN a")
+            :parameters `(("version" . ,schema-version)
+                          ("rtypename" . ,resourcetype)))))
 
 
 (defgeneric get-resourcetype-relationships (db resourcetype)
@@ -749,13 +757,15 @@
               "MATCH (:RgSchema {name: 'root'})-[:CURRENT_VERSION]->(v:RgSchemaVersion)-[:HAS]->(:RgResourceType {name: '~A'})<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN r.name AS relname, t.name AS targettype, r.cardinality AS cardinality, t.dependent AS dependent, t.description AS description"
               resourcetype))))
 
-(defgeneric get-resourcetype-names (db)
+(defgeneric get-resourcetype-names (db schema-version)
   (:documentation "Return the names of resourcetypes, as a list of strings."))
 
-(defmethod get-resourcetype-names ((db neo4cl:bolt-session))
+(defmethod get-resourcetype-names ((db neo4cl:bolt-session)
+                                   (schema-version integer))
   (log-message :debug "Fetching resourcetype names.")
   (mapcar #'(lambda (rtype)
               (cdr (assoc "name" rtype :test #'equal)))
           (neo4cl:bolt-transaction-autocommit
             db
-            "MATCH (:RgSchema {name: 'root'})-[:CURRENT_VERSION]->(:RgSchemaVersion)-[:HAS]->(r:RgResourceType) RETURN r.name AS name")))
+            "MATCH (:RgSchema {name: 'root'})-[:VERSION]->(:RgSchemaVersion {createddate: $version})-[:HAS]->(r:RgResourceType) RETURN r.name AS name"
+            :parameters `(("version" . ,schema-version)))))
