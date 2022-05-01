@@ -49,33 +49,37 @@
                    (append invalid (list (car requested))))
                  ;; It's valid; leave the `invalid` list as-is
                  invalid)
-      :badvalue (if
-                  ;; Is it a valid attribute? (yes, we have to test this again)
-                  (if (member (caar requested)
-                              ;; Remember this was parsed from JSON
-                              (map 'list #'(lambda (attr) (name attr)) defined)
-                              :test #'equal)
-                    ;; Is this an enum attribute?
-                    (let ((enums (attrvalues
-                                   (find-if #'(lambda (attr) (equal (caar requested) (name attr)))
-                                            defined))))
-                      (if (and enums
-                               (not (null enums)))
-                        ;; If so, is it a valid value?
-                        (when
-                          (member (cdar requested)
-                                  enums
-                                  :test #'equal)
-                          ;; If it's a valid value for this enum, return True
-                          t)
-                        ;; If it's not an enum, then we do no other checking.
-                        t))
-                    ;; If it's not a valid attribute, this isn't relevant.
-                    t)
-                  ;; If all those tests passed, pass on the value of `badvalue` we received
-                  badvalue
-                  ;; If any of those failed, add this to `badvalue`
-                  (append badvalue (list (car requested)))))))
+      ;; Simplest to pull the attribute definition if it exists, then query it as needed.
+      :badvalue (let ((attrdef (find-if #'(lambda (attr)
+                                            (equal (caar requested) (name attr)))
+                                        defined)))
+                  ;; Yes, this is a cascade of if-statements.
+                  (if
+                    ;; Is it a valid attribute?
+                    (if attrdef
+                      ;; Is this an enum attribute?
+                      (let ((enums (when (equal 'restagraph::schema-rtype-attr-varchar
+                                                (type-of attrdef))
+                                     (attrvalues attrdef))))
+                        ;; FIXME: this looks like overkill.
+                        ;; Add tests to confirm, then hopefully simplify this section.
+                        (if (and enums
+                                 (not (null enums)))
+                          ;; If so, is it a valid value?
+                          (when
+                            (member (cdar requested)
+                                    enums
+                                    :test #'equal)
+                            ;; If it's a valid value for this enum, return True
+                            t)
+                          ;; If it's not an enum, then we do no other checking.
+                          t))
+                      ;; If it's not a valid attribute, this isn't relevant.
+                      t)
+                    ;; If all those tests passed, pass on the value of `badvalue` we received
+                    badvalue
+                    ;; If any of those failed, add this to `badvalue`
+                    (append badvalue (list (car requested))))))))
 
 
 (defgeneric validate-resource-before-creating (schema resourcetype params)
