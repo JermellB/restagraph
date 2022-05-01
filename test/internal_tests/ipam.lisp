@@ -110,30 +110,30 @@
       ;; Confirm the fixtures aren't already present
       (fiveam:is (null (restagraph::get-resources session (format nil "/Organisations/~A" org))))
       ;; Add the fixtures
-      (restagraph::log-message :debug "TEST Creating the fixtures.")
+      (restagraph::log-message :debug ";TEST Creating the fixtures.")
       (restagraph::store-resource session schema "Organisations" `(("uid" . ,org)) *admin-user*)
       ;; Add a top-level subnet; this should return NIL.
-      (restagraph::log-message :debug "TEST Add a top-level subnet.")
+      (restagraph::log-message :debug ";TEST Add a top-level subnet.")
       (fiveam:is (restagraph::insert-subnet session org "" subnet1 schema policy))
       ;; Confirm the subnet is there
-      (restagraph::log-message :debug "TEST Confirm the top-level subnet is present.")
+      (restagraph::log-message :debug ";TEST Confirm the top-level subnet is present.")
       (fiveam:is (restagraph::find-subnet session org "" subnet1))
       ;; Add another subnet
-      (restagraph::log-message :debug "TEST Add a second-level subnet.")
+      (restagraph::log-message :debug ";TEST Add a second-level subnet.")
       (fiveam:is (restagraph::insert-subnet session org "" subnet2 schema policy))
       ;; Confirm that's also there
-      (restagraph::log-message :debug "TEST Confirm the second-level subnet is present.")
+      (restagraph::log-message :debug ";TEST Confirm the second-level subnet is present.")
       (fiveam:is (restagraph::find-subnet session org "" subnet2))
       ;; Remove the second subnet
-      (restagraph::log-message :debug "TEST Delete the second-level subnet.")
+      (restagraph::log-message :debug ";TEST Delete the second-level subnet.")
       (fiveam:is (null(restagraph::delete-subnet session org "" subnet2 schema)))
       ;; Remove the top-level subnet
-      (restagraph::log-message :debug "TEST Delete the top-level subnet.")
+      (restagraph::log-message :debug ";TEST Delete the top-level subnet.")
       (fiveam:is (null(restagraph::delete-subnet session org "" subnet1 schema)))
       ;; Confirm the top-level subnet is gone
       (fiveam:is (null (restagraph::find-subnet session org "" subnet1)))
       ;; Remove the fixtures
-      (restagraph::log-message :debug "TEST Deleting the fixtures.")
+      (restagraph::log-message :debug ";TEST Deleting the fixtures.")
       (restagraph::delete-resource-by-path session
                                            (format nil "/Organisations/~A" org)
                                            schema
@@ -161,49 +161,49 @@
       ;; Confirm the fixtures aren't already present
       (fiveam:is (null (restagraph::get-resources session (format nil "/Organisations/~A" org))))
       ;; Add the fixtures
-      (restagraph::log-message :debug "TEST Creating the fixtures.")
+      (restagraph::log-message :debug ";TEST Creating the fixtures.")
       (restagraph::store-resource session schema "Organisations" `(("uid" . ,org)) *admin-user*)
       ;; Add a top-level subnet; this should return NIL.
-      (restagraph::log-message :debug "TEST Add a top-level subnet.")
+      (restagraph::log-message :debug ";TEST Add a top-level subnet.")
       (fiveam:is (restagraph::insert-subnet session org "" subnet1 schema policy))
       ;; Confirm the subnet is there
-      (restagraph::log-message :debug "TEST Confirm the top-level subnet is present.")
+      (restagraph::log-message :debug ";TEST Confirm the top-level subnet is present.")
       (fiveam:is (equal (list (restagraph::make-subnet-uid subnet1))
                         (mapcar #'restagraph::make-subnet-uid
                                 (restagraph::find-subnet session org "" subnet1))))
       ;; Add a second subnet
-      (restagraph::log-message :debug "TEST Add a second-level subnet.")
+      (restagraph::log-message :debug ";TEST Add a second-level subnet.")
       (fiveam:is (restagraph::insert-subnet session org "" subnet2 schema policy))
       ;; Confirm that's also there
-      (restagraph::log-message :debug "TEST Confirm the second-level subnet is present.")
+      (restagraph::log-message :debug ";TEST Confirm the second-level subnet is present.")
       (fiveam:is (equal
                    (mapcar #'restagraph::make-subnet-uid
                            (list subnet1 subnet2))
                    (mapcar #'restagraph::make-subnet-uid
                            (restagraph::find-subnet session org "" subnet2))))
       ;; Add a third subnet
-      (restagraph::log-message :debug "TEST Add a third subnet between the first two.")
+      (restagraph::log-message :debug ";TEST Add a third subnet between the first two.")
       (fiveam:is (restagraph::insert-subnet session org "" subnet3 schema policy))
       ;; Confirm that's also there
-      (restagraph::log-message :debug "TEST Confirm the new second-level subnet is present.")
+      (restagraph::log-message :debug ";TEST Confirm the new second-level subnet is present.")
       (fiveam:is (restagraph::find-subnet session org "" subnet3))
       ;; Confirm it's correctly moved the second subnet
-      (restagraph::log-message :debug "TEST Confirm the original second-level subnet is now third.")
+      (restagraph::log-message :debug ";TEST Confirm the original second-level subnet is now third.")
       (fiveam:is (equal
                    (mapcar #'restagraph::make-subnet-uid
                            (list subnet1 subnet3 subnet2))
                    (mapcar #'restagraph::make-subnet-uid
                            (restagraph::find-subnet session org "" subnet2))))
       ;; Remove the top-level subnet
-      (restagraph::log-message :debug "TEST Delete the top-level subnet.")
+      (restagraph::log-message :debug ";TEST Delete the top-level subnet.")
       (fiveam:is (null (restagraph::delete-subnet session org "" subnet1 schema)))
       ;; Confirm the top-level subnet is gone
       (fiveam:is (null (restagraph::find-subnet session org "" subnet1)))
       ;; Remove the second subnet
-      (restagraph::log-message :debug "TEST Delete the now third-level subnet.")
+      (restagraph::log-message :debug ";TEST Delete the now third-level subnet.")
       (fiveam:is (null (restagraph::delete-subnet session org "" subnet2 schema)))
       ;; Remove the fixtures
-      (restagraph::log-message :debug "TEST Deleting the fixtures.")
+      (restagraph::log-message :debug ";TEST Deleting the fixtures.")
       (restagraph::delete-resource-by-path session (format nil "/Organisations/~A" org) schema :recursive t))
     ;; Clean up the mess
     (restagraph::delete-schema-version session schema-version)
@@ -238,13 +238,13 @@
         *admin-user*)
       (restagraph::insert-subnet session org vrf subnet schema policy)
       ;; Tests
-      (restagraph::log-message :debug "TEST Address is absent")
+      (restagraph::log-message :debug ";TEST Address is absent")
       (fiveam:is (null (restagraph::find-ipaddress session address org vrf)))
-      (restagraph::log-message :debug "TEST Insert address")
+      (restagraph::log-message :debug ";TEST Insert address")
       (fiveam:is (restagraph::insert-ipaddress session schema address org vrf policy))
       (fiveam:is (equal (ipaddress:as-string address)
                         (car (last (restagraph::find-ipaddress session address org vrf)))))
-      (restagraph::log-message :debug "TEST Delete address")
+      (restagraph::log-message :debug ";TEST Delete address")
       (fiveam:is (null (restagraph::delete-ipaddress session schema address org vrf)))
       (fiveam:is (null (restagraph::find-ipaddress session address org vrf)))
       ;; Remove fixtures
@@ -269,44 +269,46 @@
          (session (neo4cl:establish-bolt-session *bolt-server*))
          (schema-version (restagraph::create-new-schema-version session)))
     ;; Install the core schema
+    (log-message :info ";TEST Set up the schema")
     (restagraph::install-subschema session restagraph::*core-schema* schema-version)
     ;; Now fetch the schema
     (let ((schema (restagraph::fetch-current-schema session)))
       ;; Install the default set of resources
+    (log-message :info ";TEST Install default resources")
       (restagraph::install-default-resources session)
+      (restagraph::log-message :info ";TEST Creating the fixtures.")
       ;; Confirm the fixtures aren't already present
       (fiveam:is (null (restagraph::get-resources session (format nil "/Organisations/~A" org))))
       ;; Add the fixtures
-      (restagraph::log-message :info "TEST Creating the fixtures.")
       (restagraph::store-resource session schema "Organisations" `(("uid" . ,org)) *admin-user*)
       (restagraph::insert-subnet session org "" subnet1 schema policy)
       ;; Add the IP address
-      (restagraph::log-message :info "TEST Add the IP address")
+      (restagraph::log-message :info ";TEST Add the IP address")
       (fiveam:is (restagraph::insert-ipaddress session schema address org "" policy))
       ;; Confirm the address is there
-      (restagraph::log-message :info "TEST Confirm the address is present.")
+      (restagraph::log-message :info ";TEST Confirm the address is present.")
       (fiveam:is (restagraph::find-ipaddress session address org ""))
       (fiveam:is (equal (ipaddress:as-string address)
                         (car (last (restagraph::find-ipaddress session address org "")))))
       ;; Add another subnet
-      (restagraph::log-message :info "TEST Add a second-level subnet.")
+      (restagraph::log-message :info ";TEST Add a second-level subnet.")
       (fiveam:is (restagraph::insert-subnet session org "" subnet2 schema policy))
       ;; Confirm that's also there
-      (restagraph::log-message :info "TEST Confirm the second-level subnet is present.")
+      (restagraph::log-message :info ";TEST Confirm the second-level subnet is present.")
       (fiveam:is (equal (mapcar #'ipaddress:as-cidr (list subnet1 subnet2))
                         (mapcar #'ipaddress:as-cidr (restagraph::find-subnet session org "" subnet2))))
       ;; Confirm the address has the correct new path
-      (restagraph::log-message :info "TEST Confirm the address has been correctly moved.")
+      (restagraph::log-message :info ";TEST Confirm the address has been correctly moved.")
       (let ((newpath (restagraph::find-ipaddress session address org "")))
         (fiveam:is (equal (mapcar #'ipaddress:as-cidr (list subnet1 subnet2))
                           (mapcar #'ipaddress:as-cidr (butlast newpath))))
         (fiveam:is (equal (ipaddress:as-string address)
                           (car (last newpath)))))
       ;; Remove the second subnet
-      (restagraph::log-message :info "TEST Delete the second-level subnet.")
+      (restagraph::log-message :info ";TEST Delete the second-level subnet.")
       (fiveam:is (null (restagraph::delete-subnet session org "" subnet2 schema)))
       ;; Confirm the address has moved back again
-      (restagraph::log-message :info "TEST Confirm the address is back under the top-level subnet.")
+      (restagraph::log-message :info ";TEST Confirm the address is back under the top-level subnet.")
       (fiveam:is (restagraph::find-ipaddress session address org ""))
       (let ((newpath (restagraph::find-ipaddress session address org "")))
         (fiveam:is (equal (list (ipaddress:as-cidr subnet1))
@@ -314,7 +316,7 @@
         (fiveam:is (equal (ipaddress:as-string address)
                           (car (last newpath)))))
       ;; Remove the fixtures
-      (restagraph::log-message :info "TEST Deleting the fixtures.")
+      (restagraph::log-message :info ";TEST Deleting the fixtures.")
       (restagraph::delete-resource-by-path session
                                            (format nil "/Organisations/~A" org)
                                            schema
