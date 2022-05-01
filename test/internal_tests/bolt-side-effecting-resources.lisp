@@ -104,9 +104,9 @@
                                    (format nil "/Tags/~A" tag1)))))
       (fiveam:is (equal tag2
                         (gethash "uid"
-                                   (restagraph::get-resources
-                                     session
-                                     (format nil "/Tags/~A" tag2)))))
+                                 (restagraph::get-resources
+                                   session
+                                   (format nil "/Tags/~A" tag2)))))
       ;; Tag the user
       (restagraph::create-relationship-by-path session
                                                (format nil "/People/~A/TAGS" uid)
@@ -167,19 +167,19 @@
     (fiveam:signals (restagraph::client-error
                       (format nil "Requested resource type ~A is not valid."
                               invalid-resourcetype))
-      (restagraph::store-resource session
-                                  schema
-                                  invalid-resourcetype
-                                  '((:foo . "bar"))
-                                  *admin-user*))
+                    (restagraph::store-resource session
+                                                schema
+                                                invalid-resourcetype
+                                                '((:foo . "bar"))
+                                                *admin-user*))
     ;; Create a resource of a valid type, but without a UID
     (restagraph::log-message :info ";TEST Creating a valid resource without a UID")
     (fiveam:signals (restagraph::client-error "UID must be supplied")
-      (restagraph::store-resource session
-                                  schema
-                                  valid-resourcetype
-                                  '(("foo" . "bar"))
-                                  *admin-user*))
+                    (restagraph::store-resource session
+                                                schema
+                                                valid-resourcetype
+                                                '(("foo" . "bar"))
+                                                *admin-user*))
     (neo4cl:disconnect session)))
 
 (fiveam:test
@@ -192,9 +192,11 @@
          (restype (restagraph::make-incoming-rtypes
                     :name "switchport"
                     :attributes (list (restagraph::make-incoming-rtype-attrs
-                                        :NAME attr1name
-                                        :DESCRIPTION attr1desc
-                                        :ATTR-VALUES attr1vals))
+                                        (list
+                                          :type "varchar"
+                                          :NAME attr1name
+                                          :DESCRIPTION attr1desc
+                                          :ATTRVALUES attr1vals)))
                     :dependent nil))
          (uid "eth1")
          (attr1valgood "up")
@@ -213,14 +215,14 @@
       (restagraph::install-default-resources session)
       ;; Compare the definition in the schema with what we intended it to be
       (restagraph::log-message :info ";TEST Check the schema for the enum attribute")
-      (let ((reference (restagraph::make-schema-rtype-attrs
-                         :NAME attr1name
-                         :DESCRIPTION attr1desc
-                         :ATTR-VALUES attr1vals))
+      (let ((reference (make-instance 'restagraph::schema-rtype-attr-varchar
+                                      :NAME attr1name
+                                      :DESCRIPTION attr1desc
+                                      :ATTRVALUES attr1vals))
             (retrieved (elt (restagraph::attributes (gethash (restagraph::name restype) schema)) 0)))
         (fiveam:is (equalp (restagraph::name reference) (restagraph::name retrieved)))
         (fiveam:is (equalp (restagraph::description reference) (restagraph::description retrieved)))
-        (fiveam:is (equalp (restagraph::attr-values reference) (restagraph::attr-values retrieved))))
+        (fiveam:is (equalp (restagraph::attrvalues reference) (restagraph::attrvalues retrieved))))
       ;; Make sure the test resource doesn't already exist
       (restagraph::delete-resource-by-path session
                                            (format nil "/~A/~A"
@@ -230,12 +232,12 @@
       ;; Fail to create a resource with an invalid value for the enum
       (restagraph::log-message :info ";TEST Fail to create a resource with an invalid attribute")
       (fiveam:signals restagraph::client-error
-        (restagraph::store-resource session
-                                    schema
-                                    (restagraph::name restype)
-                                    `(("uid" . ,uid)
-                                      (,attr1name . ,attr1valbad))
-                                    *admin-user*))
+                      (restagraph::store-resource session
+                                                  schema
+                                                  (restagraph::name restype)
+                                                  `(("uid" . ,uid)
+                                                    (,attr1name . ,attr1valbad))
+                                                  *admin-user*))
       ;; Create a resource with a valid value for the enum
       (restagraph::log-message :info ";TEST Create a resource with a valid attribute")
       (fiveam:is
@@ -315,11 +317,11 @@
     (restagraph::install-subschema session restagraph::*core-schema* schema-version)
     (let ((files-attrs (restagraph::attributes
                          (gethash "Files" (restagraph::fetch-current-schema session)))))
-      (fiveam:is (restagraph::read-only
+      (fiveam:is (restagraph::readonly
                    (elt (remove-if-not #'(lambda (attr) (equal "mimetype" (restagraph::name attr)))
                                        files-attrs)
                         0)))
-      (fiveam:is (not (restagraph::read-only
+      (fiveam:is (not (restagraph::readonly
                         (elt (remove-if-not #'(lambda (attr) (equal "title" (restagraph::name attr)))
                                             files-attrs)
                              0)))))
@@ -360,11 +362,11 @@
       ;; Fail to create a dependent resourcetype in isolation
       (restagraph::log-message :info ";TEST Fail to create a dependent resource in isolation.")
       (fiveam:signals restagraph::integrity-error
-        (restagraph::store-resource session
-                                    schema
-                                    (restagraph::name child-type)
-                                    `(("uid" . ,child-uid))
-                                    *admin-user*))
+                      (restagraph::store-resource session
+                                                  schema
+                                                  (restagraph::name child-type)
+                                                  `(("uid" . ,child-uid))
+                                                  *admin-user*))
       ;; Create the parent resource
       (restagraph::log-message :info ";TEST Create the parent resource.")
       (restagraph::store-resource session
@@ -400,11 +402,11 @@
       ;; Confirm we get the type when asking for all things with that relationship
       (restagraph::log-message :debug ";TEST Confirm listing of types with all things with this relationship")
       (let ((result (car (restagraph::get-resources
-                        session
-                        (format nil "/~A/~A/~A"
-                                (restagraph::name parent-type)
-                                parent-uid
-                                relationship)))))
+                           session
+                           (format nil "/~A/~A/~A"
+                                   (restagraph::name parent-type)
+                                   parent-uid
+                                   relationship)))))
         (fiveam:is (not (null (gethash "type" result))))
         (fiveam:is (equal (restagraph::sanitise-uid (restagraph::name child-type))
                           (gethash "type" result)))
@@ -438,16 +440,16 @@
                 relationship
                 invalid-child-type))
       (fiveam:signals (restagraph::client-error "This is not a dependent resource type")
-        (restagraph::store-dependent-resource
-          session
-          schema
-          (format nil "/~A/~A/~A/~A"
-                  (restagraph::name parent-type)
-                  parent-uid
-                  relationship
-                  invalid-child-type)
-          `(("uid" . ,invalid-child-uid))
-          *admin-user*))
+                      (restagraph::store-dependent-resource
+                        session
+                        schema
+                        (format nil "/~A/~A/~A/~A"
+                                (restagraph::name parent-type)
+                                parent-uid
+                                relationship
+                                invalid-child-type)
+                        `(("uid" . ,invalid-child-uid))
+                        *admin-user*))
       ;; Create the dependent resource yet again
       (restagraph::log-message :debug ";TEST Sucessfully re-create the dependent resource")
       (restagraph::store-dependent-resource
@@ -480,8 +482,8 @@
                                  child-uid))))
       ;; Remove the newly-created schema-version
       (restagraph::delete-schema-version session schema-version))
-      ;; Clean up the Bolt session
-      (neo4cl:disconnect session)))
+    ;; Clean up the Bolt session
+    (neo4cl:disconnect session)))
 
 (fiveam:test
   resources-dependent-errors
@@ -704,21 +706,27 @@
     ;; Install the core schema in the new schema-version
     (restagraph::install-subschema session restagraph::*core-schema* schema-version)
     ;; Install the new resourcetypes and relationship
+    (restagraph::log-message :info ";TEST Install additional resourcetypes")
     (restagraph::install-subschema-resourcetype session p1-type schema-version)
     (restagraph::install-subschema-resourcetype session p2-type schema-version)
     (restagraph::install-subschema-resourcetype session target-type schema-version)
+    (restagraph::log-message :info ";TEST Install additional relationships")
     (restagraph::install-subschema-relationship session p1-target-rel schema-version)
     (restagraph::install-subschema-relationship session p2-target-rel schema-version)
     (restagraph::install-subschema-relationship session p1-p2-rel schema-version)
+    ;; Get the complete schema
+    (restagraph::log-message :info ";TEST Fetch updated schema")
     (let ((schema (restagraph::fetch-current-schema session)))
       ;; Install the default resources
+      (restagraph::log-message :info ";TEST Install default resources")
       (restagraph::install-default-resources session)
       ;; Create initial parent
+      (restagraph::log-message :info ";TEST Create initial parent resource")
       (restagraph::store-resource session
-                                 schema
-                                 (restagraph::name p1-type)
-                                 `(("uid" . ,p1-uid))
-                                 *admin-user*)
+                                  schema
+                                  (restagraph::name p1-type)
+                                  `(("uid" . ,p1-uid))
+                                  *admin-user*)
       ;; Create second parent as dependent on the initial
       (restagraph::store-dependent-resource
         session
@@ -757,23 +765,23 @@
                 p2-uid
                 (restagraph::name p2-target-rel)))
       (let ((result (restagraph::move-dependent-resource
-                        session
-                        schema
-                        ;; URI
-                        (format nil "/~A/~A/~A/~A/~A"
-                                (restagraph::name p1-type)
-                                p1-uid
-                                (restagraph::name p1-target-rel)
-                                (restagraph::name target-type)
-                                target-uid)
-                        ;; New parent
-                        (format nil "/~A/~A/~A/~A/~A/~A"
-                                (restagraph::name p1-type)
-                                p1-uid
-                                (restagraph::name p1-p2-rel)
-                                (restagraph::name p2-type)
-                                p2-uid
-                                (restagraph::name p2-target-rel)))))
+                      session
+                      schema
+                      ;; URI
+                      (format nil "/~A/~A/~A/~A/~A"
+                              (restagraph::name p1-type)
+                              p1-uid
+                              (restagraph::name p1-target-rel)
+                              (restagraph::name target-type)
+                              target-uid)
+                      ;; New parent
+                      (format nil "/~A/~A/~A/~A/~A/~A"
+                              (restagraph::name p1-type)
+                              p1-uid
+                              (restagraph::name p1-p2-rel)
+                              (restagraph::name p2-type)
+                              p2-uid
+                              (restagraph::name p2-target-rel)))))
         (restagraph::log-message :debug (format nil "Result was: ~A" result))
         (fiveam:is (null result)))
       ;; Confirm the target resource is now at the new target path
@@ -833,8 +841,8 @@
                      (format nil "/~A/~A" (restagraph::name p1-type) p1-uid))))
       ;; Remove the temporary schema-version
       (restagraph::delete-schema-version session schema-version))
-      ;; Clean up the session
-      (neo4cl:disconnect session)))
+    ;; Clean up the session
+    (neo4cl:disconnect session)))
 
 (fiveam:test
   resources-multiple
@@ -953,11 +961,14 @@
     ;; Install the core schema in the new schema-version
     (restagraph::install-subschema session restagraph::*core-schema* schema-version)
     ;; Install the new resourcetypes and relationship
+    (restagraph::log-message :info ";TEST Install new resourcetypes and relationship")
     (restagraph::install-subschema-resourcetype session r1type schema-version)
     (restagraph::install-subschema-resourcetype session r2type schema-version)
     (restagraph::install-subschema-relationship session rel schema-version)
+    (restagraph::log-message :info ";TEST Fetch the current schema")
     (let ((schema (restagraph::fetch-current-schema session)))
       ;; Install the default resources
+      (restagraph::log-message :info ";TEST Install default resources")
       (restagraph::install-default-resources session)
       ;; Do the filters do what we expect?
       ;; Store a resource to check on
@@ -968,7 +979,7 @@
                                   `(("uid" . ,r1uid))
                                   *admin-user*)
       ;; Search for it by type and exact UID
-      (restagraph::log-message :info ";TEST Searching for the primary resource")
+      (restagraph::log-message :info ";TEST Searching for the primary resource by name")
       (let ((result (car (restagraph::get-resources
                            session
                            (format nil "/~A" (restagraph::name r1type))
@@ -982,13 +993,14 @@
         (fiveam:is (not (null (gethash "original_uid" result))))
         (fiveam:is (not (null (gethash "createddate" result)))))
       ;; Search for it by type and partial UID
+      (restagraph::log-message :info ";TEST Searching for the primary resource by type and partial UID")
       (let ((result (car (restagraph::get-resources
-                      session
-                      (format nil "/~A" (restagraph::name r1type))
-                      :filters (restagraph::process-filters
-                                 `(("uid" . ,r1partial))
-                                 schema
-                                 (restagraph::name r1type))))))
+                           session
+                           (format nil "/~A" (restagraph::name r1type))
+                           :filters (restagraph::process-filters
+                                      `(("uid" . ,r1partial))
+                                      schema
+                                      (restagraph::name r1type))))))
         (fiveam:is (equal 3 (hash-table-count result)))
         (fiveam:is (not (null (gethash "original_uid" result))))
         (fiveam:is (not (null (gethash "createddate" result))))
@@ -1062,8 +1074,8 @@
         :recursive t)
       ;; Delete the temporary schema-version
       (restagraph::delete-schema-version session schema-version))
-      ;; Clean up the session
-      (neo4cl:disconnect session)))
+    ;; Clean up the session
+    (neo4cl:disconnect session)))
 
 (fiveam:test
   character-encoding
@@ -1075,8 +1087,7 @@
          (restype (restagraph::make-incoming-rtypes
                     :name "Dogs"
                     :attributes (list (restagraph::make-incoming-rtype-attrs
-                                        :name
-                                        attr1name))))
+                                        (list :name attr1name)))))
          (uid "Spot")
          (session (neo4cl:establish-bolt-session *bolt-server*))
          (schema-version (restagraph::create-new-schema-version session)))
@@ -1118,5 +1129,5 @@
                                            (format nil "/~A/~A" (restagraph::name restype) uid)
                                            schema)
       (restagraph::delete-schema-version session schema-version))
-      ;; Clean up the session
-      (neo4cl:disconnect session)))
+    ;; Clean up the session
+    (neo4cl:disconnect session)))
