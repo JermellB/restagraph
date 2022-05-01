@@ -304,8 +304,9 @@
         ;; Return the null list of attributes
         '()))
     ;; Identify any attributes not already present, and add them.
+    (log-message :debug "Checking for any new attributes to install")
     ;; If this resourcetype already exists, enumerate the names of its existing attributes
-    (let* ((old-attr-names (when extant-resource (mapcar #'name (attributes extant-resource))))
+    (let* ((old-attr-names (when extant-resource (map 'list #'name (attributes extant-resource))))
            ;; Now derive the list of attributes to add.
            (new-attrs
              ;; If the resourcetype already exists, disregard any new attributes with the same name
