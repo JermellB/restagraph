@@ -96,7 +96,8 @@
                        :name "NonReadOnly"
                        :description "Has attributes, but none are read-only."
                        :attributes (list
-                                     (restagraph::make-schema-rtype-attrs :name "foo")))
+                                     (make-instance 'restagraph::schema-rtype-attr-varchar
+                                                    :name "foo")))
                      '(("foo" . "bar")
                        ("baz" . "quux")))))
   (restagraph::log-message :debug ";TEST: Null resourcetype")
@@ -107,8 +108,9 @@
                         :name "OneReadOnly"
                         :description "Has a single read-only attribute."
                         :attributes (list
-                                      (restagraph::make-schema-rtype-attrs :name "sha3256sum"
-                                                                           :read-only t)))
+                                      (make-instance 'restagraph::schema-rtype-attr-varchar
+                                                     :name "sha3256sum"
+                                                     :readonly t)))
                       '(("sha3256sum" . "asdh2676trhfgh")))
                     '("sha3256sum")))
   (restagraph::log-message :debug ";TEST: One read-only attribute in schema, none in input.")
@@ -117,7 +119,8 @@
                         :name "OneReadOnly"
                         :description "Has a single read-only attribute."
                         :attributes (list
-                                      (restagraph::make-schema-rtype-attrs :name "sha3256sum"
-                                                                           :read-only t)))
+                                      (make-instance 'restagraph::schema-rtype-attr-varchar
+                                                     :name "sha3256sum"
+                                                     :readonly t)))
                       '(("foo" . "bar")))
                     nil)))
