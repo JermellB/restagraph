@@ -47,34 +47,18 @@
 (fiveam:test
   validate-attributes
   "Check the validation of attributes"
-  (let ((attrs (list (restagraph::make-schema-rtype-attrs
-                       :NAME "status"
+  (let ((attrs (list (make-instance 'restagraph::schema-rtype-attr-varchar
+                       :name "status"
                        :DESCRIPTION "Task status."
-                       :attr-values '("idea"
-                                 "active"
-                                 "waiting"
-                                 "scheduled"
-                                 "done"
-                                 "cancelled"))
-                     (restagraph::make-schema-rtype-attrs
-                       :NAME "urgency"
-                       :DESCRIPTION "How soon it needs to be done.")
-                     (restagraph::make-schema-rtype-attrs
-                       :NAME "importance"
-                       :DESCRIPTION "How important it is that it's done.")
-                     (restagraph::make-schema-rtype-attrs
-                       :NAME "scale"
-                       :DESCRIPTION "How big the job appears to be.")
-                     (restagraph::make-schema-rtype-attrs
-                       :NAME "deadline"
-                       :DESCRIPTION "When the task should be done by.")
-                     (restagraph::make-schema-rtype-attrs
+                       :attrvalues '("idea"
+                                     "active"
+                                     "waiting"
+                                     "scheduled"
+                                     "done"
+                                     "cancelled"))
+                     (make-instance 'restagraph::schema-rtype-attr-varchar
                        :NAME "description"
-                       :DESCRIPTION "More details about the task."
-                       :attr-values '())
-                     (restagraph::make-schema-rtype-attrs
-                       :NAME "scheduled"
-                       :DESCRIPTION "A date/time."))))
+                       :DESCRIPTION "More details about the task."))))
     ;; Simple check for no attributes at all
     (fiveam:is (equal '(nil nil)
                       (restagraph::validate-attributes '() attrs)))
