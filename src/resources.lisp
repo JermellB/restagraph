@@ -405,8 +405,11 @@ Return an error if
                              :marker "n"))
            ;; Regex match for string-types
            ;; Full regex reference: https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
-           ((and attribute
-                 (member (type-of attribute) '(schema-rtype-attr-varchar schema-rtype-attr-text))
+           ((and (or
+                   ;; Remember that "uid" doesn't show up as a defined attribute
+                   (member name '("uid") :test #'equal)
+                   (and attribute
+                        (member (type-of attribute) '(schema-rtype-attr-varchar schema-rtype-attr-text))))
                  (regex-p value))
             (format nil "n.~A =~~ '~A'" name value))
            ;;
