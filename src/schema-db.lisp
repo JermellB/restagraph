@@ -734,7 +734,7 @@
   (log-message :debug (format nil "Getting attributes for resourcetype '~A'" resourcetype))
   ;; Fetch the name and type for each attribute
   (mapcar #'(lambda (attr)
-              (instantiate-schema-rtype-attr
+              (make-schema-rtype-attrs
                 (cdr (assoc "a" attr :test #'equal))))
           (neo4cl:bolt-transaction-autocommit
             db

@@ -130,7 +130,7 @@
               :documentation "Whether this attribute can be updated via client request. Default is nil, i.e. it's writeable. Maps to 'readonly' within Neo4j."))
   (:documentation "Parent class for resource-types. Should not be instantiated directly; instead, one of its subclasses (or their subclasses) should be used."))
 
-(defun instantiate-schema-rtype-attr (attribute)
+(defun make-schema-rtype-attrs (attribute)
   "Take a neo4cl:node object, and return an instance of the appropriate subclass of schema-rtype-attrs."
   (declare (type neo4cl:node attribute))
   (let ((properties (neo4cl:node-properties attribute)))
@@ -244,22 +244,6 @@
     :description ,(description obj)
     :readonly ,(readonly obj)
     :values ,(attrvalues obj)))
-
-
-(defun make-schema-rtype-attrs (&key name description readonly attrvalues)
-  (declare (type string name)
-           (type (or null string) description)
-           (type boolean readonly)
-           (type list attrvalues))
-  "Constructor for schema-rtype-attrs instances."
-  (if (or (null attrvalues)
-          (and (listp attrvalues)
-               (every #'stringp attrvalues)))
-      (make-instance 'schema-rtype-attrs :name name
-                     :description description
-                     :readonly readonly
-                     :attrvalues attrvalues)
-      (error ":values arg must be either null, or a list of strings.")))
 
 
 (defclass schema-rels ()
