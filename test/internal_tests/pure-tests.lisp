@@ -38,7 +38,7 @@
             :name "bar"
             :dependent nil
             :description "For testing attribute validation"
-            :attributes (list (restagraph::make-schema-rtype-attrs
+            :attributes (list (make-instance 'restagraph::schema-rtype-attr-varchar
                                 :name "baz"
                                 :description "Valid attribute."))))
     ;; Confirm it isn't dependent
