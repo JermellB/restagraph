@@ -7,12 +7,12 @@
       "attributes": [
         {
           "name": "description",
-          "description": "",
-          "values": null
+          "type": "varchar"
         },
         {
           "name": "type",
           "description": "What kind of building it is",
+          "type": "varchar",
           "values": ["House", "Office", "Castle"]
         }
       ]
@@ -24,8 +24,8 @@
       "attributes": [
         {
           "name": "description",
-          "description": "",
-          "values": null
+          "type": "varchar",
+          "description": ""
         }
       ]
     },
@@ -40,6 +40,8 @@
       "attributes": [
         {
           "name": "Real",
+          "type": "varchar",
+          "maxlength": 5,
           "description": "Whether they're real or fictional. Boolean.",
           "values": ["True", "False"]
         }

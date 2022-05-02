@@ -560,8 +560,9 @@ class TestSchemaBasic(unittest.TestCase):
                     {
                         "name": "description",
                         "description": "Clarification of what the tag means.",
-                        "read-only": None,
-                        "values": None
+                        "maxlength": 256,
+                        "readonly": None,
+                        "attrvalues": None
                         }
                     ],
                 "dependent": None,
