@@ -351,6 +351,8 @@
            (type boolean dependent)
            (type (or null string) description)
            (type list attributes))
+  (log-message :debug (format nil "Creating an incoming-rtypes instance for ~A"
+                              name))
   (let ((instance (make-instance 'incoming-rtypes
                                  :name name
                                  :dependent dependent
@@ -436,11 +438,20 @@
 
 (defun make-incoming-rtype-attrs (data)
   "Dispatching function that instantiates a suitable subclass of incoming-rtype-attrs."
-  (let ((name (getf data :NAME))
-        (attribute-type (getf data :TYPE))
-        (description (getf data :DESCRIPTION))
-        ;; Force readonly to be a boolean
-        (readonly (when (getf data :READONLY) t)))
+  (let* ((alistp (consp (car data)))
+         (name (if alistp
+                 (cdr (assoc :NAME data))
+                 (getf data :NAME)))
+         (attribute-type (if alistp
+                           (cdr (assoc :TYPE data))
+                           (getf data :TYPE)))
+         (description (if alistp
+                        (cdr (assoc :DESCRIPTION data))
+                        (getf data :DESCRIPTION)))
+         ;; Force readonly to be a boolean
+         (readonly (when (if alistp
+                           (cdr (assoc :READONLY data))
+                           (getf data :READONLY)) t)))
     (cond
       ;; varchar was specified
       ((equal "varchar" attribute-type)
@@ -448,8 +459,12 @@
                       :name name
                       :description description
                       :readonly readonly
-                      :maxlength (getf data :maxlength)
-                      :attrvalues (getf data :attrvalues)))
+                      :maxlength (if alistp
+                                   (cdr (assoc :MAXLENGTH data))
+                                   (getf data :MAXLENGTH))
+                      :attrvalues (if alistp
+                                    (cdr (assoc :ATTRVALUES data))
+                                    (getf data :ATTRVALUES))))
       ;; text was specified
       ((equal "text" attribute-type)
        (make-instance 'incoming-rtype-attr-text
@@ -462,8 +477,12 @@
                       :name name
                       :description description
                       :readonly readonly
-                      :minimum (getf data :MINIMUM)
-                      :maximum (getf data :MAXIMUM)))
+                      :minimum (if alistp
+                                 (cdr (assoc :MINIMUM data))
+                                 (getf data :MINIMUM))
+                      :maximum (if alistp
+                                 (cdr (assoc :MAXIMUM data))
+                                 (getf data :MAXIMUM))))
       ;; boolean was specified
       ((equal "boolean" attribute-type)
        (make-instance 'incoming-rtype-attr-boolean
@@ -473,10 +492,10 @@
       ;; No type was specified.
       ;; Fall back to varchar, with default values
       (t
-       (make-instance 'incoming-rtype-attr-varchar
-                      :name name
-                      :description description
-                      :readonly readonly)))))
+        (make-instance 'incoming-rtype-attr-varchar
+                       :name name
+                       :description description
+                       :readonly readonly)))))
 
 
 (defclass incoming-rels ()
@@ -514,6 +533,8 @@
   (declare (type string name source-type target-type cardinality)
            (type (or null string) description)
            (type boolean dependent))
+  (log-message :debug (format nil "Creating an incoming-rels instance for ~A from ~A to ~A"
+                              name source-type target-type))
   (unless (member cardinality '("many:many" "many:1" "1:many" "1:1") :test #'equal)
     (error "Cardinality argument is not valid."))
   (make-instance 'incoming-rels :name name
