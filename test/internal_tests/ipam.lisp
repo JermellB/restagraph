@@ -269,12 +269,12 @@
          (session (neo4cl:establish-bolt-session *bolt-server*))
          (schema-version (restagraph::create-new-schema-version session)))
     ;; Install the core schema
-    (log-message :info ";TEST Set up the schema")
+    (restagraph::log-message :info ";TEST Set up the schema")
     (restagraph::install-subschema session restagraph::*core-schema* schema-version)
     ;; Now fetch the schema
     (let ((schema (restagraph::fetch-current-schema session)))
       ;; Install the default set of resources
-    (log-message :info ";TEST Install default resources")
+    (restagraph::log-message :info ";TEST Install default resources")
       (restagraph::install-default-resources session)
       (restagraph::log-message :info ";TEST Creating the fixtures.")
       ;; Confirm the fixtures aren't already present
