@@ -559,6 +559,7 @@ class TestSchemaBasic(unittest.TestCase):
                 "attributes": [
                     {
                         "name": "description",
+                        "type": "varchar",
                         "description": "Clarification of what the tag means.",
                         "maxlength": 256,
                         "readonly": None,
