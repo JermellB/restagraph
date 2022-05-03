@@ -182,6 +182,7 @@
 
 (defmethod a-listify ((obj schema-rtype-attr-varchar))
   `((:name . ,(name obj))
+    (:type . "varchar")
     (:description . ,(description obj))
     (:readonly . ,(readonly obj))
     (:maxlength . ,(maxlength obj))
@@ -193,6 +194,7 @@
 
 (defmethod a-listify ((obj schema-rtype-attr-text))
   `((:name . ,(name obj))
+    (:type . "text")
     (:description . ,(description obj))
     (:readonly . ,(readonly obj))))
 
@@ -211,6 +213,7 @@
 
 (defmethod a-listify ((obj schema-rtype-attr-integer))
   `((:name . ,(name obj))
+    (:type . "integer")
     (:description . ,(description obj))
     (:readonly . ,(readonly obj))
     (:minimum . ,(minimum obj))
@@ -222,6 +225,7 @@
 
 (defmethod a-listify ((obj schema-rtype-attr-boolean))
   `((:name . ,(name obj))
+    (:type . "boolean")
     (:description . ,(description obj))
     (:readonly . ,(readonly obj))))
 
