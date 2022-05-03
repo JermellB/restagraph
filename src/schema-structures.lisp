@@ -186,7 +186,7 @@
     (:description . ,(description obj))
     (:readonly . ,(readonly obj))
     (:maxlength . ,(maxlength obj))
-    (:attrvalues . ,(attrvalues obj))))
+    (:values . ,(attrvalues obj))))
 
 (defclass schema-rtype-attr-text (schema-rtype-attrs)
   ()
@@ -467,8 +467,8 @@
                                    (cdr (assoc :MAXLENGTH data))
                                    (getf data :MAXLENGTH))
                       :attrvalues (if alistp
-                                    (cdr (assoc :ATTRVALUES data))
-                                    (getf data :ATTRVALUES))))
+                                    (cdr (assoc :VALUES data))
+                                    (getf data :VALUES))))
       ;; text was specified
       ((equal "text" attribute-type)
        (make-instance 'incoming-rtype-attr-text
