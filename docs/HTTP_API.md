@@ -111,20 +111,20 @@ To do this via `curl`, for example:
 curl --data-urlencode schema@webcat.json -X POST http://localhost:4950/schema/v1/
 ```
 
-Expected format of the file
+The file is expected to be in this format:
 
     {
-      "name": "<name of the schema>",
+      "name": "Demo",
       "resourcetypes": [
         {
-          "name": "NameOfResourceType",
-          "dependent": <boolean>,
-          "description": "<Text describing what this resourcetype represents, and optionally how it's expected to be used.>",
+          "name": "Ideas",
+          "dependent": true,
+          "description": "An idea I had, that I want to do something about.",
           "attributes": [
             {
-              "name": "nameofattribute",
-              "description": "<Text describing what this attribute represents/means.>",
-              "values": [ "optional", "list", "of", "permissible", "values" ]
+              "name": "description",
+              "type": "text",
+              "description": "More information about the idea, in free-text form."
             },
             ...
           ]
@@ -133,12 +133,12 @@ Expected format of the file
       ],
       "relationships": [
         {
-          "name": "NameOfRelationship",
-          "source-type": "ResourcetypeTheRelationshipComesFrom",
-          "target-type": "ResourcetypeTheRelationshipGoesTo",
-          "cardinality": One of "many:many", "1:many", "many:1" or "1:1" (default is "many:many"),
-          "dependent": boolean,
-          "description": "<Text clarifying what this relationship is intended to mean.>"
+          "name": "HAD",
+          "source-type": "People",
+          "target-type": "Ideas",
+          "cardinality": "1:many",
+          "dependent": true,
+          "description": "This person had that idea, and should do something about it."
         },
         ...
       ],
@@ -148,7 +148,7 @@ Note that if the file (re)defines an existing resourcetype, Restagraph will not 
 
 Duplicate relationships will simply be ignored.
 
-For information about _how_ to define your own subschema, see [Defining a schema](Defining_a_schema.md).
+For information about how to define your own subschema, see [Defining a schema](Defining_a_schema.md).
 
 
 ### Notes about the format and naming conventions

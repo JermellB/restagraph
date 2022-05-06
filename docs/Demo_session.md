@@ -91,27 +91,33 @@ Check all the characteristics of a `People` resource, to see what else you can r
       "attributes": [
         {
           "name": "born",
+          "type": "integer",
           "description": "The year in which this person was born.",
           "read-only": null,
-          "values": null
+          "minimum": 1900,
+          "maximum": null
         },
         {
           "name": "displayname",
+          "type": "varchar",
           "description": "The human-friendly version of their name, to be displayed in the UI.",
           "read-only": null,
+          "maxlength": 256,
           "values": null
         },
         {
           "name": "name",
+          "type": "varchar",
           "description": "The person's full name",
           "read-only": null,
+          "maxlength": null,
           "values": null
         },
         {
           "name": "notes",
+          "type": "text",
           "description": "Notes about this person.",
-          "read-only": null,
-          "values": null
+          "read-only": null
         }
       ],
       "relationships": [
@@ -163,6 +169,13 @@ Note for the language-lawyers: this returns 200/Updated in all cases, for two re
 - Multiple attributes can be updated in a single PUT request, leading to a conflict where one or more is updated, and one or more is not.
   The simplest solution to this conflict is to use the one return-code shared by these cases, and interpret the spec as "ensure that these attributes have these values" rather than "conditionally update whichever of these attributes doesn't already have the value specified in this request."
 - Within the semantics of this API, all attributes are null by default. Thus, PUT requests are all updates by definition anyway.
+
+
+Eagle-eyed readers will notice that some attributes have type "varchar" and some have type "text" and wonder what the difference is. The answer is that it's mostly semantic; a varchar attribute with a maximum length of 65535 will store exactly the same amount of text data as a text attribute, but a GUI client can use that hint to decide whether to provide you with an input field or a text area to edit the value, and it can use `maxlength` to decide how long to make that input field.
+
+The other difference is that you can turn a varchar attribute into an enum by giving a list of strings for "values". If you do that, it will only allow you to set values that are a member of that list.
+
+The other available types are "integer" and "boolean". For integers, you can set maximum and/or minimum values. Booleans are mostly what you'd expect, but technically they're a trinary because they'll return `Null` to indicate "that value has not been set."
 
 
 Back to the API. Look at Lana and now we see the extra details we just added:

@@ -4,22 +4,24 @@ Restagraph is an application that dynamically generates an HTTP API in front of 
 
 This includes features such as:
 
-- constraints on the relationships that can be created between two types of resource
-    - this includes cardinality constraints, i.e. 1:1, 1:many, many:1 and many:many relationships
-- resources which only make sense in the context of other resources, e.g. interfaces on computers.
+- Declaring the type of data that can be stored in each attribute of a resource.
+- Constraints on the relationships that can be created between two types of resource.
+    - This includes cardinality constraints, i.e. 1:1, 1:many, many:1 and many:many relationships.
+- Resources which only make sense in the context of other resources, e.g. interfaces on computers.
 
-Thus, it gives you a schema and constraints similar in spirit to a relational database, but with much more flexibility.
-
-There is explicit support for dependent resources, i.e. resources that only make sense in the context of another.
+Thus, it gives you a schema and constraints similar in spirit to a relational database, but with the flexibility that only a graph database can provide.
 
 For convenient reference, [the docs are on Github Pages](https://equill.github.io/restagraph/).
 
 
 ## Benefits, a.k.a. the point of this thing
 
-- Consistent data structure: it ensures that the data that goes _in_ to a Neo4j database follows a consistent and predictable structure.
+- Predictable, consistent data structure: you know for sure what kinds of data are stored, and how they can be connected to each other.
 - Language independence: the REST API means that any language can be used to build applications on top of this structure.
 - Development speed: with a single JSON file, you define both the database schema and the API.
+- GUI independence: the rules that define and validate the data structures are not mixed in with the code that generates a particular GUI for the app.
+    - You can build multiple GUIs, including mobile ones, that all automatically conform to the same rules.
+    - You can build automation against the application, still with all the same guarantees about the data.
 
 
 ## What does it look like?
@@ -130,8 +132,14 @@ Attributes built into every resourcetype:
 - Whether it's a dependent type
     - Dependent types only exist in relation to another resource. E.g, a room only exists in the context of a building.
 - Notes about the resource-type, i.e. what kind of thing it represents, and how it's intended to be used.
+- Whether its value is read-only.
+    - This is really only useful for built-in attributes, e.g. the checksum that the server computes for each file that's uploaded.
 
-Resourcetypes can have any number of user-defined attributes. Each of these is defined with three characteristics:
+
+### User-defined resource attributes
+
+Resourcetypes can have any number of user-defined attributes. Each of these is defined with three main characteristics:
+
 - `name`
     - These are not specified in the Neo4j conventions, so I've gone with lowercase.
     - Don't name them with a leading `RG`. Technically you _can_, but if it collides with a term used by the API for some other kind of filtering, the reserved term takes precedence. Filtered terms currently include:
@@ -139,13 +147,15 @@ Resourcetypes can have any number of user-defined attributes. Each of these is d
         - `RGinbound`
 - `description`
     - This only appears in the schema. It's for clarifying what the attribute is for, or how it's to be used.
-- `values` is an optional list of acceptable values for an attribute. If it's not set, it has no effect.
-    - It's a comma-separated list of values, which turns the attribute into a kind of enum. If it's defined, the API will only accept values in this list when setting the attribute's value.
-
-Neo4j does not provide a way to record an explicit null value for an attribute, so this API treats all attributes as having a default of `null`. It also only returns attributes with non-null values in response to GET queries. This has two semantic implications:
-
-- If a given attribute is not included in the response to a GET query on a resource, the correct interpretation is that its value is `null`.
-- All PUT requests for updating attributes are changes of state. This API does not have the concept of _creating_ an attribute representation via a PUT request.
+- `type`
+    - What kind of data can be stored in this attribute. Available options include
+        - `varchar` (the default)
+        - `text` (for large stretches of text)
+        - `integer` and `boolean`.
+    - You can define further constraints on some types:
+        - maximum length for a varchar
+        - a list of acceptable values for a varchar (turning it into an enum type)
+        - maximum and/or minimum values for an integer.
 
 
 ### Relationships between resource-types
@@ -178,7 +188,11 @@ Optional attributes:
 That's the `any` resourcetype's reason for existence; the server won't allow you to create an instance, or to query one; it's only there to make relationship definitions manageable.
 
 
-### Resources
+# The API
+
+That is, how you actually put data into the system, and get it back out again.
+
+## Resources
 
 That is, instances of a resourcetype. Their attributes are:
 
@@ -196,29 +210,21 @@ That is, instances of a resourcetype. Their attributes are:
     - Also a datestamp, in the same format as `createddate`. This records the last time this resource was changed.
 - User-defined attributes
     - Whatever attributes are defined in the schema.
-    - These can be set when you create the resource with a POST request, or via PUT at any time after that.
+    - These can be included when you create the resource with a POST request, or set/updated via PUT at any time after that.
 
 
-### Relationships between resources
+## Relationships between resources
 
 The simplest of the lot, because they have no user-serviceable attributes inside.
 
 Created via POST, as long as they meet the constraints defined in the schema _at that moment in time_.
 
 
-### Inspect the schema
-
-For a graphic view of the current schema in the Neo4j browser, use this query:
-```
-MATCH (:RgSchema {name: "root"})-[:CURRENT_VERSION]->(:RgSchemaVersion)-[:HAS]->(s:RgResourceType)<-[:SOURCE]-(r:RgRelationship)-[:TARGET]->(t:RgResourceType) RETURN s, t, r;
-```
-
-
 # Test suite
 
 Two test suites are included:
-- `test/test-rest-api.py` for confirming its operation from a client's perspective
-- `restagraph-test` package for confirming internal correctness, using [FiveAM](https://common-lisp.net/project/fiveam/).
+- Client-side python tests, using `pytest`.
+- Internal tests of the implementation itself.
 
 
 # More information

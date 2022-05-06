@@ -1,17 +1,17 @@
 # Defining a Restagraph subschema
 
-It'd be handy to know how to define subschemas of your own, since this thing's designed to enable you to do that.
+It'd be handy to know how to define subschemas of your own, that being the point of this thing.
 
-Why "subschema"? Because each of these documents is a subset of the final schema that's actually in effect after they've all been installed.
+Why "subschema"? Because each of these documents is a subset of the final schema that's actually in effect after they've all been installed. You can upload/install any number of subschemas, each of which can build on any previously-defined resourcetypes, which are combined by the server to make up the composite schema that controls the behaviour of the API.
 
 
-# Summary of the format.
+# The format
 
-A subschema is a JSON document defining a single object, which has three fields:
+In summary, a subschema is a JSON document defining a single object with three fields:
 
 - `name`
-    - Entirely optional, but is a useful reminder.
-    - This was used for subschema management in the past, and may yet be used again in future, combined with version identifiers.
+    - Identifies the subschema being managed.
+    - This isn't currently reflected in the final schema, but this behaviour may be revived in the future.
 - `resourcetypes`
     - A list of objects, each of which describes a single resourcetype.
         - The list may be empty, if you only want to add relationships.
@@ -24,18 +24,17 @@ A subschema is a JSON document defining a single object, which has three fields:
     - Duplicate relationships will be ignored.
         - "Duplicate" means that it has the same name, source-type and target-type as a relationship that's already present in the database.
 
+
 To go into more detail:
 
 ## Name
 
-Not currently used, so there's no penalty for omitting it. I'm still using them for legacy reasons, but they're also a handy reminder of what that particular subschema is for while you're editing it.
-
-Restagraph ignores anything it's not specifically looking for, so it causes no ill-effects to include this.
+Not currently used, so there's no penalty for omitting it. They're still required for legacy reasons, but they're also a handy reminder of what that particular subschema is for while you're editing it.
 
 
 ## Resourcetypes
 
-Each resourcetype is defined via several key-value pairs. They're all mandatory unless noted otherwise.
+Each resourcetype is defined via several key-value pairs, most of which are mandatory:
 
 
 ### Name
@@ -55,7 +54,7 @@ Whether this is a "dependent" resourcetype, i.e. whether it exists only in the c
 
 A dependent resourcetype can only be created in relationship to a "parent" type, via a relationship that is _also_ defined as a dependent one, meaning that it defines the dependency between them. A resourcetype can be dependent on another dependent one, e.g. the ceiling of a room.
 
-Type: boolean. In accordance with Postel's Principle, acceptable values include `true`, "true", "True", `false`, "false" and "False".
+Type: boolean. In accordance with [Postel's Principle](https://en.wikipedia.org/wiki/Robustness_principle), acceptable values include `true`, "true", "True", `false`, "false" and "False". The preferred values are `true` and `false`.
 
 
 ### Notes
@@ -69,21 +68,45 @@ Optional; the default is `null`.
 
 ### Attributes
 
-A list of attributes objects. Their keys are:
+A list of attributes objects. Their main keys, i.e. those shared by all attribute types, are:
 
 - `name` 
-    - The name by which this attribute is address, in both the Schema API and the Raw API.
+    - The name by which this attribute is addressed, in both the Schema API and the Raw API.
     - Should be URI-safe, because you can use them to filter HTTP GET requests for resources, using URL parameters.
 - `description`
     - As you'd expect, this is for elaborating on what you actually meant by the `name`.
-- `values`
-    - A list of valid values for this attribute, so you can effectively define it as an enum type.
-    - Those values can currently only be defined as strings, because I haven't (yet) implemented a way of specifying their type as something else.
+- `type`
+    - Determines what kinds of value will be accepted, and which additional constraints may be added.
     - Default value is `null`, which means anything goes.
-- `read-only`
-    - Denotes an attribute that can't be updated via the HTTP API.
+- `readonly`
+    - Denotes an attribute whose value can't be set or updated via the HTTP API.
     - This is only useful in combination with server-side logic that autogenerates the parameter's value, like checksums and MIME-types of files.
-    - Note that in the database, this is stored as `readonly` (no hyphen) due to Neo4j constraints on attribute names. I'm living with the inconsistency because I prefer the readability of the Lisp version.
+
+
+Available values of `type`:
+
+- `varchar`
+    - Variable-length character strings; useful for short stretches of text such as one-line descriptions, or people's names.
+    - Intentionally named after the SQL type with the same semantics.
+- `text`
+    - Free-form text, up to 65 535 characters in length. 64K ought to be enough for anybody, right?
+    - Like "varchar", this is a deliberate reference to SQL types.
+- `integer`
+    - Any integer that will fit in a 64-bit representation.
+- `boolean`
+    - Sometimes you just need to know whether it's a yes or a no, a true or a false.
+
+In case you're wondering why there are two types of string variable, instead of just varchar(65535), it's for the benefit of GUI developers. This is a hint that a GUI can use to decide whether to present a one-line field or a resizeable box for editing the text of a given attribute.
+
+
+For some attribute types, you can define further constraints on their values.
+
+- `varchar`
+    - `maxlength` = the maximum acceptable length for this string. This is in octets, not characters: something to watch out for in non-Roman character sets, since we're using UTF-8 here. This is not disabled by the `values` attribute, though it probably should be.
+    - `values` = a list of valid values for this attribute, so you can effectively define it as an enum type. Note that the server doesn't try to reconcile `maxlength` with this, so it's entirely possible for the server to reject a valid member of this set on the grounds of it exceeding the maximum length.
+- `integer`
+    - `minimum` = the lowest value accepted for this attribute. This is an inclusive value, not an exclusive one.
+    - `maximum` = the highest value accepted for this attribute. Also an inclusive value.
 
 
 ## Relationships
@@ -133,13 +156,15 @@ Let's lead with an example, for adding books and authors to the schema:
           "attributes": [
             {
               "name": "description",
+              "type": "text",
               "description": "",
               "values": null
             },
             {
               "name": "ISBN",
-              "description": "International Standard Book Number. Should be a 10- or 13-digit number.",
-              "values": null
+              "type": "varchar",
+              "description": "International Standard Book Number. Should be a 10- or 13-digit number, optionally interspersed with hyphens.",
+              "maxlength": 17
             }
           ]
         }
@@ -164,4 +189,8 @@ Let's lead with an example, for adding books and authors to the schema:
       ]
     }
 
-Note that it assumes the existence of the `People` resourcetype. This is defined in the core schema, so you know it'll always be there, but you can equally rely on resourcetypes created in other schemas, as long as they were installed before this one.
+Note that it assumes the existence of the `People` resourcetype. This is defined in the core schema, so you know it'll always be there. However, you can equally rely on resourcetypes created in other schemas, as long as they were installed before this one.
+
+The server installs all resourcetypes defined in a subschema _before_ trying to create the relationships.
+
+Note: reference errors are silent. If the schema defines a relationship that refers to a resourcetype not already defined, it will log the fact and move on. So it's fine to refer to resourcetypes defined in other subschemas (in fact, it's positively encouraged) but it _is_ important to make sure you a)only make backward references, not forward ones, and b)upload subschemas according to the order of their dependencies.

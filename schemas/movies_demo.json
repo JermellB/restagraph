@@ -9,17 +9,20 @@
         {
           "name": "title",
           "description": "Full title of the movie.",
-          "values": null
+          "type": "varchar",
+          "maxlength": 256
         },
         {
           "name": "released",
           "description": "Year of release.",
-          "values": null
+          "type": "integer",
+          "minimum": 1888
         },
         {
           "name": "tagline",
           "description": "Promotional catch-phrase.",
-          "values": null
+          "type": "varchar",
+          "maxlength": 512
         }
       ]
     },
@@ -43,12 +46,13 @@
         {
           "name": "name",
           "description": "The person's full name",
-          "values": null
+          "type": "varchar"
         },
         {
           "name": "born",
           "description": "The year in which this person was born.",
-          "values": null
+          "type": "integer",
+          "minimum": 1900
         }
       ]
     }
