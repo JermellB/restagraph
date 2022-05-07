@@ -128,7 +128,7 @@
                                   :maxlength 16
                                   :readonly nil
                                   :description "It needed a name, alright?"
-                                  :attrvalues '("one" "two" "three")))))
+                                  :values '("one" "two" "three")))))
       schema-version)
     ;; Fetch the schema into memory
     (restagraph::log-message :debug ";TEST: Fetch the current schema")

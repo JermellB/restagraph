@@ -633,25 +633,60 @@ class TestSchemaUpdates(unittest.TestCase):
 class TestAttributeValues(unittest.TestCase):
     res1type = "People"
     res1uid = "Dorian"
-    res1attrname = "Real"
-    res1attrval_valid = True
-    res1attrval_invalid = "Banana"
+    res1attr1name = "real"
+    res1attrval1_valid = True
+    res1attrval1_invalid = "Banana"
+    res1attr2name = "birthyear"
+    res1attrval2_valid = 1970
+    res1attrval2_invalid1 = 1898
+    res1attrval2_invalid2 = 3898
+    res1attrval2_invalid3 = "wrong"
+    res2type = "Buildings"
+    res2uid = "ResidenceOne"
+    res2attr1name = "type"
+    res2attr1val1_valid = "House"
+    res2attr1val1_invalid1 = "Apartment"
     def test_attribute_values(self):
         # Add the test schema
         requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
-        # Create the resource
+        # Create the resources
         assert requests.post('%s/%s' % (API_BASE_URL, self.res1type),
                              data={"uid": self.res1uid}).status_code == 201
-        # Confirm the "values" feature as well as the added subschema:
-        # Add a valid attribute (per the "values" attribute-attribute)
+        assert requests.post('%s/%s' % (API_BASE_URL, self.res2type),
+                             data={"uid": self.res2uid}).status_code == 201
+        ## Boolean attribute
+        # Set a valid attribute
         assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
-                            data={self.res1attrname: self.res1attrval_valid}).status_code == 200
-        # Fail to add an invalid attribute
+                            data={self.res1attr1name: self.res1attrval1_valid}).status_code == 200
+        # Fail to set an invalid value
         assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
-                            data={self.res1attrname: self.res1attrval_invalid}).status_code == 400
-        # Clean up the resource
+                            data={self.res1attr1name: self.res1attrval1_invalid}).status_code == 400
+        ## Integer attribute
+        # Fail to set invalid attributes
+        # Too low
+        assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
+                            data={self.res1attr2name: self.res1attrval2_invalid1}).status_code == 400
+        # Too high
+        assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
+                            data={self.res1attr2name: self.res1attrval2_invalid2}).status_code == 400
+        # Not a number
+        assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
+                            data={self.res1attr2name: self.res1attrval2_invalid3}).status_code == 400
+        # Set a valid attribute
+        assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid),
+                            data={self.res1attr2name: self.res1attrval2_valid}).status_code == 200
+        ## Enum attribute
+        # Fail to set a value that isn't a member of the set
+        assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res2type, self.res2uid),
+                            data={self.res2attr1name: self.res2attr1val1_invalid1}).status_code == 400
+        # Set a valid value
+        assert requests.put('%s/%s/%s' % (API_BASE_URL, self.res2type, self.res2uid),
+                            data={self.res2attr1name: self.res2attr1val1_valid}).status_code == 200
+        # Cleanup
+        # Delete the resources
         assert requests.delete('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid)).status_code == 204
-        # Clean up the schema we added
+        assert requests.delete('%s/%s/%s' % (API_BASE_URL, self.res2type, self.res2uid)).status_code == 204
+        # Remove the schema we added
         versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
         requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
     # - new relationships from an existing resourcetype to a new one.
@@ -1084,6 +1119,11 @@ class TestIpv4SubnetsBasicNoVrf(unittest.TestCase):
                                          self.subnet1,
                                          self.organisation)).status_code,
                          200)
+        self.assertEqual(requests.get('%s/subnets?subnet=%s&org=%s'
+                                      % (IPAM_BASE_URL,
+                                         self.subnet1,
+                                         self.organisation)).text,
+                         "/Organisations/testco/SUBNETS/Ipv4Subnets/172.16.0.0_12")
         # Delete it
         self.assertEqual(requests.delete('%s/subnets' % (IPAM_BASE_URL),
                                          data={'org': self.organisation,

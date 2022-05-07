@@ -196,7 +196,7 @@
                                           :type "varchar"
                                           :NAME attr1name
                                           :DESCRIPTION attr1desc
-                                          :ATTRVALUES attr1vals)))
+                                          :VALUES attr1vals)))
                     :dependent nil))
          (uid "eth1")
          (attr1valgood "up")

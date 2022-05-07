@@ -39,11 +39,16 @@
       "name": "People",
       "attributes": [
         {
-          "name": "Real",
-          "type": "varchar",
-          "maxlength": 5,
-          "description": "Whether they're real or fictional. Boolean.",
-          "values": ["True", "False"]
+          "name": "real",
+          "type": "boolean",
+          "description": "Whether they're real or fictional. Boolean, where true means real."
+        },
+        {
+          "name": "birthyear",
+          "type": "integer",
+          "description": "Year of birth, for demonstrating integer constraints.",
+          "minimum": 1900,
+          "maximum": 3000
         }
       ]
     },

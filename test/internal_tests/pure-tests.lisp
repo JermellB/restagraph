@@ -46,41 +46,77 @@
 
 (fiveam:test
   validate-attributes
-  "Check the validation of attributes"
-  (let ((attrs (list (make-instance 'restagraph::schema-rtype-attr-varchar
-                       :name "status"
-                       :DESCRIPTION "Task status."
-                       :attrvalues '("idea"
-                                     "active"
-                                     "waiting"
-                                     "scheduled"
-                                     "done"
-                                     "cancelled"))
-                     (make-instance 'restagraph::schema-rtype-attr-varchar
-                       :NAME "description"
-                       :DESCRIPTION "More details about the task."))))
+  "Check the validation of attribute values, as supplied by a client for updating a resource instance."
+  (let ((defined (list (make-instance 'restagraph::schema-rtype-attr-varchar
+                                      :name "status"
+                                      :description "Task status."
+                                      :attrvalues '("idea"
+                                                    "active"
+                                                    "waiting"
+                                                    "scheduled"
+                                                    "done"
+                                                    "cancelled"))
+                       (make-instance 'restagraph::schema-rtype-attr-text
+                                      :name "description"
+                                      :description "More details about the task.")
+                       (make-instance 'restagraph::schema-rtype-attr-integer
+                                      :name "numeric"
+                                      :description "Something something numbers"
+                                      :minimum -5
+                                      :maximum 20)
+                       (make-instance 'restagraph::schema-rtype-attr-boolean
+                                      :name "truefalse"
+                                      :description "Well, it's one of those."))))
     ;; Simple check for no attributes at all
-    (fiveam:is (equal '(nil nil)
-                      (restagraph::validate-attributes '() attrs)))
+    (fiveam:is (equal '(nil nil nil)
+                      (restagraph::validate-attributes '() defined)))
+    ;; Varchar
     ;; Simple check for valid attribute
-    (fiveam:is (equalp '(nil nil)
-                       (restagraph::validate-attributes '(("status" . "active")) attrs)))
+    (fiveam:is (equalp '((("status" . "active")) nil nil)
+                       (restagraph::validate-attributes '(("status" . "active")) defined)))
     ;; Simple check for invalid attribute
-    (fiveam:is (equalp '((("foo" . "active")) nil)
-                       (restagraph::validate-attributes '(("foo" . "active")) attrs)))
+    (fiveam:is (equalp '(nil (("foo" . "active")) nil)
+                       (restagraph::validate-attributes '(("foo" . "active")) defined)))
     ;; Simple check for invalid value
-    (fiveam:is (equalp '(nil (("status" . "inactive")))
-                       (restagraph::validate-attributes '(("status" . "inactive")) attrs)))
-    ;; Value with a null enum set
-    (fiveam:is (equalp '(nil nil)
-                       (restagraph::validate-attributes '(("description" . "I love kung foooooo!")) attrs)))
-    ;; Obvious combo-check
-    (fiveam:is (equalp '((("foo" . "active")) (("status" . "inactive")))
+    (fiveam:is (equalp '(nil nil (("status" . "inactive")))
+                       (restagraph::validate-attributes '(("status" . "inactive")) defined)))
+    ;; Combo-check for enums
+    (fiveam:is (equalp '((("status" . "active") ("description" . "The legends were true."))
+                         (("foo" . "active"))
+                         (("status" . "inactive")))
                        (restagraph::validate-attributes '(("status" . "active")
                                                           ("foo" . "active")
                                                           ("description" . "The legends were true.")
                                                           ("status" . "inactive"))
-                                                        attrs)))))
+                                                        defined)))
+    ;; Text
+    ;; Basic validation
+    (fiveam:is (equalp '((("description" . "I love kung foooooo!")) nil nil)
+                       (restagraph::validate-attributes '(("description" . "I love kung foooooo!")) defined)))
+    ;; Integer
+    ;; Basic validation
+    (fiveam:is (equalp '((("numeric" . 0)) nil nil)
+                       (restagraph::validate-attributes '(("numeric" . 0)) defined)))
+    ;; Basic validation with string-parsing
+    (fiveam:is (equalp '((("numeric" . 0)) nil nil)
+                       (restagraph::validate-attributes '(("numeric" . "0")) defined)))
+    ;; Enforce the minimum
+    (fiveam:is (equalp '(nil nil (("numeric" . -10)))
+                       (restagraph::validate-attributes '(("numeric" . -10)) defined)))
+    (fiveam:is (equalp '(nil nil (("numeric" . "-10")))
+                       (restagraph::validate-attributes '(("numeric" . "-10")) defined)))
+    ;; Enforce the maximum
+    (fiveam:is (equalp '(nil nil (("numeric" . 30)))
+                       (restagraph::validate-attributes '(("numeric" . 30)) defined)))
+    ;; Boolean
+    ;; Basic validation
+    (fiveam:is (equalp '((("truefalse" . :false)) nil nil)
+                       (restagraph::validate-attributes '(("truefalse" . nil)) defined)))
+    (fiveam:is (equalp '((("truefalse" . :true)) nil nil)
+                       (restagraph::validate-attributes '(("truefalse" . t)) defined)))
+    ;; Reject invalid values
+    (fiveam:is (equalp '(nil nil (("truefalse" . "true")))
+                       (restagraph::validate-attributes '(("truefalse" . "true")) defined)))))
 
 
 (fiveam:test
