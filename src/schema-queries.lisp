@@ -16,9 +16,10 @@
 
 ;; Helper function
 
-(defun validate-attributes (requested defined &key (invalid '()) (badvalue '()))
+(defun validate-attributes (requested defined &key (valid '()) (invalid '()) (badvalue '()))
   "Recursive helper function to validate the requested attributes against those defined for the resourcetype.
-  Return a list of two lists:
+  Return a list of three lists:
+  - valid attributes, converted to the correct types for encoding via Bolt.
   - invalid attributes (attributes whose name is not defined for this resourcetype)
   - attributes for which an invalid value was provided"
   (declare (type (or cons null) requested)  ; alist, where the car is the name and the cdr is the value
@@ -28,63 +29,115 @@
   (log-message :debug (format nil "validate-attributes requested attrs: ~A" requested))
   (log-message :debug (format nil "validate-attributes defined attrs: ~{~A~^, ~}"
                               (map 'list #'a-listify defined)))
+  (log-message :debug (format nil "validate-attributes valid attrs: ~A" valid))
   ;; Are we at the end of the list of requested attributes?
   (if (null requested)
     ;; If we are, return what's been accumulated
-    (list invalid badvalue)
+    (list valid invalid badvalue)
     ;; If not, check the attribute at the head of the list, then call this function on the rest.
-    (validate-attributes
-      ;; Rest of the list.
-      (cdr requested)
-      ;; Definitions, unchanged.
-      defined
-      ;; If this attribute is invalid, add it to that accumulator.
-      ;; Pull the list of attribute-names from the 'defined parameter, and test whether it's a member.
-      :invalid (if (not (member (caar requested)
-                                (map 'list #'(lambda (attr) (name attr)) defined)
-                                :test #'equal))
-                 ;; Invalid attribute. Log it and add it to the `invalid` accumulator.
-                 (progn
-                   (log-message :debug (format nil "Detected invalid attribute name '~A'" (caar requested)))
-                   (append invalid (list (car requested))))
-                 ;; It's valid; leave the `invalid` list as-is
-                 invalid)
-      ;; Simplest to pull the attribute definition if it exists, then query it as needed.
-      :badvalue (let ((attrdef (find-if #'(lambda (attr)
-                                            (equal (caar requested) (name attr)))
-                                        defined)))
-                  ;; Yes, this is a cascade of if-statements.
-                  (if
-                    ;; Is it a valid attribute?
-                    (if attrdef
-                      ;; Is this an enum attribute?
-                      (let ((enums (when (equal 'restagraph::schema-rtype-attr-varchar
-                                                (type-of attrdef))
-                                     (attrvalues attrdef))))
+    (let ((attrdef (find-if #'(lambda (attr)
+                                (equal (caar requested) (name attr)))
+                            defined)))
+      ;; Is it even a valid attribute, i.e. is there a definition for it?
+      (if attrdef
+        ;; There is? Excellent. Let's carry on and validate it.
+        (let ((validated-value
+                ;; We need to return two separate bits of information here:
+                ;; - is it valid?
+                ;; - if it's valid, what's the validated value?
+                ;; Since only atomic values are permitted, `nil` can stand for "failed".
+                (cond
+                  ;; Boolean
+                  ((equal 'schema-rtype-attr-boolean (type-of attrdef))
+                   (log-message :debug (format nil "Validating requested value ~A for boolean value ~A"
+                                               (cdar requested) (name attrdef)))
+                   (cond
+                     ((member (cdar requested) (list t "True") :test #'equal) :true)
+                     ((member (cdar requested) (list nil "False") :test #'equal) :false)
+                     (t nil)))
+                  ;; Integer
+                  ((equal 'schema-rtype-attr-integer (type-of attrdef))
+                   (log-message :debug (format nil "Validating requested value ~A for integer value ~A"
+                                               (cdar requested) (name attrdef)))
+                   (log-message :debug (format nil "Detected type of value ~A is ~A"
+                                               (cdar requested) (type-of (cdar requested))))
+                   (handler-case
+                     (let ((candidate
+                             (if (stringp (cdar requested))
+                               (parse-integer (cdar requested))
+                               (cdar requested))))
+                       (when (and
+                               (integerp candidate)
+                               ;; If a minimum was set, is it below that?
+                               (if (minimum attrdef)
+                                 (>= candidate (minimum attrdef))
+                                 t)
+                               ;; If a maximum was set, is it below that?
+                               (if (maximum attrdef)
+                                 (<= candidate (maximum attrdef))
+                                 t))
+                         ;; If all those tests passed, return the integer-ised version
+                         candidate))
+                     ;; Catch the case where the arg wasn't an integer, and return nil for false.
+                     (sb-int:simple-parse-error (e) (declare (ignore e)) nil)))
+                  ;; Text
+                  ((equal 'schema-rtype-attr-text (type-of attrdef))
+                   (when (stringp (cdar requested))
+                     (cdar requested)))
+                  ;; Default = varchar
+                  (t
+                    ;; Is this an enum attribute?
+                    (let ((enums (when (equal 'schema-rtype-attr-varchar
+                                              (type-of attrdef))
+                                   (attrvalues attrdef))))
+                      (and
+                        (stringp (cdar requested))
                         ;; FIXME: this looks like overkill.
                         ;; Add tests to confirm, then hopefully simplify this section.
-                        (if (and enums
-                                 (not (null enums)))
+                        (if (and enums (not (null enums)))
                           ;; If so, is it a valid value?
-                          (when
-                            (member (cdar requested)
-                                    enums
-                                    :test #'equal)
-                            ;; If it's a valid value for this enum, return True
-                            t)
+                          (when (member (cdar requested)
+                                        enums
+                                        :test #'equal)
+                            (cdar requested))
                           ;; If it's not an enum, then we do no other checking.
-                          t))
-                      ;; If it's not a valid attribute, this isn't relevant.
-                      t)
-                    ;; If all those tests passed, pass on the value of `badvalue` we received
-                    badvalue
-                    ;; If any of those failed, add this to `badvalue`
-                    (append badvalue (list (car requested))))))))
+                          (cdar requested))))))))
+          ;; Report on what we found
+          (if validated-value
+          (log-message :debug (format nil "Valid value for ~A: ~A" (caar requested) validated-value))
+          (log-message :debug (format nil "Invalid value for ~A: ~A" (caar requested) (cdar requested))))
+          ;; Recurse, using the result of validation
+          (validate-attributes
+            ;; Rest of the list.
+            (cdr requested)
+            ;; Definitions, unchanged.
+            defined
+            ;; If it passed validation, append it to the `valid` list.
+            :valid (if validated-value
+                     (append valid `((,(caar requested) . ,validated-value)))
+                     valid)
+            ;; If we got here, it's not invalid.
+            ;; Pass on the `invalid` list as we received it.
+            :invalid invalid
+            ;; If it failed validation, add it to the `badvalue` list.
+            :badvalue (if validated-value
+                        badvalue
+                        (append badvalue (list (car requested))))))
+        ;; Requested attribute was invalid, i.e. not defined
+        (progn
+          (log-message :debug (format nil "Detected invalid attribute name '~A'" (caar requested)))
+          (validate-attributes (cdr requested)
+                               defined
+                               :valid valid
+                               :invalid (append invalid (list (car requested)))
+                               :badvalue badvalue))))))
 
 
 (defgeneric validate-resource-before-creating (schema resourcetype params)
-  (:documentation "Confirm whether the provided data is valid, before attempting to use it to create a resource.
-                   If the data is valid, return a list of attributes suitable for feeding to Neo4J. If not, raise a suitable error"))
+            (:documentation "Confirm whether the resourcetype exists and the requested attributes are valid,
+                            before attempting to use it to create a resource.
+                            If the data is valid, return a list of attributes suitable for feeding to Neo4J.
+                            If not, raise a suitable error"))
 
 (defmethod validate-resource-before-creating ((schema hash-table)
                                               (resourcetype string)
@@ -113,26 +166,27 @@
         (let ((results (validate-attributes requested-attributes
                                             (attributes (gethash resourcetype schema)))))
           ;; Were the requested attributes all valid?
-          (if (and (null (first results))
-                   (null (second results)))
-              ;; If so, return the supplied attributes to the caller, alist-formatted for Neo4cl.
+          (if (and (null (second results))
+                   (null (third results)))
+              ;; OLD: If so, return the supplied attributes to the caller, alist-formatted for Neo4cl.
+              ;; NEW: If so, return the validated attributes to the caller, alist-formatted for Neo4cl.
               (let ((formatted-params
                       (acons "uid" (sanitise-uid original-uid)
                                (acons "original_uid" original-uid
                                       (remove-if #'(lambda (param) (equal (car param) "uid"))
-                                                 params)))))
+                                                 (first results))))))
                 (log-message :debug (format nil "Returning formatted parameters ~A" formatted-params))
                 formatted-params)
               ;; If not, report the problem.
               (progn
-                (when (first results)
+                (when (second results)
                   (log-message :debug (format nil "Identified invalid attribute-names: ~{~A~^, ~}"
                                               (first results))))
-                (when (second results)
+                (when (third results)
                   (log-message :debug (format nil "Identified invalid values ~{~A~^, ~}"
                                               (second results))))
                 (error 'client-error :message
                        (format nil "Invalid attributes for ~A resources: ~{~A~^, ~}. Invalid values: ~{~A~^, ~}."
-                               resourcetype (first results) (second results)))))))
+                               resourcetype (second results) (third results)))))))
       ;; No such resourcetype
       (signal 'client-error :message "No such resourcetype")))

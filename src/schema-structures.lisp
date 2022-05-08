@@ -151,7 +151,9 @@
        (make-instance 'schema-rtype-attr-integer
                       :name (gethash "name" properties)
                       :description (gethash "description" properties)
-                      :readonly (gethash "readonly" properties)))
+                      :readonly (gethash "readonly" properties)
+                      :minimum (gethash "minimum" properties)
+                      :maximum (gethash "maximum" properties)))
       ((equal "boolean" (gethash "type" properties))
        (make-instance 'schema-rtype-attr-boolean
                       :name (gethash "name" properties)
@@ -459,16 +461,22 @@
     (cond
       ;; varchar was specified
       ((equal "varchar" attribute-type)
-       (make-instance 'incoming-rtype-attr-varchar
-                      :name name
-                      :description description
-                      :readonly readonly
-                      :maxlength (if alistp
-                                   (cdr (assoc :MAXLENGTH data))
-                                   (getf data :MAXLENGTH))
-                      :attrvalues (if alistp
-                                    (cdr (assoc :VALUES data))
-                                    (getf data :VALUES))))
+       (let ((maxlength (if alistp
+                          (cdr (assoc :MAXLENGTH data))
+                          (getf data :MAXLENGTH)))
+             (attrvalues (if alistp
+                           (cdr (assoc :VALUES data))
+                           (getf data :VALUES))))
+         (log-message
+           :debug
+           (format nil "Creating varchar attribute with name: ~A, readonly: ~A, maxlength: ~D, values: ~{~A~^; ~} and description: ~A"
+                   name readonly maxlength attrvalues description))
+         (make-instance 'incoming-rtype-attr-varchar
+                        :name name
+                        :description description
+                        :readonly readonly
+                        :maxlength maxlength
+                        :attrvalues attrvalues)))
       ;; text was specified
       ((equal "text" attribute-type)
        (make-instance 'incoming-rtype-attr-text
@@ -477,16 +485,22 @@
                       :readonly readonly))
       ;; integer was specified
       ((equal "integer" attribute-type)
-       (make-instance 'incoming-rtype-attr-integer
-                      :name name
-                      :description description
-                      :readonly readonly
-                      :minimum (if alistp
-                                 (cdr (assoc :MINIMUM data))
-                                 (getf data :MINIMUM))
-                      :maximum (if alistp
-                                 (cdr (assoc :MAXIMUM data))
-                                 (getf data :MAXIMUM))))
+       (let ((minimum (if alistp
+                        (cdr (assoc :MINIMUM data))
+                        (getf data :MINIMUM)))
+             (maximum (if alistp
+                        (cdr (assoc :MAXIMUM data))
+                        (getf data :MAXIMUM))))
+         (log-message
+           :debug
+           (format nil "Creating integer attribute with name: ~A, readonly: ~A, minimum: ~D, maximum: ~D and description ~A."
+                   name readonly minimum maximum description))
+         (make-instance 'incoming-rtype-attr-integer
+                        :name name
+                        :description description
+                        :readonly readonly
+                        :minimum minimum
+                        :maximum maximum)))
       ;; boolean was specified
       ((equal "boolean" attribute-type)
        (make-instance 'incoming-rtype-attr-boolean

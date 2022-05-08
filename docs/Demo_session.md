@@ -30,7 +30,7 @@ Indented sections show commands you should enter, prefixed with `$` to indicate 
 
 ## Setup
 
-This tutorial assumes your workstation is configured to use 192.0.2.1 as Docker's gateway address, because [that subnet was reserved for testing and documentation in RFC5727](https://datatracker.ietf.org/doc/html/rfc5737). If you're using another address, you'll need to substitute that one in the examples that follow. If you want to configure your system to use that address, create/edit the file `/etc/docker/daemon.json` and ensure that it contains the clause `{ "bip": "192.0.2.1/24" }`.
+This tutorial assumes your workstation is configured to use 192.0.2.1 as Docker's gateway address, because [that subnet was reserved for testing and documentation in RFC5727](https://datatracker.ietf.org/doc/html/rfc5737). If you're using another address, you'll need to substitute that one in the examples that follow. To configure your Docker server to use a particular address, create/edit the file `/etc/docker/daemon.json` and ensure that it contains the clause `{ "bip": "192.0.2.1/24" }` (or whatever other subnet and address you've picked).
 
 From the top of this repo, create two Docker volumes (one for the db, one for files) and then launch the docker images:
 
@@ -43,7 +43,7 @@ Restagraph should now be listening on `http://192.0.2.1:4950/` with its default 
     $ curl -X POST --data-urlencode schema@schemas/movies_demo.json http://192.0.2.1:4950/schema/v1
     Created
 
-This demonstrates one of Restagraph's features: you can augment the schema and API at any time, by uploading more definitions.
+This demonstrates an important feature: you can augment the schema and API at any time, by uploading more definitions.
 
 If you want to check the schema at any point, you can request the whole thing and use `jq` to make it human-readable:
 
@@ -51,16 +51,16 @@ If you want to check the schema at any point, you can request the whole thing an
 
 I've left out the response to this because it's too long to usefully include here.
 
-Remember to include the trailing dot in `jq .` - it's effectively a command to operate on the entire thing. If you're curious about why I make a point about human-readability, try that request again _without_ piping it through `jq`.
+Remember to include the trailing dot in `jq .` - it tells `jq` to operate on the entire JSON structure, not just a subset of it. If you're curious about why I make such a fuss about human-readability, try that request again _without_ piping it through `jq`, and wonder no more.
 
 
 ## Differences from the Neo4j dataset - relationship attributes
 
 If you're comparing this with the Neo4j tutorial, you'll notice that roles are resourcetypes, not just attributes on the `ACTED_IN` relationship. It's because Restagraph doesn't support attributes on relationships.
 
-I considered and eventually dismissed the idea in [Github issue #18](https://github.com/equill/restagraph/issues/18), because I've yet to find a real-world case where it wouldn't be better to reify the relationship as a resource in itself.
+I considered and eventually dismissed that idea in [Github issue #18](https://github.com/equill/restagraph/issues/18), because I've yet to find a real-world case where it wouldn't be better to reify the relationship as a resource in itself.
 
-I'm willing to be convinced to implement this feature; it's a question of finding enough value in it to justify the work involved. The hardest part will be figuring out how that part of the API might work.
+I'm willing to be convinced to implement this feature; it's a question of finding enough value in it to justify the work of implementing and maintaining it. The trickiest part will be figuring out how to extend the API to provide this functionality, in a way that people will actually use in real-world conditions.
 
 
 # The session
