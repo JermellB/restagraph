@@ -79,7 +79,7 @@
          (current-version (cdr (assoc :CURRENT-VERSION versions)))
          (all-versions (cdr (assoc :VERSIONS versions))))
     ;; Sanity check: do we have that version in the database?
-    (restagraph::log-message :debug (format nil "Checking whether version ~D exists in the database." version))
+    (log-message :debug (format nil "Checking whether version ~D exists in the database." version))
     (unless (and all-versions
                  (member version all-versions))
       (progn
@@ -88,8 +88,8 @@
           (format nil "There is no schema with that version identifier '~D'." version))
         (error 'client-error :message "There is no schema with that version identifier.")))
     ;; Have we been asked to delete the current version?
-    (restagraph::log-message :debug "Checking whether we're trying to delete the current version.")
-    (restagraph::log-message
+    (log-message :debug "Checking whether we're trying to delete the current version.")
+    (log-message
       :debug
       (format nil "Current version: ~D. Available versions: ~{~D~^, ~}." current-version all-versions))
     (if (and current-version
@@ -488,14 +488,20 @@
                 ;; Confirm what's now in the schema hash-table
                 (log-message :debug (format nil "Added schema entry ~A"
                                             (a-listify (gethash rtype schema))))
-                (log-message :debug (format nil "Current state of schema:~%"))
+                ;; This logging is disabled by default
+                ;; because it drowns out other useful information with noise
+                ;(log-message :debug (format nil "Current state of schema:~%"))
+                #+(or)
                 (maphash #'(lambda (name rtype-obj)
                              (log-message :debug
                                           (format nil "Resourcetype '~A': ~A" name (a-listify rtype-obj))))
                          schema))
             (get-resourcetype-names session current-version))
     ;; Dump the entire schema for a point-in-time reference
-    (log-message :debug (format nil "Full state of schema after loading resourcetypes::~%"))
+                ;; This logging is disabled by default
+                ;; because it drowns out other useful information with noise
+    ;(log-message :debug (format nil "Full state of schema after loading resourcetypes:~%"))
+    #+(or)
     (maphash #'(lambda (name rtype-obj)
                  (log-message :debug
                               (format nil "Resourcetype '~A': ~A" name (a-listify rtype-obj))))
