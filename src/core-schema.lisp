@@ -105,9 +105,8 @@
                                       :description "Who or what this subnet is allocated for, and possibly why."))
                               (make-incoming-rtype-attrs
                                 (list :name "netaddress"
-                                      :type "integer"
-                                      :minimum 0
-                                      :maximum 4294967295   ; 255.255.255.255 = (- (expt 2 32) 1)
+                                      :type "varchar"
+                                      :maxlength 15
                                       :description "The network address of the subnet."))
                               (make-incoming-rtype-attrs
                                 (list :name "prefixlength"
@@ -133,13 +132,7 @@
                                       :description "Who or what this subnet is allocated for, and possibly why."))
                               (make-incoming-rtype-attrs
                                 (list :name "netaddress"
-                                      :type "integer"
-                                      :minimum 0
-                                      ;; This produces an "Integer out of range" error,
-                                      ;; so it looks like integer-encoding isn't an option
-                                      ;; for IPv6 addresses.
-                                      ;:maximum 1324055902416102970674609367438786815
-                                      :maximum nil
+                                      :type "varchar"
                                       :description "The network address of the subnet."))
                               (make-incoming-rtype-attrs
                                 (list :name "prefixlength"
