@@ -239,12 +239,6 @@
   (find-if #'(lambda (att) (equal attr-name (name att)))
            (attributes attr)))
 
-(defmethod a-listify ((obj schema-rtype-attrs))
-  `((:name . ,(name obj))
-    (:description . ,(description obj))
-    (:readonly . ,(readonly obj))
-    (:values . ,(attrvalues obj))))
-
 (defmethod p-listify ((obj schema-rtype-attrs))
   `(:name ,(name obj)
     :description ,(description obj)
