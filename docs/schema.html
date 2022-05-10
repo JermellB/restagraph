@@ -144,7 +144,7 @@
         <td>Relationships: </td>
         <td>
           <ul>
-            <li>MEMBERS/<a href="#People">People</a><br>Denotes who belongs to this organisation. Counterpart to /People/MEMBER_OF/Organisations.<br>many:many, dependent: false</li>
+            <li>HAS_MEMBERS/<a href="#People">People</a><br>Denotes who belongs to this organisation. Counterpart to /People/MEMBER_OF/Organisations.<br>many:many, dependent: false</li>
             <li>SUBNETS/<a href="#Ipv4Subnets">Ipv4Subnets</a><br>The IPv4 supernets that you&#039;ve allocated within your organisation, independent of any VRF Groups.<br>1:many, dependent: true</li>
             <li>SUBNETS/<a href="#Ipv6Subnets">Ipv6Subnets</a><br>The IPv6 supernets that you&#039;ve allocated within your organisation, independent of any VRF Groups.<br>1:many, dependent: true</li>
             <li>VRF_GROUPS/<a href="#VrfGroups">VrfGroups</a><br>For IPAM purposes, the Virtual Routing and Forwarding circuits that you&#039;ve allocated within your organisation&#039;s network.<br>1:many, dependent: true</li>
