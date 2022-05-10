@@ -50,7 +50,7 @@
               (equal (tbnl:get-parameter "format") "html"))
          (progn
            (log-message :info "Dumping schema in HTML format")
-           (setf (tbnl:content-type*) "application/json")
+           (setf (tbnl:content-type*) "text/html")
            (setf (tbnl:return-code*) tbnl:+http-ok+)
            ;; Prevent html-template graunching everything to a halt
            (setf html-template:*warn-on-creation* nil)
