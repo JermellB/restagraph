@@ -190,6 +190,14 @@
     (:maxlength . ,(maxlength obj))
     (:values . ,(attrvalues obj))))
 
+(defmethod p-listify ((obj schema-rtype-attr-varchar))
+  `(:name ,(name obj)
+    :type "varchar"
+    :description ,(description obj)
+    :readonly ,(readonly obj)
+    :maxlength ,(maxlength obj)
+    :values ,(attrvalues obj)))
+
 (defclass schema-rtype-attr-text (schema-rtype-attrs)
   ()
   (:documentation "Bulk text field, e.g. Wikipages content. For smaller one-liner string attributes, use schema-rtype-attr-string."))
@@ -199,6 +207,12 @@
     (:type . "text")
     (:description . ,(description obj))
     (:readonly . ,(readonly obj))))
+
+(defmethod p-listify ((obj schema-rtype-attr-text))
+  `(:name ,(name obj)
+    :type "text"
+    :description ,(description obj)
+    :readonly ,(readonly obj)))
 
 (defclass schema-rtype-attr-integer (schema-rtype-attrs)
   ((minimum :initarg :minimum
@@ -221,6 +235,14 @@
     (:minimum . ,(minimum obj))
     (:maximum . ,(maximum obj))))
 
+(defmethod p-listify ((obj schema-rtype-attr-integer))
+  `(:name ,(name obj)
+    :type "integer"
+    :description ,(description obj)
+    :readonly ,(readonly obj)
+    :minimum ,(minimum obj)
+    :maximum ,(maximum obj)))
+
 (defclass schema-rtype-attr-boolean (schema-rtype-attrs)
   ()
   (:documentation "Simple boolean type."))
@@ -231,6 +253,12 @@
     (:description . ,(description obj))
     (:readonly . ,(readonly obj))))
 
+(defmethod p-listify ((obj schema-rtype-attr-boolean))
+  `(:name ,(name obj)
+    :type "boolean"
+    :description ,(description obj)
+    :readonly ,(readonly obj)))
+
 
 (defgeneric get-attribute (attr attr-name)
   (:documentation "Fetch the attribute with a given name, from a schema-rtypes instance. Return a `schema-rtype-attrs` instance if it's present, or NIL otherwise."))
@@ -238,12 +266,6 @@
 (defmethod get-attribute ((attr schema-rtypes) (attr-name string))
   (find-if #'(lambda (att) (equal attr-name (name att)))
            (attributes attr)))
-
-(defmethod p-listify ((obj schema-rtype-attrs))
-  `(:name ,(name obj)
-    :description ,(description obj)
-    :readonly ,(readonly obj)
-    :values ,(attrvalues obj)))
 
 
 (defclass schema-rels ()
