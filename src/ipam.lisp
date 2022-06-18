@@ -460,31 +460,37 @@
                   db
                   schema
                   ;; Existing path
-                  (format nil "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}"
+                  (format nil
+                          (if (= 6 (ipaddress:ip-version subnet))
+                            "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}"
+                            "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}")
                           org
                           (if (equal vrf "")
-                              ""
-                              (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
+                            ""
+                            (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                           (append (mapcar #'make-subnet-uid subnet-path)
                                   (list (gethash "uid" s))))
                   ;; New parent path
-                  (format nil "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/SUBNETS"
+                  (format nil
+                          (if (= 6 (ipaddress:ip-version subnet))
+                            "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/SUBNETS"
+                            "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/SUBNETS")
                           org
                           (if (equal vrf "")
-                              ""
-                              (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
+                            ""
+                            (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                           (mapcar #'make-subnet-uid parent-path))))
             ;; Get a list of subnets
             (get-resources
               db
               (format nil
                       (if (= 6 (ipaddress:ip-version subnet))
-                          "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/SUBNETS/Ipv6Subnets"
-                          "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/SUBNETS/Ipv4Subnets")
+                        "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/SUBNETS/Ipv6Subnets"
+                        "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/SUBNETS/Ipv4Subnets")
                       org
                       (if (equal vrf "")
-                          ""
-                          (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
+                        ""
+                        (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                       (mapcar #'make-subnet-uid subnet-path))))
     ;; Addresses: move them to the parent
     (log-message
@@ -498,47 +504,47 @@
                   ;; Existing path
                   (format nil
                           (if (= 6 (ipaddress:ip-version subnet))
-                              "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/ADDRESSES/Ipv6Addresses/~A"
-                              "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/ADDRESSES/Ipv4Addresses/~A")
+                            "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/ADDRESSES/Ipv6Addresses/~A"
+                            "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/ADDRESSES/Ipv4Addresses/~A")
                           org
                           (if (equal vrf "")
-                              ""
-                              (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
+                            ""
+                            (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                           (mapcar #'make-subnet-uid subnet-path)
                           (gethash "uid" a))
                   ;; New parent path
                   (format nil
                           (if (= 6 (ipaddress:ip-version subnet))
-                              "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/ADDRESSES"
-                              "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/ADDRESSES")
+                            "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/ADDRESSES"
+                            "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/ADDRESSES")
                           org
                           (if (equal vrf "")
-                              ""
-                              (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
+                            ""
+                            (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                           (mapcar #'make-subnet-uid parent-path))))
             ;; Get a list of addresses
             (get-resources
               db
               (format nil
                       (if (= 6 (ipaddress:ip-version subnet))
-                          "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/ADDRESSES/Ipv6Addresses"
-                          "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/ADDRESSES/Ipv4Addresses")
+                        "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}/ADDRESSES/Ipv6Addresses"
+                        "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}/ADDRESSES/Ipv4Addresses")
                       org
                       (if (equal vrf "")
-                          ""
-                          (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
+                        ""
+                        (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
                       (mapcar #'make-subnet-uid subnet-path))))
     ;; Delete the subnet itself
     (delete-resource-by-path
       db
       (format nil
               (if (= 6 (ipaddress:ip-version subnet))
-                  "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}"
-                  "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}")
+                "/Organisations/~A~A~{/SUBNETS/Ipv6Subnets/~A~}"
+                "/Organisations/~A~A~{/SUBNETS/Ipv4Subnets/~A~}")
               org
               (if (equal vrf "")
-                  ""
-                  (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
+                ""
+                (format nil "/VRF_GROUPS/VrfGroups/~A" vrf))
               (mapcar #'make-subnet-uid subnet-path))
       schema)))
 
