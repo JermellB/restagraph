@@ -12,6 +12,12 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
 - `delete-subnet` now behaves correctly when re-homing IPv6 subnets.
 
 
+### Changed
+
+- #91 Relationship `RG_CREATOR` replaces relationship `CREATOR` to denote that the source user created the target resource.
+  This averts conflict with admins who (quite reasonably) want to credit a person with the creation of a work, and increases consistency with the general pattern of using the prefix `RG_` to denote things that are specific to the operation of Restagraph.
+
+
 ### Added
 
 - IPv6 IPAM tests, both internal and client tests.

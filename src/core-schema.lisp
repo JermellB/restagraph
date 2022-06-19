@@ -153,7 +153,7 @@
                                              :target-type "Tags"
                                              :cardinality "many:many"
                                              :description "Any resourcetype can be tagged.")
-                         (make-incoming-rels :name "CREATOR"
+                         (make-incoming-rels :name "RG_CREATOR"
                                              :source-type "any"
                                              :target-type "People"
                                              :cardinality "many:1"

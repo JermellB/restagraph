@@ -98,7 +98,7 @@ class TestResources(unittest.TestCase):
         # Testing the mod/3 == 1 case in the process
         assert len(requests.get('%s/%s' % (API_BASE_URL, self.restype)).json())
         # Test the mod/3 == 0 case while we're here
-        creators = requests.get('%s/%s/%s/CREATOR' % (API_BASE_URL,
+        creators = requests.get('%s/%s/%s/RG_CREATOR' % (API_BASE_URL,
                                                       self.restype,
                                                       sanitise_uid(self.resuid)))
         assert creators.status_code == 200
@@ -380,7 +380,7 @@ class TestRelationshipsBasic(unittest.TestCase):
         requests.post('%s/People/' % (API_BASE_URL), data={"uid": self.person1})
         requests.post('%s/Tags/' % (API_BASE_URL), data={"uid": self.tag1})
         # Test
-        assert requests.post('%s/Tags/%s/CREATOR' % (API_BASE_URL, self.tag1),
+        assert requests.post('%s/Tags/%s/RG_CREATOR' % (API_BASE_URL, self.tag1),
                              data={"target": '/People/%s' % (self.person1)}).status_code == 403
         # Teardown
         assert requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 204
@@ -392,7 +392,7 @@ class TestRelationshipsBasic(unittest.TestCase):
         # Setup
         requests.post('%s/Tags/' % (API_BASE_URL), data={"uid": self.tag1})
         # Test
-        assert requests.delete('%s/Tags/%s/CREATOR' % (API_BASE_URL, self.tag1),
+        assert requests.delete('%s/Tags/%s/RG_CREATOR' % (API_BASE_URL, self.tag1),
                              data={"target": '/People/%s' % (self.rgadmin)}).status_code == 403
         # Teardown
         assert requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 204
@@ -538,7 +538,7 @@ class TestSchemaBasic(unittest.TestCase):
                 "description": "Special-case meta-resource, representing an instance of any type of resource. This is used for defining relationships where either the source or target could be, well, any resourcetype. The server refuses to create an instance of this resourcetype.",
                 "relationships": [
                     {
-                        "name": "CREATOR",
+                        "name": "RG_CREATOR",
                         "dependent": None,
                         "cardinality": "many:1",
                         "description": "All resources are linked to their creator. This is the first part of the permissions-management system.",

@@ -63,7 +63,7 @@ Return an error if
                                      `(("createddate" . ,(get-universal-time)))))
                  (query (format
                           nil
-                          "MATCH (c:People {uid: '~A'}) CREATE (:~A { ~A })-[:CREATOR]->(c)"
+                          "MATCH (c:People {uid: '~A'}) CREATE (:~A { ~A })-[:RG_CREATOR]->(c)"
                           creator-uid
                           (sanitise-uid resourcetype)
                           ;; This odd-looking chunk of code autogenerates a set of references
@@ -202,7 +202,7 @@ Return an error if
                   db
                   (format
                     nil
-                    "MATCH ~A, (c:People {uid: $RGcreator_uid}) CREATE (n)-[:~A]->(:~A { ~A })-[:CREATOR]->(c)"
+                    "MATCH ~A, (c:People {uid: $RGcreator_uid}) CREATE (n)-[:~A]->(:~A { ~A })-[:RG_CREATOR]->(c)"
                     (uri-node-helper parent-parts
                                      :path ""
                                      :marker "n")

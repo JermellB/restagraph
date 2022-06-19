@@ -180,8 +180,8 @@
          (let ((dest-path (tbnl:post-parameter "target")))
            ;; Basic sanity check
            (log-message :debug (format nil "Creating a relationship from ~A to ~A" sub-uri dest-path))
-           ;; Reject any attempt to create a :CREATOR relationship
-           (if (equal "CREATOR" (car (last uri-parts)))
+           ;; Reject any attempt to create a :RG_CREATOR relationship
+           (if (equal "RG_CREATOR" (car (last uri-parts)))
              (forbidden)
              ;; Passed the sanity-checks; proceed.
              (handler-case
@@ -394,8 +394,8 @@
               (or (tbnl:post-parameter "target")
                   (tbnl:get-parameter "target"))
               (equal (mod (length uri-parts) 3) 0))
-         ;; Reject any attempt to create a :CREATOR relationship
-         (if (equal "CREATOR" (car (last uri-parts)))
+         ;; Reject any attempt to create a :RG_CREATOR relationship
+         (if (equal "RG_CREATOR" (car (last uri-parts)))
            (forbidden)
            (handler-case
              (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
