@@ -5,6 +5,18 @@ All notable changes.
 Issue references of the form #<number> refer to tickets on Github: https://github.com/equill/restagraph/issues
 
 
+## [Unreleased]
+
+### Bugs fixed
+
+- `delete-subnet` now behaves correctly when re-homing IPv6 subnets.
+
+
+### Added
+
+- IPv6 IPAM tests, both internal and client tests.
+
+
 ## [0.8.1]
 
 ### Bugs fixed
