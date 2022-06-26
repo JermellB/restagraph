@@ -16,11 +16,17 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
 
 - #91 Relationship `RG_CREATOR` replaces relationship `CREATOR` to denote that the source user created the target resource.
   This averts conflict with admins who (quite reasonably) want to credit a person with the creation of a work, and increases consistency with the general pattern of using the prefix `RG_` to denote things that are specific to the operation of Restagraph.
+- #37 Prevent clients from interacting with dependent resources as though they were top-level primary resources.
 
 
 ### Added
 
 - IPv6 IPAM tests, both internal and client tests.
+
+
+### Removed
+
+- Obsolete, commented-out client test for dependent resources, which has been superseded by a newer, shinier one.
 
 
 ## [0.8.1]

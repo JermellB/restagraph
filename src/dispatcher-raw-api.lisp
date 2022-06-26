@@ -69,47 +69,79 @@
               (member (mod (length uri-parts) 3)
                       '(2 0)))
          (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
-         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
-                (result (get-resources session sub-uri)))
-           (neo4cl:disconnect session)
-           (log-message :debug (format nil "Fetched content ~A" result))
-           (if result
+         (let ((top-rtype-def (gethash (first uri-parts) (schema tbnl:*acceptor*))))
+           ;; Prevent clients directly requesting dependent resources
+           (if (and top-rtype-def
+                    (< (length uri-parts) 4)
+                    (dependent top-rtype-def))
+             ;; They're trying to directly fetch a dependent resource
+             ;; as though it were a primary one.
              (progn
-               (setf (tbnl:content-type*) "application/json")
-               (setf (tbnl:return-code*) tbnl:+http-ok+)
-               (cl-json:encode-json-to-string result))
-             (progn
+               (log-message :debug "Refusing to fetch a dependent resource as though it were a primary one.")
                (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-not-found+)
-               "Resource not found."))))
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               "Error: dependent resources must be fetched in context.")
+             ;; It passed that test.
+             ;; Try to fetch the resource.
+             (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                    (result (get-resources session sub-uri)))
+               (neo4cl:disconnect session)
+               (log-message :debug (format nil "Fetched content ~A" result))
+               (if result
+                 (progn
+                   (setf (tbnl:content-type*) "application/json")
+                   (setf (tbnl:return-code*) tbnl:+http-ok+)
+                   (cl-json:encode-json-to-string result))
+                 (progn
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-not-found+)
+                   "Resource not found."))))))
         ;;
         ;; Class of resources was requested
         ((and (equal (tbnl:request-method*) :GET)
-              (= (mod (length uri-parts) 3) 1))
+              ;; There's only one remaining option after the previous clause.
+              ;; I'm leaving this in place but commented-out, in case I find some reason
+              ;; to re-order them.
+              ;(= (mod (length uri-parts) 3) 1)
+              )
          (log-message :debug (format nil "Dispatching GET request for URI ~A" (tbnl:request-uri*)))
-         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
-                (result (get-resources session
-                                       sub-uri
-                                       :filters (process-filters
-                                                  (tbnl:get-parameters*)
-                                                  (schema tbnl:*acceptor*)
-                                                  (car (last uri-parts))))))
-           (neo4cl:disconnect session)
-           (log-message :debug (format nil "Fetched content ~A" result))
-           (setf (tbnl:content-type*) "application/json")
-           (setf (tbnl:return-code*) tbnl:+http-ok+)
-           (if result
-             (cl-json:encode-json-to-string result)
-             "[]")))
+         (let ((top-rtype-def (gethash (first uri-parts) (schema tbnl:*acceptor*))))
+           ;; Prevent clients directly requesting dependent resources
+           (if (and top-rtype-def
+                    (dependent top-rtype-def)
+                    (= (length uri-parts) 1))
+             ;; They're trying to directly fetch resources of a dependent type,
+             ;; as though it were a primary one.
+             (progn
+               (log-message :debug "Refusing to fetch a dependent resource as though it were a primary one.")
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               "Error: dependent resources must be fetched in context.")
+             ;; It passed that test; try to fetch the requested resources.
+             (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                    (result (get-resources session
+                                           sub-uri
+                                           :filters (process-filters
+                                                      (tbnl:get-parameters*)
+                                                      (schema tbnl:*acceptor*)
+                                                      (car (last uri-parts))))))
+               (neo4cl:disconnect session)
+               (log-message :debug (format nil "Fetched content ~A" result))
+               (setf (tbnl:content-type*) "application/json")
+               (setf (tbnl:return-code*) tbnl:+http-ok+)
+               (if result
+                 (cl-json:encode-json-to-string result)
+                 "[]")))))
         ;; POST -> Store something
         ;;
-        ;; Resource
+        ;; Primary resource
         ((and
            (equal (tbnl:request-method*) :POST)
            (equal (length uri-parts) 1)
            (tbnl:post-parameter "uid"))
          (let ((resourcetype (first uri-parts))
                (uid (tbnl:post-parameter "uid"))
+               ;; It's just simpler to establish this now, so we can use it in cond test-clauses.
                (session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
            (log-message
              :debug
@@ -117,6 +149,16 @@
            ;; Perform a series of sanity-tests.
            ;; If all of them pass, try to store it.
            (cond
+             ;; Is the client trying to store a dependent resource at the top level?
+             ;; NB: this looks a little odd, but it's (somewhat) simpler this way.
+             ((let ((top-rtype-def (gethash (first uri-parts) (schema tbnl:*acceptor*))))
+                (and top-rtype-def
+                     (dependent top-rtype-def)))
+              (progn
+                (log-message :debug "Refusing to store a dependent resource as though it were a primary one.")
+                (setf (tbnl:content-type*) "text/plain")
+                (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+                "Error: dependent resources must be stored in context."))
              ;; Do we already have one of these?
              ((get-resources
                 session
@@ -177,81 +219,102 @@
               (equal (mod (length uri-parts) 3) 0)
               (tbnl:post-parameter "target"))
          ;; Grab these once, as we'll be referring to them a few times
-         (let ((dest-path (tbnl:post-parameter "target")))
-           ;; Basic sanity check
-           (log-message :debug (format nil "Creating a relationship from ~A to ~A" sub-uri dest-path))
-           ;; Reject any attempt to create a :RG_CREATOR relationship
-           (if (equal "RG_CREATOR" (car (last uri-parts)))
-             (forbidden)
-             ;; Passed the sanity-checks; proceed.
-             (handler-case
-               (let ((new-uri (format nil "~{/~A~}/~A/~A"
-                                      uri-parts    ; Path down to the relationship
-                                      (car (last (get-uri-parts dest-path) 2))  ; Target resourcetype
-                                      (car (last (get-uri-parts dest-path)))))  ; Target UID
-                     (session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
-                 (create-relationship-by-path session
-                                              sub-uri
-                                              dest-path
-                                              (schema tbnl:*acceptor*))
-                 (neo4cl:disconnect session)
-                 ;; Report success to the client, plus the URI
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 (setf (tbnl:header-out "Location") new-uri)
-                 ;; Return the URI to the resource at the end of the newly-created relationship
-                 new-uri) ; Target UID
-               ;; Attempted violation of db integrity
-               (integrity-error (e) (return-integrity-error (message e)))
-               ;; Generic client errors
-               (client-error (e) (return-client-error (message e)))
-               (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))))
+         (let ((top-rtype-def (gethash (first uri-parts) (schema tbnl:*acceptor*)))
+               (dest-path (tbnl:post-parameter "target")))
+           (log-message :debug (format nil "Attempting to create a relationship from ~A to ~A"
+                                       sub-uri dest-path))
+           ;; Basic sanity checks
+           (cond
+             ;; Reject any attempt to create a :RG_CREATOR relationship.
+             ((equal "RG_CREATOR" (car (last uri-parts)))
+              (forbidden))
+             ;; Reject any attempt to link from a dependent resource as though it's a top-level one.
+             ((and top-rtype-def
+                   (dependent top-rtype-def))
+              (progn
+                (log-message :debug "Refusing to store a dependent resource as though it were a primary one.")
+                (setf (tbnl:content-type*) "text/plain")
+                (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+                "Error: dependent resources must be stored in context."))
+              ;; Passed the sanity-checks; proceed.
+              (t
+                (handler-case
+                  (let ((new-uri (format nil "~{/~A~}/~A/~A"
+                                         uri-parts    ; Path down to the relationship
+                                         (car (last (get-uri-parts dest-path) 2))  ; Target resourcetype
+                                         (car (last (get-uri-parts dest-path)))))  ; Target UID
+                        (session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+                    (create-relationship-by-path session
+                                                 sub-uri
+                                                 dest-path
+                                                 (schema tbnl:*acceptor*))
+                    (neo4cl:disconnect session)
+                    ;; Report success to the client, plus the URI
+                    (setf (tbnl:content-type*) "text/plain")
+                    (setf (tbnl:return-code*) tbnl:+http-created+)
+                    (setf (tbnl:header-out "Location") new-uri)
+                    ;; Return the URI to the resource at the end of the newly-created relationship
+                    new-uri) ; Target UID
+                  ;; Attempted violation of db integrity
+                  (integrity-error (e) (return-integrity-error (message e)))
+                  ;; Generic client errors
+                  (client-error (e) (return-client-error (message e)))
+                  (neo4cl:client-error (e) (return-client-error (neo4cl:message e))))))))
         ;;
         ;; Create a dependent resource
         ((and
            (equal (tbnl:request-method*) :POST)
            (equal (mod (length uri-parts) 3) 1)
            (tbnl:post-parameter "uid"))
-         ;; Do we already have one of these?
-         (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
-           (if (get-resources session (format nil
-                                              "~{/~A~}/~A"
-                                              uri-parts
-                                              (sanitise-uid (tbnl:post-parameter "uid"))))
-             ;; It's already there; return 200/OK
+         ;; Is the top-level resource a dependent one?
+         (let ((top-rtype-def (gethash (first uri-parts) (schema tbnl:*acceptor*))))
+           (if (and top-rtype-def
+                    (dependent top-rtype-def))
              (progn
-               (neo4cl:disconnect session)
-               (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
-                                           (car uri-parts) (sanitise-uid (tbnl:post-parameter "uid"))))
+               (log-message :debug "Refusing to store a dependent resource as though it were a primary one.")
                (setf (tbnl:content-type*) "text/plain")
-               (setf (tbnl:return-code*) tbnl:+http-ok+)
-               (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
-             ;; We don't already have one of these; store it
-             (handler-case
-               (let ((newtype (car (last uri-parts)))
-                     (uid (tbnl:post-parameter "uid"))
-                     (new-uri (format nil "~{/~A~}/~A"
-                                      uri-parts
-                                      (sanitise-uid (tbnl:post-parameter "uid")))))
-                 (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
-                                             newtype uid sub-uri))
-                 (store-dependent-resource
-                   session
-                   (schema tbnl:*acceptor*)
-                   sub-uri
-                   (tbnl:post-parameters*)
-                   (get-creator (post-policy (access-policy tbnl:*acceptor*))))
-                 (neo4cl:disconnect session)
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-created+)
-                 (setf (tbnl:header-out "Location") new-uri)
-                 ;; Return the URI to the resource at the end of the newly-created resource
-                 new-uri)
-               ;; Attempted violation of db integrity
-               (integrity-error (e) (return-integrity-error (message e)))
-               ;; Generic client errors
-               (client-error (e) (return-client-error (message e)))
-               (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))))
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               "Error: dependent resources must be stored in context.")
+             ;; Do we already have one of these?
+             (let ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*))))
+               (if (get-resources session (format nil
+                                                  "~{/~A~}/~A"
+                                                  uri-parts
+                                                  (sanitise-uid (tbnl:post-parameter "uid"))))
+                 ;; It's already there; return 200/OK
+                 (progn
+                   (neo4cl:disconnect session)
+                   (log-message :debug (format nil "Doomed attempt to re-create resource /~A/~A."
+                                               (car uri-parts) (sanitise-uid (tbnl:post-parameter "uid"))))
+                   (setf (tbnl:content-type*) "text/plain")
+                   (setf (tbnl:return-code*) tbnl:+http-ok+)
+                   (format nil "~{/~A~}/~A" uri-parts (sanitise-uid (tbnl:post-parameter "uid"))))
+                 ;; We don't already have one of these; store it
+                 (handler-case
+                   (let ((newtype (car (last uri-parts)))
+                         (uid (tbnl:post-parameter "uid"))
+                         (new-uri (format nil "~{/~A~}/~A"
+                                          uri-parts
+                                          (sanitise-uid (tbnl:post-parameter "uid")))))
+                     (log-message :debug (format nil "Attempting to create dependent resource '~A:~A' on '~A'"
+                                                 newtype uid sub-uri))
+                     (store-dependent-resource
+                       session
+                       (schema tbnl:*acceptor*)
+                       sub-uri
+                       (tbnl:post-parameters*)
+                       (get-creator (post-policy (access-policy tbnl:*acceptor*))))
+                     (neo4cl:disconnect session)
+                     (setf (tbnl:content-type*) "text/plain")
+                     (setf (tbnl:return-code*) tbnl:+http-created+)
+                     (setf (tbnl:header-out "Location") new-uri)
+                     ;; Return the URI to the resource at the end of the newly-created resource
+                     new-uri)
+                   ;; Attempted violation of db integrity
+                   (integrity-error (e) (return-integrity-error (message e)))
+                   ;; Generic client errors
+                   (client-error (e) (return-client-error (message e)))
+                   (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))))))
         ;;
         ;; Re-home a dependent resource
         ((and
@@ -261,28 +324,37 @@
            (tbnl:post-parameter "target"))
          (log-message :debug (format nil "Attempting to move dependent resource ~A to ~A"
                                      sub-uri (tbnl:post-parameter "target")))
-         (handler-case
-           (let ((new-uri (format nil "~{/~A~}/~A/~A"
-                                  (get-uri-parts (tbnl:post-parameter "target"))
-                                  (car (last uri-parts 2))
-                                  (car (last uri-parts))))
-                 (session (neo4cl:establish-bolt-session (datastore tbnl:*session*))))
-             (move-dependent-resource
-               session 
-               sub-uri
-               (tbnl:post-parameter "target")
-               (schema tbnl:*acceptor*))
-             (neo4cl:disconnect session)
-             (setf (tbnl:content-type*) "text/plain")
-             (setf (tbnl:return-code*) tbnl:+http-created+)
-             (setf (tbnl:header-out "Location") new-uri)
-             ;; Return the URI to the new path for this resource
-             new-uri)
-           ;; Attempted violation of db integrity
-           (integrity-error (e) (return-integrity-error (message e)))
-           ;; Generic client errors
-           (client-error (e) (return-client-error (message e)))
-           (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))
+         ;; Is the top-level resource a dependent one?
+         (let ((top-rtype-def (gethash (first uri-parts) (schema tbnl:*acceptor*))))
+           (if (and top-rtype-def
+                    (dependent top-rtype-def))
+             (progn
+               (log-message :debug "Refusing to store a dependent resource as though it were a primary one.")
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               "Error: dependent resources must be stored in context.")
+             (handler-case
+               (let ((new-uri (format nil "~{/~A~}/~A/~A"
+                                      (get-uri-parts (tbnl:post-parameter "target"))
+                                      (car (last uri-parts 2))
+                                      (car (last uri-parts))))
+                     (session (neo4cl:establish-bolt-session (datastore tbnl:*session*))))
+                 (move-dependent-resource
+                   session
+                   sub-uri
+                   (tbnl:post-parameter "target")
+                   (schema tbnl:*acceptor*))
+                 (neo4cl:disconnect session)
+                 (setf (tbnl:content-type*) "text/plain")
+                 (setf (tbnl:return-code*) tbnl:+http-created+)
+                 (setf (tbnl:header-out "Location") new-uri)
+                 ;; Return the URI to the new path for this resource
+                 new-uri)
+               ;; Attempted violation of db integrity
+               (integrity-error (e) (return-integrity-error (message e)))
+               ;; Generic client errors
+               (client-error (e) (return-client-error (message e)))
+               (neo4cl:client-error (e) (return-client-error (neo4cl:message e)))))))
         ;; PUT -> update something
         ;;
         ;; Resource attributes
@@ -290,8 +362,17 @@
            (equal (tbnl:request-method*) :PUT)
            (equal (mod (length uri-parts) 3) 2))
          (handler-case
-           (let ((resourcetype (first uri-parts)))
+           (let ((resourcetype (first uri-parts))
+                 (top-rtype-def (gethash (first uri-parts) (schema tbnl:*acceptor*))))
              (cond
+               ;; Attempt to update a dependent resource from the top level.
+               ((and top-rtype-def
+                     (dependent top-rtype-def))
+                (progn
+                  (log-message :debug "Refusing to store a dependent resource as though it were a primary one.")
+                  (setf (tbnl:content-type*) "text/plain")
+                  (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+                  "Error: dependent resources must be stored in context."))
                ;; Attempt to update one or more read-only attributes.
                ((any-readonly-attrs (gethash resourcetype (schema tbnl:*acceptor*))
                                     (append (tbnl:post-parameters*)
@@ -350,44 +431,57 @@
          (setf (tbnl:content-type*) "text/plain")
          (setf (tbnl:return-code*) tbnl:+http-bad-request+)
          (format nil "Use the files API to delete files: /files/v1/~A" (second uri-parts)))
-        ;; Resource
+        ;; Attempting to delete a resource
         ((and (equal (tbnl:request-method*) :DELETE)
               (equal (mod (length uri-parts) 3) 2))
          (log-message :debug "Attempting to delete a resource on an arbitrary path")
          ;; Try to get a copy of the resource
-         (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
-                (resource (get-resources session sub-uri)))
-           (handler-case
-             (if resource
-               ;; If the resource is there, delete it
-               (progn
-                 (delete-resource-by-path
-                   session
-                   sub-uri
-                   (schema tbnl:*acceptor*)
-                   :recursive (and (tbnl:parameter "recursive")
-                                   (not (equal "" (tbnl:parameter "recursive")))))
-                 (neo4cl:disconnect session)
-                 (setf (tbnl:content-type*) "text/plain")
-                 ;; If the client requested "yoink" then return a representation of what we just deleted.
-                 (if (tbnl:get-parameter "yoink")
+         (let ((top-rtype-def (gethash (first uri-parts) (schema tbnl:*acceptor*))))
+           ;; Prevent clients directly requesting dependent resources
+           (if (and top-rtype-def
+                    (dependent top-rtype-def))
+             ;; They're trying to directly delete a dependent resource
+             ;; as though it were a primary one.
+             (progn
+               (log-message :debug "Refusing to delete a dependent resource as though it were a primary one.")
+               (setf (tbnl:content-type*) "text/plain")
+               (setf (tbnl:return-code*) tbnl:+http-bad-request+)
+               "Error: dependent resources must be deleted in context.")
+             ;; It passed that test.
+             ;; Try to delete the resource.
+             (let* ((session (neo4cl:establish-bolt-session (datastore tbnl:*acceptor*)))
+                   (resource (get-resources session sub-uri)))
+               (handler-case
+                 (if resource
+                   ;; If the resource is there, delete it
                    (progn
-                     (setf (tbnl:return-code*) tbnl:+http-ok+)
-                     (cl-json:encode-json-to-string resource))
-                   ;; If they didn't, just acknowledge
+                     (delete-resource-by-path
+                       session
+                       sub-uri
+                       (schema tbnl:*acceptor*)
+                       :recursive (and (tbnl:parameter "recursive")
+                                       (not (equal "" (tbnl:parameter "recursive")))))
+                     (neo4cl:disconnect session)
+                     (setf (tbnl:content-type*) "text/plain")
+                     ;; If the client requested "yoink" then return a representation of what we just deleted.
+                     (if (tbnl:get-parameter "yoink")
+                       (progn
+                         (setf (tbnl:return-code*) tbnl:+http-ok+)
+                         (cl-json:encode-json-to-string resource))
+                       ;; If they didn't, just acknowledge
+                       (progn
+                         (setf (tbnl:return-code*) tbnl:+http-no-content+)
+                         "")))
+                   ;; Resource is not there
                    (progn
+                     (neo4cl:disconnect session)
+                     (setf (tbnl:content-type*) "text/plain")
                      (setf (tbnl:return-code*) tbnl:+http-no-content+)
-                     "")))
-               ;; Resource is not there
-               (progn
-                 (neo4cl:disconnect session)
-                 (setf (tbnl:content-type*) "text/plain")
-                 (setf (tbnl:return-code*) tbnl:+http-no-content+)
-                 ""))
-             ;; Attempted violation of db integrity
-             (integrity-error (e) (return-integrity-error (message e)))
-             ;; Generic client errors
-             (client-error (e) (return-client-error (message e))))))
+                     ""))
+                 ;; Attempted violation of db integrity
+                 (integrity-error (e) (return-integrity-error (message e)))
+                 ;; Generic client errors
+                 (client-error (e) (return-client-error (message e))))))))
         ;;
         ;; Delete a relationship on an arbitrary path
         ((and (equal (tbnl:request-method*) :DELETE)

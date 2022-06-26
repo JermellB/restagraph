@@ -703,6 +703,8 @@ class TestDependentResources(unittest.TestCase):
     depres1rel = "FLOORS"
     depres1type = "Floors"
     depres1uid = "Hangar"
+    depres1attr1 = "description"
+    depres1parentrel = "IN_BUILDING"
     depres2rel = "ROOMS"
     depres2type = "Rooms"
     depres2uid = "Toolshed"
@@ -726,12 +728,17 @@ class TestDependentResources(unittest.TestCase):
                              data={"target": '/%s/%s' % (self.res1type, self.res1uid)}).status_code == 409
         # Delete the owner
         requests.delete('%s/%s/%s' % (API_BASE_URL, self.owner1type, self.owner1uid))
+        # Fail to create the dependent resource at the top level
+        assert requests.post('%s/%s/%s' % (API_BASE_URL,
+                                           self.depres1rel,
+                                           self.depres1type),
+                             data={"uid": self.depres1uid}).status_code == 400
         # Create the dependent resource
         assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                              self.res1type,
-                                              self.res1uid,
-                                              self.depres1rel,
-                                              self.depres1type),
+                                                 self.res1type,
+                                                 self.res1uid,
+                                                 self.depres1rel,
+                                                 self.depres1type),
                              data={"uid": self.depres1uid}).status_code == 201
         # Confirm the dependent resource is there
         assert requests.get('%s/%s/%s/%s/%s' % (API_BASE_URL,
@@ -739,20 +746,33 @@ class TestDependentResources(unittest.TestCase):
                                                 self.depres1rel,
                                                 self.depres1type,
                                                 self.depres1uid)).status_code == 200
+        # Confirm the dependent resource can't be fetched directly
+        assert requests.get('%s/%s/%s' % (API_BASE_URL,
+                                          self.depres1type,
+                                          self.depres1uid)).status_code == 400
+        # Confirm the dependent resource can't be deleted directly
+        assert requests.delete('%s/%s/%s' % (API_BASE_URL,
+                                             self.depres1type,
+                                             self.depres1uid)).status_code == 400
+        # Confirm the dependent resource can't be modified directly
+        assert requests.post('%s/%s/%s' % (API_BASE_URL,
+                                           self.depres1type,
+                                           self.depres1uid),
+                             data={self.depres1attr1: "blah"}).status_code == 400
         # Delete the dependent resource
         assert requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                self.res1type,
-                                                self.res1uid,
-                                                self.depres1rel,
-                                                self.depres1type,
-                                                self.depres1uid)).status_code == 204
+                                                      self.res1type,
+                                                      self.res1uid,
+                                                      self.depres1rel,
+                                                      self.depres1type,
+                                                      self.depres1uid)).status_code == 204
         # Confirm it's gone
         assert requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                self.res1type,
-                                                self.res1uid,
-                                                self.depres1rel,
-                                                self.depres1type,
-                                                self.depres1uid)).status_code == 404
+                                                   self.res1type,
+                                                   self.res1uid,
+                                                   self.depres1rel,
+                                                   self.depres1type,
+                                                   self.depres1uid)).status_code == 404
         # Confirm the parent is still there
         assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                           self.res1type,
@@ -862,14 +882,6 @@ class TestDependentResources(unittest.TestCase):
         assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                           self.res1type,
                                           self.res1uid)).status_code == 404
-        # Confirm the grandchild doesn't live on as an orphan
-        assert requests.get('%s/%s/%s' % (API_BASE_URL,
-                                          self.depres2type,
-                                          self.depres2uid)).status_code == 404
-        # Confirm the child doesn't live on as an orphan
-        assert requests.get('%s/%s/%s' % (API_BASE_URL,
-                                          self.depres1type,
-                                          self.depres1uid)).status_code == 404
         # Clean up the schema we added
         versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
         requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
@@ -889,25 +901,42 @@ class TestDependentResources(unittest.TestCase):
                              data={"target": '/%s/%s' % (self.depres1type, self.depres1uid)}).status_code == 409
         # Try to add a dependent resource from a nonexistent parent type
         assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                              self.invalidparenttype1,
-                                              self.res1uid,
-                                              self.depres1rel,
-                                              self.depres1type),
+                                                 self.invalidparenttype1,
+                                                 self.res1uid,
+                                                 self.depres1rel,
+                                                 self.depres1type),
                              data={"uid": self.depres1uid}).status_code == 400
         # Try to add a dependent resource of a type that doesn't exist
         assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                              self.res1type,
-                                              self.res1uid,
-                                              self.depres1rel,
-                                              self.invaliddeptype1),
+                                                 self.res1type,
+                                                 self.res1uid,
+                                                 self.depres1rel,
+                                                 self.invaliddeptype1),
                              data={"uid": self.depres1uid}).status_code == 400
         # Try to create a dependent resource of a parent that doesn't exist, where both types are valid.
         assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                              self.res1type,
-                                              self.res1uid,
-                                              self.depres1rel,
-                                              self.depres1type),
+                                                 self.res1type,
+                                                 self.res1uid,
+                                                 self.depres1rel,
+                                                 self.depres1type),
                              data={"uid": self.depres1uid}).status_code == 400
+        # Try to create a link from a dependent resource as though it's a top-level one.
+        requests.post('%s/%s' % (API_BASE_URL, self.res1type), data={"uid": self.res1uid})
+        requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                          self.res1type,
+                                          self.res1uid,
+                                          self.depres1rel,
+                                          self.depres1type),
+                      data={"uid": self.depres1uid})
+        assert requests.post('%s/%s/%s' % (API_BASE_URL, self.depres1type, self.depres1uid),
+                             data={"target": '/%s/%s' % (self.res1type, self.res1uid)}).status_code == 400
+        requests.delete('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                               self.res1type,
+                                               self.res1uid,
+                                               self.depres1rel,
+                                               self.depres1type,
+                                               self.depres1uid))
+        requests.delete('%s/%s/%s' % (API_BASE_URL, self.res1type, self.res1uid))
         # Clean up the schema we added
         versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
         requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))

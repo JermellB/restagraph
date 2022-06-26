@@ -68,6 +68,14 @@
     },
     {
       "source-type": "Floors",
+      "name": "IN_BUILDING",
+      "target-type": "Buildings",
+      "cardinality": "many:1",
+      "dependent": false,
+      "description": "This floor is in that building."
+    },
+    {
+      "source-type": "Floors",
       "name": "ROOMS",
       "target-type": "Rooms",
       "cardinality": "1:many",
