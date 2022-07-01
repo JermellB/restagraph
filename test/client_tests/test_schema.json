@@ -63,7 +63,7 @@
       "name": "FLOORS",
       "target-type": "Floors",
       "cardinality": "1:many",
-      "dependent": true,
+      "reltype": "dependent",
       "description": null
     },
     {
@@ -71,7 +71,7 @@
       "name": "IN_BUILDING",
       "target-type": "Buildings",
       "cardinality": "many:1",
-      "dependent": false,
+      "reltype": "any",
       "description": "This floor is in that building."
     },
     {
@@ -79,7 +79,7 @@
       "name": "ROOMS",
       "target-type": "Rooms",
       "cardinality": "1:many",
-      "dependent": true,
+      "reltype": "dependent",
       "description": null
     },
     {
@@ -87,7 +87,7 @@
       "name": "OWNER",
       "target-type": "People",
       "cardinality": "many:many",
-      "dependent": false,
+      "reltype": "any",
       "description": null
     },
     {
@@ -95,7 +95,7 @@
       "name": "OWNS",
       "target-type": "People",
       "cardinality": "many:many",
-      "dependent": true,
+      "reltype": "dependent",
       "description": "For testing whether resourcetypes default to non-dependent."
     },
     {
@@ -103,7 +103,7 @@
       "name": "DISCOMBOBULATES",
       "target-type": "any",
       "cardinality": "many:many",
-      "dependent": false,
+      "reltype": "any",
       "description": "For testing relationships to 'any'"
     }
   ]

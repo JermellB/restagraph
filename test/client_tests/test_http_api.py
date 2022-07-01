@@ -539,14 +539,14 @@ class TestSchemaBasic(unittest.TestCase):
                 "relationships": [
                     {
                         "name": "RG_CREATOR",
-                        "dependent": None,
+                        "reltype": "any",
                         "cardinality": "many:1",
                         "description": "All resources are linked to their creator. This is the first part of the permissions-management system.",
                         "target-type": "People"
                         },
                     {
                         "name": "TAGS",
-                        "dependent": None,
+                        "reltype": "any",
                         "cardinality": "many:many",
                         "description": "Any resourcetype can be tagged.",
                         "target-type": "Tags"

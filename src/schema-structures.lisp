@@ -278,10 +278,11 @@
    (cardinality :initarg :cardinality
                 :reader cardinality
                 :type string)
-   (dependent :initarg :dependent
-              :reader dependent
-              :type boolean
-              :initform nil)
+   (reltype :initarg :reltype
+              :reader reltype
+              :type string
+              :initform "any"
+              :documentation "Allowable relationships from the target resource to this one. Valid values include 'dependent' and 'any'.")
    (description :initarg :description
           :reader description
           :type (or null string)
@@ -292,26 +293,25 @@
   `((:name . ,(name obj))
     (:target-type . ,(name (target-type obj)))
     (:cardinality . ,(cardinality obj))
-    (:dependent . ,(dependent obj))
+    (:reltype . ,(reltype obj))
     (:description . ,(description obj))))
 
 (defmethod p-listify ((obj schema-rels))
   `(:name ,(name obj)
     :target-type ,(name (target-type obj))
     :cardinality ,(cardinality obj)
-    :dependent ,(if (dependent obj) "true" "false")
+    :reltype ,(reltype obj)
     :description ,(description obj)))
 
-(defmethod make-schema-rels (&key name target-type cardinality dependent description)
-  (declare (type string name cardinality)
+(defmethod make-schema-rels (&key name target-type cardinality reltype description)
+  (declare (type string name cardinality reltype)
            (type schema-rtypes target-type)
-           (type boolean dependent)
            (type (or null string) description))
   "Constructor for schema-rels instances"
   (make-instance 'schema-rels :name name
                  :target-type target-type
                  :cardinality cardinality
-                 :dependent dependent
+                 :reltype reltype
                  :description description))
 
 
@@ -548,9 +548,10 @@
    (cardinality :initarg :cardinality
                 :reader cardinality
                 :type string)
-   (dependent :initarg :dependent
-              :reader dependent
-              :type boolean)
+   (reltype :initarg :reltype
+              :reader reltype
+              :type string
+              :documentation "Allowable relationships from the target resource to this one. Valid values include 'dependent' and 'any'.")
    (description :initarg :description
           :reader description
           :type (or null string)))
@@ -561,12 +562,11 @@
                                 source-type
                                 target-type
                                 (cardinality "many:many")
-                                (dependent nil)
+                                (reltype "any")
                                 description)
   "Constructor function for incoming-rels"
   (declare (type string name source-type target-type cardinality)
-           (type (or null string) description)
-           (type boolean dependent))
+           (type (or null string) description reltype))
   (log-message :debug (format nil "Creating an incoming-rels instance for ~A from ~A to ~A"
                               name source-type target-type))
   (unless (member cardinality '("many:many" "many:1" "1:many" "1:1") :test #'equal)
@@ -575,5 +575,5 @@
                  :source-type source-type
                  :target-type target-type
                  :cardinality cardinality
-                 :dependent dependent
+                 :reltype reltype
                  :description description))

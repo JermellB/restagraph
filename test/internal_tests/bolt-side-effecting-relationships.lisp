@@ -144,7 +144,7 @@
                                       :source-type source-type
                                       :target-type target-type
                                       :cardinality "many:many"
-                                      :dependent nil
+                                      :reltype "any"
                                       :description "Test relationship to 'any'")
       schema-version)
     (let ((schema (restagraph::fetch-current-schema session)))

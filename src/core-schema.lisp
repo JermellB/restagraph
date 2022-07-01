@@ -167,19 +167,19 @@
                                              :source-type "Organisations"
                                              :target-type "VrfGroups"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "For IPAM purposes, the Virtual Routing and Forwarding circuits that you've allocated within your organisation's network.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "Organisations"
                                              :target-type "Ipv4Subnets"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "The IPv4 supernets that you've allocated within your organisation, independent of any VRF Groups.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "Organisations"
                                              :target-type "Ipv6Subnets"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "The IPv6 supernets that you've allocated within your organisation, independent of any VRF Groups.")
                          (make-incoming-rels :name "MEMBER_OF"
                                              :source-type "People"
@@ -195,35 +195,35 @@
                                              :source-type "VrfGroups"
                                              :target-type "Ipv4Subnets"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "IPv4 supernets allocated to this VRF Group.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "VrfGroups"
                                              :target-type "Ipv6Subnets"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "IPv6 supernets allocated to this VRF Group.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "Ipv4Subnets"
                                              :target-type "Ipv4Subnets"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "A subnet of this subnet.")
                          (make-incoming-rels :name "ADDRESSES"
                                              :source-type "Ipv4Subnets"
                                              :target-type "Ipv4Addresses"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "An address allocated from within this subnet.")
                          (make-incoming-rels :name "SUBNETS"
                                              :source-type "Ipv6Subnets"
                                              :target-type "Ipv6Subnets"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "A subnet of this subnet.")
                          (make-incoming-rels :name "ADDRESSES"
                                              :source-type "Ipv6Subnets"
                                              :target-type "Ipv6Addresses"
                                              :cardinality "1:many"
-                                             :dependent t
+                                             :reltype "dependent"
                                              :description "An address allocated from within this subnet."))))

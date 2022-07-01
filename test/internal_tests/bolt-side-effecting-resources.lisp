@@ -339,7 +339,7 @@
          (parent-type (restagraph::make-incoming-rtypes :name "Routers"))
          (parent-rel (restagraph::make-incoming-rels :source-type (restagraph::name parent-type)
                                                      :name relationship
-                                                     :dependent t
+                                                     :reltype "dependent"
                                                      :cardinality "1:many"
                                                      :target-type (restagraph::name child-type)))
          (parent-uid "trinity")
@@ -495,7 +495,7 @@
          (parent1-rel (restagraph::make-incoming-rels :name "PRODUCES"
                                                       :source-type (restagraph::name parent1-type)
                                                       :target-type (restagraph::name child1-type)
-                                                      :dependent t
+                                                      :reltype "dependent"
                                                       :cardinality "1:many"))
          (child1-uid "Synthetics")
          (parent1-uid "Weyland-Yutani")
@@ -576,16 +576,16 @@
                                                        :DEPENDENT t))
          (grandchild-type (restagraph::make-incoming-rtypes :NAME "Ipv4Addresses"
                                                             :DEPENDENT t))
-         (relationship (restagraph::make-incoming-rels
-                         :NAME "INTERFACES"
-                         :DEPENDENT t
-                         :SOURCE-TYPE (restagraph::name parent-type)
-                         :TARGET-TYPE (restagraph::name child-type)))
+             (relationship (restagraph::make-incoming-rels
+                             :name "INTERFACES"
+                             :reltype "dependent"
+                             :source-type (restagraph::name parent-type)
+                             :target-type (restagraph::name child-type)))
          (child-relationship (restagraph::make-incoming-rels
-                               :NAME "ADDRESSES"
-                               :DEPENDENT t
-                               :SOURCE-TYPE (restagraph::name child-type)
-                               :TARGET-TYPE (restagraph::name grandchild-type)))
+                               :name "ADDRESSES"
+                               :reltype "dependent"
+                               :source-type (restagraph::name child-type)
+                               :target-type (restagraph::name grandchild-type)))
          (parent-uid "marshall")
          (child-uid "eth0")
          (grandchild-uid "192.168.24.1")
@@ -682,18 +682,18 @@
                                                     :dependent t))
          (p1-type (restagraph::make-incoming-rtypes :name "Routers"))
          (p1-target-rel (restagraph::make-incoming-rels
-                          :NAME "ADDRESSES"
-                          :DEPENDENT t
-                          :SOURCE-TYPE (restagraph::name p1-type)
-                          :TARGET-TYPE (restagraph::name target-type)))
+                          :name "ADDRESSES"
+                          :reltype "dependent"
+                          :source-type (restagraph::name p1-type)
+                          :target-type (restagraph::name target-type)))
          (p2-target-rel (restagraph::make-incoming-rels
-                          :NAME "ADDRESSES"
-                          :DEPENDENT t
-                          :SOURCE-TYPE (restagraph::name p2-type)
-                          :TARGET-TYPE (restagraph::name target-type)))
+                          :name "ADDRESSES"
+                          :reltype "dependent"
+                          :source-type (restagraph::name p2-type)
+                          :target-type (restagraph::name target-type)))
          (p1-p2-rel (restagraph::make-incoming-rels
                       :name "INTERFACES"
-                      :dependent t
+                      :reltype "dependent"
                       :source-type (restagraph::name p1-type)
                       :target-type (restagraph::name p2-type)))
          (p1-uid "woomera")
@@ -947,7 +947,7 @@
                                                    :dependent t))
          (rel
            (restagraph::make-incoming-rels :name "INTERFACES"
-                                           :dependent t
+                                           :reltype "dependent"
                                            :source-type (restagraph::name r1type)
                                            :target-type (restagraph::name r2type)))
          (r1uid "upshot")

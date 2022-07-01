@@ -130,10 +130,11 @@ A list of relationships objects. Their keys are:
         - "many:1"
         - "1:1"
     - Type: string.
-- `dependent`
-    - Whether this is the definitive relationship between a dependent resourcetype and its parent type.
-    - Corresponds to the resourcetype attribute of the same name.
-    - Type: boolean. In accordance with Postel's Principle, acceptable values include `true`, "true", "True", `false`, "false" and "False".
+- `reltype`
+    - What kind of relationship the target resource could bear to this one.
+        - "dependent" means the target resource can only be of a `dependent` type, but otherwise asserts no restrictions.
+        - "any" means there are no restrictions.
+    - type: string.
 - `notes`
     - Any clarifying notes about what this relationship means.
     - Type: string.
@@ -175,7 +176,7 @@ Let's lead with an example, for adding books and authors to the schema:
           "name": "AUTHOR",
           "target-type": "People",
           "cardinality": "many:many",
-          "dependent": null,
+          "reltype": "any",
           "notes": "Link from the book to its author."
         },
         {
@@ -183,7 +184,7 @@ Let's lead with an example, for adding books and authors to the schema:
           "name": "AUTHOR_OF",
           "target-type": "Books",
           "cardinality": "many:many",
-          "dependent": null,
+          "reltype": "any",
           "notes": "Link to a book this person wrote."
         },
       ]

@@ -140,7 +140,7 @@ Return an error if
          (log-message :error message)
          (error 'client-error :message message)))
       ;; Sanity check: dependency between parent and child resource types
-      ((not (dependent relationship-attrs))
+      ((not (equal "dependent" (reltype relationship-attrs)))
        (let ((message
                (format nil "Target resource-type '~A' doesn't depend on the parent type '~A' for relationship '~A': ~A"
                        dest-type parent-type relationship (a-listify relationship-attrs))))
@@ -272,7 +272,7 @@ Return an error if
          (log-message :debug message)
          (error 'client-error :message message)))
       ;; Sanity-check: is the new relationship dependent?
-      ((not (dependent new-relationship-details))
+      ((not (equal "dependent" (reltype new-relationship-details)))
        (progn
          (log-message
            :debug
@@ -531,7 +531,8 @@ The returned list contains 3-element lists of relationship, type and UID."))
         (let ((dependent-rels (map 'list
                                    #'name
                                    (remove-if-not
-                                     #'dependent
+                                     #'(lambda (foo)
+                                         (equal "dependent" (reltype foo)))
                                      (relationships rtypedef)))))
           (log-message :debug (format nil "Got list of dependent types: ~A" dependent-rels))
           (when dependent-rels

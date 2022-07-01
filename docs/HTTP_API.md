@@ -137,7 +137,7 @@ The file is expected to be in this format:
           "source-type": "People",
           "target-type": "Ideas",
           "cardinality": "1:many",
-          "dependent": true,
+          "reltype": "dependent",
           "description": "This person had that idea, and should do something about it."
         },
         ...
@@ -159,8 +159,8 @@ For information about how to define your own subschema, see [Defining a schema](
 - Booleans must be either `true` or `false`, though `null` is also accepted as an equivalent to `false`.
 - The `dependent` attribute of a resource indicates whether it has independent existence (dependent=`false`, the default) or whether it only exists in the context of a parent resource. E.g, an IP address configured on an interface doesn't exist independently - the only reason not to define it as an attribute is that an interface may have any number of addresses configured on it.
     - This is an optional attribute; it defaults to `false`.
-- The `dependent` attribute of a relationship indicates whether the target resource is dependent on the source resource, i.e. is a child to that parent resource.
-    - This means that if `dependent` is true in a relationship type, the target resource will be created along with it.
+- The `reltype` attribute of a relationship indicates whether the target resource is dependent on the source resource, i.e. is a child to that parent resource.
+    - This means that if `reltype` is "dependent" in a relationship type, the target resource will be created along with it.
     - A dependent resource can only have one parent resource.
     - A dependent relationship _cannot_ be created to a non-dependent target resource.
     - A non-dependent relationship _can_ be created to a dependent target resource, if the target already exists.

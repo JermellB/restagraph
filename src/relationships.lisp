@@ -61,7 +61,7 @@
                (error 'integrity-error :message message)))
             ;; 1:1 dependent relationship
             ((and
-               (dependent relationship-attrs)
+               (equal "dependent" (reltype relationship-attrs))
                (or
                  (equal (cardinality relationship-attrs) "1:1")
                  (equal (cardinality relationship-attrs) "1:many")))
@@ -189,7 +189,7 @@
       ;; Would this orphan a dependent resource at the end of the relationship,
       ;; by removing its last parent?
       ((and
-         (dependent relationship-attrs)
+         (equal "dependent" (reltype relationship-attrs))
          ;; Would this be the last parent?
          ;; Test by checking for other incoming dependent relationships.
          ;; If there's one or more, we're good to go.
@@ -213,11 +213,12 @@
                                   nil
                                   "Checking for dependencies in incoming relationship ~A from type ~A"
                                   (cdr (assoc "type" inc)) (car (cdr (assoc "labels" inc)))))
-                              (dependent
-                                (get-relationship schema
-                                                  dest-type
-                                                  (cdr (assoc "type" inc))
-                                                  (car (cdr (assoc "labels" inc))))))
+                              (equal "dependent"
+                                     (reltype
+                                       (get-relationship schema
+                                                         dest-type
+                                                         (cdr (assoc "type" inc))
+                                                         (car (cdr (assoc "labels" inc)))))))
                           others)))))
        (error 'integrity-error
               :message "This would leave an orphan dependent resource. Delete the dependent resource instead."))

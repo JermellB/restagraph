@@ -125,35 +125,35 @@ Check all the characteristics of a `People` resource, to see what else you can r
           "name": "DIRECTED",
           "target-type": "Movie",
           "cardinality": "many:many",
-          "dependent": null,
+          "reltype": "any",
           "description": "This person directed that movie, possibly in conjunction with other people."
         },
         {
           "name": "MEMBER_OF",
           "target-type": "Organisations",
           "cardinality": "many:many",
-          "dependent": null,
+          "reltype": "any",
           "description": "Denotes membership of an organisation. Counterpart to /Organisations/MEMBERS/People."
         },
         {
           "name": "PERFORMED",
           "target-type": "Role",
           "cardinality": "many:many",
-          "dependent": null,
+          "reltype": "any",
           "description": "This person performed that role. It's possible that they shared this role with other people."
         },
         {
           "name": "PRONOUNS",
           "target-type": "Pronouns",
           "cardinality": "many:many",
-          "dependent": null,
+          "reltype": "any",
           "description": "She/her, they/them, he/him and whatever others you choose to add. These are defined as a separate resourcetype partly because some people accept more than one set, and partly to make it easier to add more as necessary."
         },
         {
           "name": "WROTE",
           "target-type": "Movie",
           "cardinality": "many:many",
-          "dependent": null,
+          "reltype": "any",
           "description": "This person wrote that movie, possibly in conjunction with other people."
         }
       ]
@@ -215,21 +215,21 @@ OK, so what can we find out about movies? What does the schema say we can record
         "name": "CONTAINS",
         "target-type": "Role",
         "cardinality": "1:many",
-        "dependent": true,
+        "reltype": "dependent",
         "description": "That role exists in the context of this movie, and thus depends on this movie for its existence. One movie may contain many roles, but each role is specific to that movie, even if it corresponds to a role in a different movie, hence the 1:many cardinality."
       },
       {
         "name": "DIRECTED_BY",
         "target-type": "People",
         "cardinality": "many:many",
-        "dependent": null,
+        "reltype": "any",
         "description": "This movie was directed by that person, possibly in conjunction with others."
       },
       {
         "name": "WRITTEN_BY",
         "target-type": "People",
         "cardinality": "many:many",
-        "dependent": null,
+        "reltype": "any",
         "description": "This movie was written by that person, possibly along with others."
       }
     ]
