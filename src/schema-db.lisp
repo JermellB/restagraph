@@ -603,8 +603,11 @@
             :name (cdr (assoc :NAME rel))
             :source-type (cdr (assoc :SOURCE-TYPE rel))
             :target-type (cdr (assoc :TARGET-TYPE rel))
-            :cardinality (cdr (assoc :CARDINALITY rel))
-            :reltype (cdr (assoc :RELTYPE rel))
+            :cardinality (or (cdr (assoc :CARDINALITY rel))
+                             "many:many")
+            ;; Default to reltype "any"
+            :reltype (or (cdr (assoc :RELTYPE rel))
+                         "any")
             :description (cdr (assoc :DESCRIPTION rel))))
       (cdr (assoc :RELATIONSHIPS schema-alist)))))
 
