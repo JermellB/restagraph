@@ -491,13 +491,13 @@
   "Error conditions around creating/moving dependent resources"
   (let* ((child1-type (restagraph::make-incoming-rtypes :name "Models"
                                                         :dependent t))
+         (child1-uid "Synthetics")
          (parent1-type (restagraph::make-incoming-rtypes :name "Makes"))
          (parent1-rel (restagraph::make-incoming-rels :name "PRODUCES"
                                                       :source-type (restagraph::name parent1-type)
                                                       :target-type (restagraph::name child1-type)
                                                       :reltype "dependent"
                                                       :cardinality "1:many"))
-         (child1-uid "Synthetics")
          (parent1-uid "Weyland-Yutani")
          (bad-parent1-type (restagraph::make-incoming-rtypes :name "NewGroups"))
          (bad-parent1-uid "Replicants")
@@ -532,6 +532,15 @@
                 (restagraph::name child1-type))
         `(("uid" . ,child1-uid))
         *admin-user*)
+      ;; Confirm the child is there
+      (fiveam:is (restagraph::get-resources
+                   session
+                   (format nil "/~A/~A/~A/~A/~A"
+                           (restagraph::name parent1-type)
+                           parent1-uid
+                           (restagraph::name parent1-rel)
+                           (restagraph::name child1-type)
+                           child1-uid)))
       ;; Create the infeasible parent
       (restagraph::store-resource session
                                   schema
