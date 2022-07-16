@@ -486,6 +486,133 @@
     (neo4cl:disconnect session)))
 
 (fiveam:test
+  resources-dependent-single-parent
+  :depends-on 'resources-dependent-simple
+  "Ensure dependent resources can only have a single parent."
+  (let* ((child1-type (restagraph::make-incoming-rtypes :name "Models"
+                                                        :dependent t))
+         (child1-uid "Synthetics")
+         (parent1-type (restagraph::make-incoming-rtypes :name "Makes"))
+         (parent1-rel (restagraph::make-incoming-rels :name "PRODUCES"
+                                                      :source-type (restagraph::name parent1-type)
+                                                      :target-type (restagraph::name child1-type)
+                                                      :reltype "dependent"
+                                                      :cardinality "1:many"))
+         (parent1-uid "Weyland-Yutani")
+         (parent2-uid "Tyrell")
+         (session (neo4cl:establish-bolt-session *bolt-server*))
+         (schema-version (restagraph::create-new-schema-version session)))
+    (restagraph::log-message :info ";TEST Create the fixtures")
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema session restagraph::*core-schema* schema-version)
+    ;; Add the test-specific resources and relationships
+    (restagraph::install-subschema-resourcetype session child1-type schema-version)
+    (restagraph::install-subschema-resourcetype session parent1-type schema-version)
+    (restagraph::install-subschema-relationship session parent1-rel schema-version)
+    ;; Fetch the updated schema definition and start the tests
+    (let ((schema (restagraph::fetch-current-schema session)))
+      ;; Install the default resources
+      (restagraph::install-default-resources session)
+      ;; Create the feasible parent
+      (restagraph::store-resource session
+                                  schema
+                                  (restagraph::name parent1-type)
+                                  `(("uid" . ,parent1-uid))
+                                  *admin-user*)
+      ;; Create the child
+      (restagraph::store-dependent-resource
+        session
+        schema
+        (format nil "/~A/~A/~A/~A"
+                (restagraph::name parent1-type)
+                parent1-uid
+                (restagraph::name parent1-rel)
+                (restagraph::name child1-type))
+        `(("uid" . ,child1-uid))
+        *admin-user*)
+      ;; Confirm the child is there
+      (fiveam:is (restagraph::get-resources
+                   session
+                   (format nil "/~A/~A/~A/~A/~A"
+                           (restagraph::name parent1-type)
+                           parent1-uid
+                           (restagraph::name parent1-rel)
+                           (restagraph::name child1-type)
+                           child1-uid)))
+      ;; Create the new parent
+      (restagraph::store-resource session
+                                  schema
+                                  (restagraph::name parent1-type)
+                                  `(("uid" . ,parent2-uid))
+                                  *admin-user*)
+      ;; Fail to add a duplicate parent-child relationship
+      (fiveam:signals
+        restagraph::integrity-error
+        (restagraph::create-relationship-by-path
+          session
+          (format nil "/~A/~A/~A"
+                  (restagraph::name parent1-type)
+                  parent2-uid
+                  (restagraph::name parent1-rel))
+          (format nil "/~A/~A/~A/~A/~A"
+                  (restagraph::name parent1-type)
+                  parent1-uid
+                  (restagraph::name parent1-rel)
+                  (restagraph::name child1-type)
+                  child1-uid)
+          schema))
+      ;; Move the child to the new parent
+      (fiveam:is
+        (null
+          (restagraph::move-dependent-resource
+            session
+            schema
+            (format nil "/~A/~A/~A/~A/~A"
+                    (restagraph::name parent1-type)
+                    parent1-uid
+                    (restagraph::name parent1-rel)
+                    (restagraph::name child1-type)
+                    child1-uid)
+            (format nil "/~A/~A/~A"
+                    (restagraph::name parent1-type)
+                    parent2-uid
+                    (restagraph::name parent1-rel)))))
+      ;; Confirm the child is now reachable under the new parent
+      (fiveam:is (restagraph::get-resources
+                   session
+                   (format nil "/~A/~A/~A/~A/~A"
+                           (restagraph::name parent1-type)
+                           parent2-uid
+                           (restagraph::name parent1-rel)
+                           (restagraph::name child1-type)
+                           child1-uid)))
+      ;; Confirm the child is no longer reachable under the previous parent
+      (fiveam:is
+        (null
+          (restagraph::get-resources
+            session
+            (format nil "/~A/~A/~A/~A/~A"
+                    (restagraph::name parent1-type)
+                    parent1-uid
+                    (restagraph::name parent1-rel)
+                    (restagraph::name child1-type)
+                    child1-uid))))
+      ;; Clean up
+      (restagraph::log-message :info ";TEST Delete the fixtures")
+      (restagraph::delete-resource-by-path
+        session
+        (format nil "/~A/~A" (restagraph::name parent1-type) parent1-uid)
+        schema
+        :recursive t)
+      (restagraph::delete-resource-by-path
+        session
+        (format nil "/~A/~A" (restagraph::name parent1-type) parent2-uid)
+        schema
+        :recursive t)
+      (restagraph::delete-schema-version session schema-version)
+      (neo4cl:disconnect session))))
+
+(fiveam:test
   resources-dependent-errors
   :depends-on 'resources-dependent-simple
   "Error conditions around creating/moving dependent resources"

@@ -416,6 +416,7 @@ class TestRelationshipsBasic(unittest.TestCase):
         response = requests.delete('%s/People/%s/MEMBER_OF' % (API_BASE_URL, self.person1),
                                    data={'target': '/Tags/%s' % (self.tag1)})
         assert response.status_code == 400
+        # pylint: disable=line-too-long
         assert response.text == "Client error: There is no relationship between these resource-types. Are you sure there's something here to delete?"
         # Teardown
         assert requests.delete('%s/Tags/%s' % (API_BASE_URL, self.tag1)).status_code == 204
@@ -705,6 +706,7 @@ class TestDependentResources(unittest.TestCase):
     depres1uid = "Hangar"
     depres1attr1 = "description"
     depres1parentrel = "IN_BUILDING"
+    res2uid = "ResidenceOne"
     depres2rel = "ROOMS"
     depres2type = "Rooms"
     depres2uid = "Toolshed"
@@ -741,11 +743,12 @@ class TestDependentResources(unittest.TestCase):
                                                  self.depres1type),
                              data={"uid": self.depres1uid}).status_code == 201
         # Confirm the dependent resource is there
-        assert requests.get('%s/%s/%s/%s/%s' % (API_BASE_URL,
-                                                self.res1type,
-                                                self.depres1rel,
-                                                self.depres1type,
-                                                self.depres1uid)).status_code == 200
+        assert requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                   self.res1type,
+                                                   self.res1uid,
+                                                   self.depres1rel,
+                                                   self.depres1type,
+                                                   self.depres1uid)).status_code == 200
         # Confirm the dependent resource can't be fetched directly
         assert requests.get('%s/%s/%s' % (API_BASE_URL,
                                           self.depres1type,
@@ -784,8 +787,8 @@ class TestDependentResources(unittest.TestCase):
         # Clean up the schema we added
         versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
         requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
-    # Check for recursive deletion, from the parent down 1 level.
     def test_dependent_resourcetypes_recursive_1(self):
+        "Check for recursive deletion, from the parent down 1 level."
         # Add the test schema
         requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
         # Create the parent resource
@@ -821,10 +824,12 @@ class TestDependentResources(unittest.TestCase):
         # Clean up the schema we added
         versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
         requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
-    # Create a grandchild resource, and check recursive deletion from the parent.
-    # - check for orphaned grandchildren.
-    # Check for recursive deletion, from the parent down 2 levels.
     def test_dependent_resourcetypes_recursive_2(self):
+        """
+        Create a grandchild resource, and check recursive deletion from the parent.
+        - check for orphaned grandchildren.
+        - check for recursive deletion, from the parent down 2 levels.
+        """
         # Add the test schema
         requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
         # Create the parent resource
@@ -886,6 +891,68 @@ class TestDependentResources(unittest.TestCase):
         versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
         requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
         ## Test failure modes
+    def test_dependent_resourcetype_parent_restrictions(self):
+        """
+        Confirm that the server prevents a dependent resource having two parents
+        via the same relationship.
+        """
+        # Add the test schema
+        requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
+        # Create the parent resource
+        requests.post('%s/%s' % (API_BASE_URL, self.res1type), data={"uid": self.res1uid})
+        # Create the dependent resource
+        assert requests.post('%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                 self.res1type,
+                                                 self.res1uid,
+                                                 self.depres1rel,
+                                                 self.depres1type),
+                             data={"uid": self.depres1uid}).status_code == 201
+        # Add the new parent resource
+        requests.post('%s/%s' % (API_BASE_URL, self.res1type), data={"uid": self.res2uid})
+        # Fail to add a duplicate dependent relationship from the new parent
+        assert requests.post('%s/%s/%s/%s' % (API_BASE_URL,
+                                              self.res1type,
+                                              self.res2uid,
+                                              self.depres1rel),
+                             data={"target": '/%s/%s/%s/%s/%s' % (self.res1type,
+                                                                  self.res1uid,
+                                                                  self.depres1rel,
+                                                                  self.depres1type,
+                                                                  self.depres1uid)}).status_code == 409
+        # Move the child to the new parent
+        assert requests.post('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                    self.res1type,
+                                                    self.res1uid,
+                                                    self.depres1rel,
+                                                    self.depres1type,
+                                                    self.depres1uid),
+                             data={"target": '/%s/%s/%s' % (self.res1type,
+                                                            self.res2uid,
+                                                            self.depres1rel)}).status_code == 201
+        # Confirm that the child is now accessible via the new parent
+        assert requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                   self.res1type,
+                                                   self.res2uid,
+                                                   self.depres1rel,
+                                                   self.depres1type,
+                                                   self.depres1uid)).status_code == 200
+        # Confirm that the child is *not* accessible via the *old* parent
+        assert requests.get('%s/%s/%s/%s/%s/%s' % (API_BASE_URL,
+                                                   self.res1type,
+                                                   self.res1uid,
+                                                   self.depres1rel,
+                                                   self.depres1type,
+                                                   self.depres1uid)).status_code == 404
+        # Remove both parents, recursively to ensure the child is gone
+        assert requests.delete('%s/%s/%s?recursive=true' % (API_BASE_URL,
+                                                            self.res1type,
+                                                            self.res1uid)).status_code == 204
+        assert requests.delete('%s/%s/%s?recursive=true' % (API_BASE_URL,
+                                                            self.res1type,
+                                                            self.res2uid)).status_code == 204
+        # Clean up the schema we added
+        versions = requests.get('%s?version=list' % (SCHEMA_BASE_URL)).json()
+        requests.delete('%s?version=%s' % (SCHEMA_BASE_URL, versions['current-version']))
     def test_dependent_resourcetypes_failures(self):
         # Add the test schema
         requests.post(SCHEMA_BASE_URL, files={'schema': open('test_schema.json', 'rb')}, data={'create': 'true'})
@@ -944,7 +1011,8 @@ class TestDependentResources(unittest.TestCase):
     # Check that `recursive=true` _only_ deletes dependent resources,
     # and _doesn't_ go on a rampage.
     # Check that _only_ dependent resources can be created with a dependent relationship.
-    # Check that dependent relationships _cannot_ be created to existing resources, whether dependent or not. Positively confirm both cases.
+    # Check that dependent relationships _cannot_ be created to existing resources, whether dependent or not.
+    # Positively confirm both cases.
     # Check that the `recursive` parameter really does work in both GET- and POST-styles.
 
 @pytest.mark.dependency(["TestSchemaUpdates::test_schema_upload"])
