@@ -231,6 +231,8 @@ Return an error if
                        uri newparent))
   (let* ((uri-parts (get-uri-parts uri))
          (dest-parts (get-uri-parts newparent))
+         ;; Reassemble the parent path by removing the dependent resource from the source path.
+         ;; This is so we can delete this relationship after creating the new one.
          (current-parent-path (uri-node-helper (butlast uri-parts 3)
                                                :path ""
                                                :marker "b"))
