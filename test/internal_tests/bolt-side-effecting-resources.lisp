@@ -854,6 +854,290 @@
     (neo4cl:disconnect session)))
 
 (fiveam:test
+  resources-dependent-canonicalised
+  :depends-on 'resources-dependent-moving
+  "Confirm that canonicalisation works as expected."
+  (let* ((res1type (restagraph::make-incoming-rtypes :name "Factories"))
+         (res1uid "Fac1")
+         (res2typename "People")
+         (res2uid "George")
+         (rel1 (restagraph::make-incoming-rels :source-type "People"
+                                               :name "OWNS"
+                                               :target-type "Factories"
+                                               :reltype "any"
+                                               :cardinality "many:many"))
+         (depres1type (restagraph::make-incoming-rtypes :name "Robots"
+                                                        :dependent t))
+         (depres1uid "Bender")
+         (deprel1 (restagraph::make-incoming-rels :source-type "Factories"
+                                                  :name "CONTAINS"
+                                                  :target-type "Robots"
+                                                  :reltype "dependent"
+                                                  :cardinality "1:many"))
+         (depres2type (restagraph::make-incoming-rtypes :name "Components"
+                                                        :dependent t))
+         (depres2uid "PowerCable")
+         (deprel2 (restagraph::make-incoming-rels :source-type "Robots"
+                                                  :name "HAS"
+                                                  :target-type "Components"
+                                                  :reltype "dependent"
+                                                  :cardinality "many:many"))
+         (session (the neo4cl::bolt-session (neo4cl:establish-bolt-session *bolt-server*)))
+         (schema-version (restagraph::create-new-schema-version session)))
+    ;; Set up the fixtures
+    (restagraph::log-message :info ";TEST Set up the fixtures")
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema session restagraph::*core-schema* schema-version)
+    ;; Install the new resourcetypes and relationship
+    (restagraph::install-subschema-resourcetype session res1type schema-version)
+    (restagraph::install-subschema-relationship session rel1 schema-version)
+    (restagraph::install-subschema-resourcetype session depres1type schema-version)
+    (restagraph::install-subschema-relationship session deprel1 schema-version)
+    (restagraph::install-subschema-resourcetype session depres2type schema-version)
+    (restagraph::install-subschema-relationship session deprel2 schema-version)
+    (let ((schema (the hash-table (restagraph::fetch-current-schema session))))
+      ;; Fail on targets with the wrong lengths
+      (fiveam:signals error (restagraph::canonicalise-path schema '() '()))
+      (fiveam:signals error (restagraph::canonicalise-path schema '() '("foo")))
+      (fiveam:signals error (restagraph::canonicalise-path schema '() '("foo" "bar" "baz")))
+      (fiveam:signals error (restagraph::get-canonical-path session schema '("foo" "bar" "baz")))
+      ;; Fail on paths with invalid lengths
+      (fiveam:signals error (restagraph::canonicalise-path schema '("eenie") '("foo" "bar")))
+      (fiveam:signals error (restagraph::canonicalise-path schema '("eenie" "meenie") '("foo" "bar")))
+      ;; Validate a basic path to a primary resource
+      (fiveam:is
+        (equal (list (restagraph::name res1type) res1uid)
+               (restagraph::canonicalise-path
+                 schema
+                 '()
+                 (list (restagraph::name res1type) res1uid))))
+      ;; Fail to get the path to a primary resource that doesn't exist
+      (fiveam:signals
+        restagraph::client-error
+        (restagraph::get-canonical-path session
+                                        schema
+                                        (format nil "/~A/~A" (restagraph::name res1type) res1uid)))
+      ;; Create that resource, then succeed in getting its path
+      (restagraph::store-resource session
+                                  schema
+                                  (restagraph::name res1type)
+                                  `(("uid" . ,res1uid))
+                                  *admin-user*)
+      (fiveam:is
+        (equal (list (format nil "/~A/~A" (restagraph::name res1type) res1uid))
+               (restagraph::get-canonical-path
+                 session
+                 schema
+                 (format nil "/~A/~A" (restagraph::name res1type) res1uid))))
+      ;; Validate a simple path to a dependent resource
+      (fiveam:is
+        (equal (list (restagraph::name res1type)
+                     res1uid
+                     (restagraph::name deprel1)
+                     (restagraph::name depres1type)
+                     depres1uid)
+               (restagraph::canonicalise-path
+                 schema
+                 (list (restagraph::name res1type) res1uid (restagraph::name deprel1))
+                 (list (restagraph::name depres1type) depres1uid))))
+      ;; Fail to get the path to a dependent resource that doesn't exist
+      (fiveam:signals
+        restagraph::client-error
+        (restagraph::get-canonical-path
+          session
+          schema
+          (format nil "/~A/~A/~A/~A/~A"
+                  (restagraph::name res1type)
+                  res1uid
+                  (restagraph::name deprel1)
+                  (restagraph::name depres1type)
+                  depres1uid)))
+      ;; Create that resource, then succeed in getting its path
+      (restagraph::log-message :debug ";TEST Store dependent resource")
+      (restagraph::store-dependent-resource session
+                                            schema
+                                            (format nil "/~A/~A/~A/~A"
+                                                    (restagraph::name res1type)
+                                                    res1uid
+                                                    (restagraph::name deprel1)
+                                                    (restagraph::name depres1type))
+                                            `(("uid" . ,depres1uid))
+                                            *admin-user*)
+      (restagraph::log-message :debug ";TEST Fetch dependent resource")
+      (fiveam:is
+        (equal (list (format nil "/~A/~A/~A/~A/~A" (restagraph::name res1type)
+                             res1uid
+                             (restagraph::name deprel1)
+                             (restagraph::name depres1type)
+                             depres1uid))
+               (restagraph::get-canonical-path
+                 session
+                 schema
+                 (format nil "/~A/~A/~A/~A/~A"
+                         (restagraph::name res1type)
+                         res1uid
+                         (restagraph::name deprel1)
+                         (restagraph::name depres1type)
+                         depres1uid))))
+      ;; Validate a chain of dependent resources
+      (restagraph::log-message :debug ";TEST Validate a chain of dependent resources")
+      (fiveam:is
+        (equal (list (restagraph::name res1type)
+                     res1uid
+                     (restagraph::name deprel1)
+                     (restagraph::name depres1type)
+                     depres1uid
+                     (restagraph::name deprel2)
+                     (restagraph::name depres2type)
+                     depres2uid)
+               (restagraph::canonicalise-path
+                 schema
+                 (list (restagraph::name res1type) res1uid (restagraph::name deprel1)
+                       (restagraph::name depres1type) depres1uid (restagraph::name deprel2))
+                 (list (restagraph::name depres2type) depres2uid))))
+      ;; Fail to get the path to a doubly-dependent resource that doesn't exist
+      (fiveam:signals
+        restagraph::client-error
+        (restagraph::get-canonical-path
+          session
+          schema
+          (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
+                  (restagraph::name res1type)
+                  res1uid
+                  (restagraph::name deprel1)
+                  (restagraph::name depres1type)
+                  depres1uid
+                  (restagraph::name deprel2)
+                  (restagraph::name depres2type)
+                  depres2uid)))
+      ;; Create that resource, then succeed in getting its path
+      (restagraph::log-message :debug ";TEST Store doubly-dependent resource")
+      (restagraph::store-dependent-resource session
+                                            schema
+                                            (format nil "/~A/~A/~A/~A/~A/~A/~A"
+                                                    (restagraph::name res1type)
+                                                    res1uid
+                                                    (restagraph::name deprel1)
+                                                    (restagraph::name depres1type)
+                                                    depres1uid
+                                                    (restagraph::name deprel2)
+                                                    (restagraph::name depres2type))
+                                            `(("uid" . ,depres2uid))
+                                            *admin-user*)
+      (restagraph::log-message :debug ";TEST Fetch doubly-dependent resource")
+      (fiveam:is
+        (equal (list (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
+                             (restagraph::name res1type)
+                             res1uid
+                             (restagraph::name deprel1)
+                             (restagraph::name depres1type)
+                             depres1uid
+                             (restagraph::name deprel2)
+                             (restagraph::name depres2type)
+                             depres2uid))
+               (restagraph::get-canonical-path
+                 session
+                 schema
+                 (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
+                         (restagraph::name res1type)
+                         res1uid
+                         (restagraph::name deprel1)
+                         (restagraph::name depres1type)
+                         depres1uid
+                         (restagraph::name deprel2)
+                         (restagraph::name depres2type)
+                         depres2uid))))
+      ;; Validate a more indirect path to a dependent resource
+      (restagraph::log-message :debug ";TEST Validate a more indirect path to a dependent resource")
+      (fiveam:is
+        (equal (list (restagraph::name res1type)
+                     res1uid
+                     (restagraph::name deprel1)
+                     (restagraph::name depres1type)
+                     depres1uid)
+               (restagraph::canonicalise-path
+                 schema
+                 (list
+                   res2typename
+                   res2uid
+                   (restagraph::name rel1)
+                   (restagraph::name res1type)
+                   res1uid
+                   (restagraph::name deprel1))
+                 (list (restagraph::name depres1type) depres1uid))))
+      ;; Fail to get a nonexistent indirect path to a dependent resource
+      (fiveam:signals
+        restagraph::client-error
+        (restagraph::get-canonical-path
+          session
+          schema
+          (format nil "/~A/~A/~A/~A/~A/~A/~A/~A"
+                  res2typename
+                  res2uid
+                  (restagraph::name rel1)
+                  (restagraph::name res1type)
+                  res1uid
+                  (restagraph::name deprel1)
+                  (restagraph::name depres1type)
+                  depres1uid)))
+      ;; Create the head of that path, then succeed in getting its path
+      (restagraph::log-message :debug ";TEST Store indirect path")
+      (restagraph::store-resource session
+                                  schema
+                                  res2typename
+                                  `(("uid" . ,res2uid))
+                                  *admin-user*)
+      (restagraph::create-relationship-by-path
+        session
+        (format nil "/~A/~A/~A"
+                res2typename
+                res2uid
+                (restagraph::name rel1))
+        (format nil "/~A/~A"
+                (restagraph::name res1type)
+                res1uid)
+        schema)
+      (restagraph::log-message :debug ";TEST Fetch dependent resource")
+      (fiveam:is
+        (equal (list (format nil "/~A/~A/~A/~A/~A" (restagraph::name res1type)
+                             res1uid
+                             (restagraph::name deprel1)
+                             (restagraph::name depres1type)
+                             depres1uid))
+               (restagraph::get-canonical-path
+                 session
+                 schema
+                 (format nil "/~A/~A/~A/~A/~A"
+                         (restagraph::name res1type)
+                         res1uid
+                         (restagraph::name deprel1)
+                         (restagraph::name depres1type)
+                         depres1uid))))
+      ;; Clean up the resources we created
+      (restagraph::log-message :debug ";TEST Clean up the resources for this test")
+      (restagraph::delete-resource-by-path session
+                                           (format nil "/~A/~A" (restagraph::name res1type) res1uid)
+                                           schema
+                                           :recursive t)
+      (restagraph::delete-resource-by-path session
+                                           (format nil "/~A/~A" res2typename res2uid)
+                                           schema
+                                           :recursive t)
+      (restagraph::delete-resource-by-path session
+                                           (format nil "/~A/~A/~A/~A/~A"
+                                                   (restagraph::name res1type)
+                                                   res1uid
+                                                   (restagraph::name deprel1)
+                                                   (restagraph::name depres1type)
+                                                   depres1uid)
+                                           schema
+                                           :recursive t)
+      ;; Remove the temporary schema-version
+      (restagraph::delete-schema-version session schema-version))
+    ;; Clean up the session
+    (neo4cl:disconnect session)))
+
+(fiveam:test
   resources-multiple
   :depends-on 'resources-basic
   "Confirm we can retrieve all resources of a given type"

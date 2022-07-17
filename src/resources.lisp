@@ -105,6 +105,115 @@ Return an error if
                     (error 'client-error :message text)))))))))))
 
 
+(defun canonicalise-path (schema path target &optional acc)
+  "Check the supplied path against the schema, to find the subset of it that represents a valid
+   canonical path to a dependent resource.
+   - `target` is a 2-element list of strings, representing its resourcetype and UID, in that order.
+   - `path` is a list of strings representing the `/type/uid/relationship` path to the target,
+   and it must be 0 modulo 3 in order to be valid."
+  (declare (type hash-table schema)
+           (type list path target acc))
+  (log-message
+    :debug
+    (format nil "Checking canonical path for target /~A/~A, with path ~{/~A~} and accumulator ~{/~A~}."
+            (first target) (second target) path acc))
+  ;; Extract the type, UID and relationship for the immediate parent
+  (let* ((parts (last path 3))
+         (parent-rtype (first parts))
+         (parent-uid (second parts))
+         (relationship (third parts))
+         ;; Also pull the resourcetype definition for the parent, from the in-memory schema.
+         (parent-typedef (gethash parent-rtype schema)))
+      (log-message :debug (format nil "Checking relationship /~A/~A/~A."
+                                  parent-rtype relationship (first target)))
+    (cond
+      ;; Lead with the sanity checks
+      ((not (= 2 (length target)))
+       (error "Invalid target; its length should be 2."))
+      ((not (= 0 (mod (length path) 3)))
+       (error "Invalid path; its length should be an integer multiple of 3."))
+      ;; Is this a primary resource?
+      ((and (null parts)
+            (not (dependent (gethash (first target) schema))))
+       (log-message :debug "Primary resource identified.")
+       target)
+      ;; Is this a direct path to a dependent resource?
+      ((null parts)
+       (error "Direct path to a dependent resource. This is not valid."))
+      ;; Is this relationship dependent?
+      ;; If not, this isn't a viable candidate, and we can stop here.
+      ((not (equal "dependent"
+                   (reltype (get-relationship schema
+                                              parent-rtype
+                                              relationship
+                                              (first target)))))
+       ;; Explicitly return `nil
+       nil)
+      ;; Have we reached the root?
+      ((not (dependent parent-typedef))
+       ;; If so, assemble the path and return it.
+       (append parts target acc))
+      ;; If we got here, it's a dependent relationship from a dependent resourcetype.
+      ;; Thus, it's another element in the path.
+      ;; It's recursin' time!
+      (t
+       (canonicalise-path
+         schema
+         (butlast path 3)
+         (list parent-rtype parent-uid)
+         (append (list relationship) target acc))))))
+
+
+(defgeneric get-canonical-path (db schema path)
+  (:documentation "Get the canonical URI path(s) to a resource.
+                   Canonical means that it starts with a primary resource, and follows only dependent
+                   relationships to the target, thus representing its identity.
+                   Returns a list of strings, which should have a maximum length of 1."))
+
+(defmethod get-canonical-path ((db neo4cl:bolt-session)
+                               (schema hash-table)
+                               (path string))
+  (let* ((uri-parts (get-uri-parts path))
+         (target-type (gethash (car (last uri-parts 2)) schema)))
+    ;; Is it a primary or dependent type?
+    (cond
+      ;; Is it a valid path to a resource?
+      ((not (= 2 (mod (length uri-parts) 3)))
+       (error 'client-error :message "This is not a valid path to a single resource."))
+      ;; Does it even exist?
+      ((not (get-resources db path))
+       (error 'client-error :message "The requested resource does not exist."))
+      ;;
+      ;; It's a primary resourcetype.
+      ((and (not (dependent target-type))
+            (canonicalise-path schema
+                              '()
+                              (list (car (last uri-parts 2)) (car (last uri-parts)))))
+       ;; Return the resource's path, discarding any indirection that precedes it
+       ;; in the supplied path.
+       ;; I.e, if the path follows several relationships to eventually reach a primary resource,
+       ;; just return the resource at the end of that path.
+       (list (format nil "/~A/~A" (name target-type) (car (last uri-parts)))))
+      ;;
+      ;; If we got here, it's a valid dependent type.
+      ;; Now we go forensic on its ass.
+      (t
+        ;; First, trace backwards along the supplied path, and check whether it includes
+        ;; a canonical path.
+        (let ((acc (canonicalise-path
+                     schema
+                     (butlast uri-parts 2)
+                     (last uri-parts 2))))
+          ;; This strategy takes into account the fact that Neo4j will exclude the MATCH path
+          ;; from the list of inbound connections to the target resource, when assembling its
+          ;; return value:
+          ;; The obvious approach is to use a single Cypher query, but that won't work because we
+          ;; need to check whether each resource and relationship on the path is a dependent one.
+          ;; Second, trace backwards along the supplied path, checking for other branches
+          ;; that produce canonical paths.
+          (list (format nil "~{/~A~}" acc)))))))
+
+
 (defgeneric store-dependent-resource (db schema uri attributes creator-uid)
   (:documentation "Create a dependent resource, at the end of the path given by URI. Its parent resource must exist, and the relationship must be a valid dependent relationship."))
 
