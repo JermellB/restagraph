@@ -260,12 +260,12 @@
     :readonly ,(readonly obj)))
 
 
-(defgeneric get-attribute (attr attr-name)
+(defgeneric get-attribute (rtype attr-name)
   (:documentation "Fetch the attribute with a given name, from a schema-rtypes instance. Return a `schema-rtype-attrs` instance if it's present, or NIL otherwise."))
 
-(defmethod get-attribute ((attr schema-rtypes) (attr-name string))
+(defmethod get-attribute ((rtype schema-rtypes) (attr-name string))
   (find-if #'(lambda (att) (equal attr-name (name att)))
-           (attributes attr)))
+           (attributes rtype)))
 
 
 (defclass schema-rels ()
