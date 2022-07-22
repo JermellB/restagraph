@@ -59,14 +59,9 @@
                              relationship source-type dest-type)))
                (log-message :debug message)
                (error 'integrity-error :message message)))
-            ;; 1:1 dependent relationship
-            ((and
-               (equal "dependent" (reltype relationship-attrs))
-               (or
-                 (equal (cardinality relationship-attrs) "1:1")
-                 (equal (cardinality relationship-attrs) "1:many")))
-             (let ((message (format nil "~A dependency. Either move the relationship or create a new dependent resource."
-                                    (cardinality relationship-attrs))))
+            ;; Dependent relationship
+            ((equal "dependent" (reltype relationship-attrs))
+             (let ((message "Refusing to create a dependent relationship. Either move the relationship or create a new dependent resource."))
                (log-message :debug message)
                (error 'integrity-error :message message)))
             ;; Are we trying to create a duplicate?
