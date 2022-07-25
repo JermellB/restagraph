@@ -120,8 +120,19 @@ Return an error if
          (parent-type (nth (- (length parent-parts) 2) parent-parts))
          (dest-type (car (last uri-parts)))
          (dest-uid (sanitise-uid (cdr (assoc "uid" attributes :test 'equal))))
-         (relationship-attrs (get-relationship schema parent-type relationship dest-type)))
-    (log-message :debug "Beginning sanity checks")
+         (relationship-attrs (get-relationship schema parent-type relationship dest-type))
+         (validated-attributes
+           (validate-resource-before-creating
+             schema
+             dest-type
+             (remove-if #'(lambda (param) (equal (car param) "type"))
+                        attributes)))
+         (resource-path
+           (format nil "~{/~A~}/~A/~A/~A"
+                   parent-parts
+                   relationship
+                   dest-type
+                   (cdr (assoc "uid" validated-attributes :test #'string=)))))
     (cond
       ;; Sanity check: required parameters
       ((not dest-uid)
@@ -151,72 +162,59 @@ Return an error if
        (let ((message "This is not a dependent resource type"))
          (log-message :debug message)
          (error 'client-error :message message)))
-      ;; Passed the initial sanity-checks; try to create it.
-      (t
-        (log-message :debug "Sanity checks passed. Attempting to create the resource.")
-        ;; Validate the supplied attributes
-        (let* ((validated-attributes
-                 (validate-resource-before-creating
-                   schema
-                   dest-type
-                   (remove-if #'(lambda (param) (equal (car param) "type"))
-                              attributes)))
-               (resource-path
-                 (format nil "~{/~A~}/~A/~A/~A"
-                         parent-parts
-                         relationship
-                         dest-type
-                         (cdr (assoc "uid" validated-attributes :test #'string=)))))
-          ;; Report on the attributes for debugging
-          (log-message :debug (format nil "Validated attributes: ~A" validated-attributes))
-          ;; One more sanity-check: does it already exist?
-          (if (null (get-resources db resource-path))
-            ;; Cardinality checks: would this violate 1:1 or many:1 constraints?
-            (if
-              (and
-                (or
-                  (equal (cardinality relationship-attrs) "1:1")
-                  (equal (cardinality relationship-attrs) "many:1"))
-                ;; Look for this parent having this relationship with any other dependent resource
-                (>
-                  (cdr (assoc "count"
-                              (car (neo4cl:bolt-transaction-autocommit
-                                     db
-                                     (format nil "MATCH ~A<-[r {dependent: 'true'}]-() RETURN count(r)"
-                                             (uri-node-helper parent-parts
-                                                              :path ""
-                                                              :marker "n"))))
-                              :test #'equal))
-                  0))
-              (error 'integrity-error :message
-                     (format nil"~{~A~^/~} already has a ~A ~A relationship with a resource of type ~A"
-                             parent-parts
-                             (cardinality relationship-attrs)
-                             relationship
-                             dest-type))
-              ;; Constraints are fine; create it
-              (let ((params (append validated-attributes
-                                    `(("createddate" . ,(get-universal-time))
-                                      ("RGcreator_uid" . ,creator-uid)))))
-                (neo4cl:bolt-transaction-autocommit
-                  db
-                  (format
-                    nil
-                    "MATCH ~A, (c:People {uid: $RGcreator_uid}) CREATE (n)-[:~A]->(:~A { ~A })-[:RG_CREATOR]->(c)"
-                    (uri-node-helper parent-parts
-                                     :path ""
-                                     :marker "n")
-                    relationship
-                    dest-type
-                    (format nil "~{~A: $~A~^, ~}"
-                            (let ((acc '()))
-                              (mapcar #'(lambda (param)
-                                          (push (car param) acc) (push (car param) acc))
-                                      params)
-                              acc)))
-                  :parameters params)))
-            ;; We already have one of these
-            (error 'integrity-error :message (format nil "Resource ~A already exists" resource-path))))))))
+      ;; Sanity check: if it's a 1:1 relationship,
+      ;; does the parent already have one with an instance of this type?
+      ((and (equal (cardinality relationship-attrs) "1:1")
+            ;; Look for this parent having this relationship with any other dependent resource
+            (get-resources db (format nil "~{/~A~}" (butlast uri-parts))))
+       #+(or)
+       ;; FIXME: this produces a Bolt deserialisation error under some circumstances.
+       (> (length
+            (cdr (assoc "count"
+                        (car (neo4cl:bolt-transaction-autocommit
+                               db
+                               (format nil "MATCH ~A<-[r:~A]-() RETURN count(r)"
+                                       (uri-node-helper parent-parts
+                                                        :path ""
+                                                        :marker "n")
+                                       relationship)))
+                        :test #'equal))
+            0))
+       (error 'integrity-error :message
+              (format nil"~{~A~^/~} already has a ~A ~A relationship with a resource of type ~A"
+                      parent-parts
+                      (cardinality relationship-attrs)
+                      relationship
+                      dest-type)))
+          ;; Duplicate prevention: does the target resource already exist?
+          ((get-resources db resource-path)
+           (error 'integrity-error :message (format nil "Resource ~A already exists" resource-path)))
+          ;; Passed the initial sanity-checks; try to create it.
+          (t
+            (log-message :debug "Sanity checks passed. Attempting to create the resource.")
+            ;; Report on the attributes for debugging
+            (log-message :debug (format nil "Validated attributes: ~A" validated-attributes))
+            ;; Constraints are fine; create it
+            (let ((params (append validated-attributes
+                                  `(("createddate" . ,(get-universal-time))
+                                    ("RGcreator_uid" . ,creator-uid)))))
+              (neo4cl:bolt-transaction-autocommit
+                db
+                (format
+                  nil
+                  "MATCH ~A, (c:People {uid: $RGcreator_uid}) CREATE (n)-[:~A]->(:~A { ~A })-[:RG_CREATOR]->(c)"
+                  (uri-node-helper parent-parts
+                                   :path ""
+                                   :marker "n")
+                  relationship
+                  dest-type
+                  (format nil "~{~A: $~A~^, ~}"
+                          (let ((acc '()))
+                            (mapcar #'(lambda (param)
+                                        (push (car param) acc) (push (car param) acc))
+                                    params)
+                            acc)))
+                :parameters params))))))
 
 
 (defgeneric move-dependent-resource (db schema uri newparent)
