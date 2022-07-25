@@ -561,19 +561,24 @@
 (defun make-incoming-rels (&key name
                                 source-type
                                 target-type
-                                (cardinality "many:many")
+                                cardinality
                                 (reltype "any")
                                 description)
   "Constructor function for incoming-rels"
-  (declare (type string name source-type target-type cardinality)
-           (type (or null string) description reltype))
-  (log-message :debug (format nil "Creating an incoming-rels instance for ~A from ~A to ~A"
-                              name source-type target-type))
-  (unless (member cardinality '("many:many" "many:1" "1:many" "1:1") :test #'equal)
+  (declare (type string name source-type target-type)
+           (type (or null string) description reltype cardinality))
+  (unless (or (null cardinality)
+              (member cardinality '("many:many" "many:1" "1:many" "1:1") :test #'equal))
     (error "Cardinality argument is not valid."))
-  (make-instance 'incoming-rels :name name
-                 :source-type source-type
-                 :target-type target-type
-                 :cardinality cardinality
-                 :reltype reltype
-                 :description description))
+  (let ((derived-cardinality (or cardinality
+                                 (if (equal "dependent" reltype)
+                                   "1:many"
+                                   "many:many"))))
+    (log-message :debug (format nil "Creating a ~A ~A incoming-rels instance for ~A from ~A to ~A"
+                                derived-cardinality reltype name source-type target-type))
+    (make-instance 'incoming-rels :name name
+                   :source-type source-type
+                   :target-type target-type
+                   :cardinality derived-cardinality
+                   :reltype reltype
+                   :description description)))
