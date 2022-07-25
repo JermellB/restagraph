@@ -589,12 +589,14 @@
                              :name "INTERFACES"
                              :reltype "dependent"
                              :source-type (restagraph::name parent-type)
-                             :target-type (restagraph::name child-type)))
+                             :target-type (restagraph::name child-type)
+                             :cardinality "1:many"))
          (child-relationship (restagraph::make-incoming-rels
                                :name "ADDRESSES"
                                :reltype "dependent"
                                :source-type (restagraph::name child-type)
-                               :target-type (restagraph::name grandchild-type)))
+                               :target-type (restagraph::name grandchild-type)
+                               :cardinality "1:many"))
          (parent-uid "marshall")
          (child-uid "eth0")
          (grandchild-uid "192.168.24.1")
@@ -694,17 +696,20 @@
                           :name "ADDRESSES"
                           :reltype "dependent"
                           :source-type (restagraph::name p1-type)
-                          :target-type (restagraph::name target-type)))
+                          :target-type (restagraph::name target-type)
+                          :cardinality "1:many"))
          (p2-target-rel (restagraph::make-incoming-rels
                           :name "ADDRESSES"
                           :reltype "dependent"
                           :source-type (restagraph::name p2-type)
-                          :target-type (restagraph::name target-type)))
+                          :target-type (restagraph::name target-type)
+                          :cardinality "1:many"))
          (p1-p2-rel (restagraph::make-incoming-rels
                       :name "INTERFACES"
                       :reltype "dependent"
                       :source-type (restagraph::name p1-type)
-                      :target-type (restagraph::name p2-type)))
+                      :target-type (restagraph::name p2-type)
+                      :cardinality "1:many"))
          (p1-uid "woomera")
          (p2-uid "eth2")
          (target-uid "172.20.0.1")
@@ -881,7 +886,7 @@
                                                   :name "HAS"
                                                   :target-type "Components"
                                                   :reltype "dependent"
-                                                  :cardinality "many:many"))
+                                                  :cardinality "1:many"))
          (session (the neo4cl::bolt-session (neo4cl:establish-bolt-session *bolt-server*)))
          (schema-version (restagraph::create-new-schema-version session)))
     ;; Set up the fixtures
@@ -1242,7 +1247,8 @@
            (restagraph::make-incoming-rels :name "INTERFACES"
                                            :reltype "dependent"
                                            :source-type (restagraph::name r1type)
-                                           :target-type (restagraph::name r2type)))
+                                           :target-type (restagraph::name r2type)
+                                           :cardinality "1:many"))
          (r1uid "upshot")
          (r1partial "upsh.*")
          (r2uid "eth1/41")

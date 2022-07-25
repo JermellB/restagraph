@@ -371,44 +371,53 @@
            (type integer schema-version))
   (log-message :debug (format nil "Attempting to create relationship (:~A)-[:~A]->(~A)"
                               (source-type rel) (name rel) (target-type rel)))
-  ;; Only create this relationship if it doesn't already exist
-  (if (get-relationship session (source-type rel) (name rel) (target-type rel))
-    (log-message :debug (format nil "Refusing to create duplicate relationship (:~A)-[:~A]->(~A)"
-                                (source-type rel) (name rel) (target-type rel)))
-    (let ((params `(("schemaversion" . ,schema-version)
-                    ("sourcetype" . ,(source-type rel))
-                    ("targettype" . ,(target-type rel))
-                    ("relname" . ,(name rel))
-                    ("reltype" . ,(reltype rel))
-                    ("description" . ,(or (description rel) :null))
-                    ("cardinality" . ,(cardinality rel))))
-          (query-string
-            ;; Special-case code for self-relationships.
-            ;; If the source-type and target-type are the same resource, Cypher will
-            ;; refuse to make two separate references to it.
-            (if (equal (source-type rel) (target-type rel))
-              "MATCH (r:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion { createddate: $schemaversion })-[:HAS]->(s:RgResourceType {name: $sourcetype})
-              CREATE (s)<-[:SOURCE]-(:RgRelationship {name: $relname, reltype: $reltype, description: $description, cardinality: $cardinality})-[:TARGET]->(s)"
-              ;; Normal case where the source and target types are different
-              "MATCH (r:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion { createddate: $schemaversion })-[:HAS]->(s:RgResourceType {name: $sourcetype}), (v)-[:HAS]->(t:RgResourceType {name: $targettype})
-              CREATE (s)<-[:SOURCE]-(:RgRelationship {name: $relname, reltype: $reltype, description: $description, cardinality: $cardinality})-[:TARGET]->(t)")))
-              ;; Debug logging, just in case
-              (log-message :debug (format nil "Installing relationship definition with this query:~%~A" query-string))
-              (log-message :debug (format nil "Using these parameters:~%~A" params))
-              ;; Fire ze missiles!
-              (handler-case
-                (neo4cl:bolt-transaction-autocommit session query-string :parameters params)
-                (neo4cl:client-error (e) (format nil "Neo4J client error ~A/~A - ~A"
-                                                 (neo4cl:category e) (neo4cl:title e) (neo4cl:message e)))
-                (neo4cl:transient-error (e) (log-message
-                                              :error
-                                              (format nil "Neo4J transient error ~A/~A - ~A"
-                                                      (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
-                (neo4cl:database-error (e) (log-message
-                                             :error
-                                             (format nil "Neo4J database error ~A/~A - ~A"
-                                                     (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
-                (error (e) (log-message :fatal (format nil "Unhandled error: ~A" e)))))))
+  (cond
+    ;; Dependent relationship with cardinality many:many or many:1
+    ((and (equal "dependent" (reltype rel))
+          (not (member (cardinality rel) '("1:1" "1:many") :test #'equal)))
+     (log-message
+       :warn
+       (format nil "Refusing to create dependent relationship (:~A)-[:~A]->(~A) with invalid cardinality ~A"
+               (source-type rel) (name rel) (target-type rel) (cardinality rel))))
+    ;; Only create this relationship if it doesn't already exist
+    ((get-relationship session (source-type rel) (name rel) (target-type rel))
+     (log-message :warn (format nil "Refusing to create duplicate relationship (:~A)-[:~A]->(~A)"
+                                (source-type rel) (name rel) (target-type rel))))
+    (t
+      (let ((params `(("schemaversion" . ,schema-version)
+                      ("sourcetype" . ,(source-type rel))
+                      ("targettype" . ,(target-type rel))
+                      ("relname" . ,(name rel))
+                      ("reltype" . ,(reltype rel))
+                      ("description" . ,(or (description rel) :null))
+                      ("cardinality" . ,(cardinality rel))))
+            (query-string
+              ;; Special-case code for self-relationships.
+              ;; If the source-type and target-type are the same resource, Cypher will
+              ;; refuse to make two separate references to it.
+              (if (equal (source-type rel) (target-type rel))
+                "MATCH (r:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion { createddate: $schemaversion })-[:HAS]->(s:RgResourceType {name: $sourcetype})
+                CREATE (s)<-[:SOURCE]-(:RgRelationship {name: $relname, reltype: $reltype, description: $description, cardinality: $cardinality})-[:TARGET]->(s)"
+                ;; Normal case where the source and target types are different
+                "MATCH (r:RgSchema {name: 'root'})-[:VERSION]->(v:RgSchemaVersion { createddate: $schemaversion })-[:HAS]->(s:RgResourceType {name: $sourcetype}), (v)-[:HAS]->(t:RgResourceType {name: $targettype})
+                CREATE (s)<-[:SOURCE]-(:RgRelationship {name: $relname, reltype: $reltype, description: $description, cardinality: $cardinality})-[:TARGET]->(t)")))
+                ;; Debug logging, just in case
+                (log-message :debug (format nil "Installing relationship definition with this query:~%~A" query-string))
+                (log-message :debug (format nil "Using these parameters:~%~A" params))
+                ;; Fire ze missiles!
+                (handler-case
+                  (neo4cl:bolt-transaction-autocommit session query-string :parameters params)
+                  (neo4cl:client-error (e) (format nil "Neo4J client error ~A/~A - ~A"
+                                                   (neo4cl:category e) (neo4cl:title e) (neo4cl:message e)))
+                  (neo4cl:transient-error (e) (log-message
+                                                :error
+                                                (format nil "Neo4J transient error ~A/~A - ~A"
+                                                        (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
+                  (neo4cl:database-error (e) (log-message
+                                               :error
+                                               (format nil "Neo4J database error ~A/~A - ~A"
+                                                       (neo4cl:category e) (neo4cl:title e) (neo4cl:message e))))
+                  (error (e) (log-message :fatal (format nil "Unhandled error: ~A" e))))))))
 
 (defun install-subschema (session subschema schema-version)
   "New attributes will be added as an augmentation to existing resourcetypes
