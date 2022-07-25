@@ -603,11 +603,14 @@
             :name (cdr (assoc :NAME rel))
             :source-type (cdr (assoc :SOURCE-TYPE rel))
             :target-type (cdr (assoc :TARGET-TYPE rel))
-            :cardinality (or (cdr (assoc :CARDINALITY rel))
-                             "many:many")
             ;; Default to reltype "any"
             :reltype (or (cdr (assoc :RELTYPE rel))
                          "any")
+            :cardinality (or (cdr (assoc :CARDINALITY rel))
+                             ;; Default changes according to whether it's a dependent relationship
+                             (if (equal "dependent" (cdr (assoc :RELTYPE rel)))
+                               "1:many"
+                               "many:many"))
             :description (cdr (assoc :DESCRIPTION rel))))
       (cdr (assoc :RELATIONSHIPS schema-alist)))))
 
