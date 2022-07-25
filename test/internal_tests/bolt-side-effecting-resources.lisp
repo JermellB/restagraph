@@ -613,8 +613,175 @@
       (neo4cl:disconnect session))))
 
 (fiveam:test
-  resources-dependent-errors
+  resources-dependent-cardinality
   :depends-on 'resources-dependent-simple
+  "Behaviour around cardinality of dependent resources."
+  (let* ((Parent1-type "People")
+         (parent1-uid "Anne")
+         ;; We only need one child-type for this test,
+         ;; remembering that we can define multiple types of relationship
+         ;; between any pair of resourcetypes.
+         (child-type-1 (restagraph::make-incoming-rtypes :name "Pets"
+                                                         :dependent t))
+         ;; Fully-specify 1:many cardinality
+         (child1-rel (restagraph::make-incoming-rels :name "HAS"
+                                                      :source-type "People"
+                                                      :target-type "Pets"
+                                                      :reltype "dependent"
+                                                      :cardinality "1:many"))
+         (child1-uid "Cats")
+         ;; Leave cardinality unspecified, to check default behaviour
+         (child2-rel (restagraph::make-incoming-rels :name "WANTS"
+                                                     :source-type "People"
+                                                     :target-type "Pets"
+                                                     :reltype "dependent"))
+         (child2-uid "ItalianGreyhound")
+         ;; Fully-specify 1:1 cardinality
+         (child3-rel (restagraph::make-incoming-rels :name "EMOTIONAL_SUPPORT"
+                                                     :source-type "People"
+                                                     :target-type "Pets"
+                                                     :reltype "dependent"
+                                                     :cardinality "1:1"))
+         (child3-uid "FluffyChicken")
+         ;; Fully-specify many:1 cardinality, to confirm failure
+         (child4-rel (restagraph::make-incoming-rels :name "NEEDS"
+                                                     :source-type "People"
+                                                     :target-type "Pets"
+                                                     :reltype "dependent"
+                                                     :cardinality "many:1"))
+         (child4-uid "ShetlandPony")
+         ;; Fully-specify many:many cardinality, to confirm failure
+         (child5-rel (restagraph::make-incoming-rels :name "LIKES"
+                                                     :source-type "People"
+                                                     :target-type "Pets"
+                                                     :reltype "dependent"
+                                                     :cardinality "many:many"))
+         (child5-uid "Llamas")
+         (session (neo4cl:establish-bolt-session *bolt-server*))
+         (schema-version (restagraph::create-new-schema-version session)))
+    (restagraph::log-message :info ";TEST Create the fixtures")
+    ;; Install the core schema in the new schema-version
+    (restagraph::install-subschema session restagraph::*core-schema* schema-version)
+    ;; Add the test-specific resources and relationships
+    (restagraph::install-subschema-resourcetype session child-type-1 schema-version)
+    (restagraph::install-subschema-relationship session child1-rel schema-version)
+    (restagraph::install-subschema-relationship session child2-rel schema-version)
+    (restagraph::install-subschema-relationship session child3-rel schema-version)
+    (restagraph::install-subschema-relationship session child4-rel schema-version)
+    (restagraph::install-subschema-relationship session child5-rel schema-version)
+    ;; Fetch the updated schema definition and start the tests
+    (let ((schema (restagraph::fetch-current-schema session)))
+      ;; Install the default resources
+      (restagraph::install-default-resources session)
+      ;; Create the feasible parent
+      (restagraph::store-resource session
+                                  schema
+                                  parent1-type
+                                  `(("uid" . ,parent1-uid))
+                                  *admin-user*)
+      ;; Successfully create an explicitly 1:many relationship
+      (fiveam:is (null (restagraph::store-dependent-resource
+                         session
+                         schema
+                         (format nil "/~A/~A/~A/~A"
+                                 parent1-type
+                                 parent1-uid
+                                 (restagraph::name child1-rel)
+                                 (restagraph::name child-type-1))
+                         `(("uid" . ,child1-uid))
+                         *admin-user*)))
+      ;; Confirm that resource is present
+      (fiveam:is (restagraph::get-resources
+                   session
+                   (format nil "/~A/~A/~A/~A/~A"
+                           parent1-type
+                           parent1-uid
+                           (restagraph::name child1-rel)
+                           (restagraph::name child-type-1)
+                           child1-uid)))
+      ;; Successfully create an implicitly 1:many relationship
+      (fiveam:is (null (restagraph::store-dependent-resource
+                         session
+                         schema
+                         (format nil "/~A/~A/~A/~A"
+                                 parent1-type
+                                 parent1-uid
+                                 (restagraph::name child2-rel)
+                                 (restagraph::name child-type-1))
+                         `(("uid" . ,child2-uid))
+                         *admin-user*)))
+      ;; Confirm that resource is present
+      (fiveam:is (restagraph::get-resources
+                   session
+                   (format nil "/~A/~A/~A/~A/~A"
+                           parent1-type
+                           parent1-uid
+                           (restagraph::name child2-rel)
+                           (restagraph::name child-type-1)
+                           child2-uid)))
+      ;; Successfully create an explicitly 1:1 relationship
+      (fiveam:is (null (restagraph::store-dependent-resource
+                         session
+                         schema
+                         (format nil "/~A/~A/~A/~A"
+                                 parent1-type
+                                 parent1-uid
+                                 (restagraph::name child3-rel)
+                                 (restagraph::name child-type-1))
+                         `(("uid" . ,child3-uid))
+                         *admin-user*)))
+      ;; Confirm that resource is present
+      (fiveam:is (restagraph::get-resources
+                   session
+                   (format nil "/~A/~A/~A/~A/~A"
+                           parent1-type
+                           parent1-uid
+                           (restagraph::name child3-rel)
+                           (restagraph::name child-type-1)
+                           child3-uid)))
+      ;; Fail to create an explicitly many:1 relationship
+      (fiveam:signals
+        restagraph::client-error
+        (restagraph::store-dependent-resource
+          session
+          schema
+          (format nil "/~A/~A/~A/~A"
+                  parent1-type
+                  parent1-uid
+                  (restagraph::name child4-rel)
+                  (restagraph::name child-type-1))
+          `(("uid" . ,child4-uid))
+          *admin-user*))
+      ;; Fail to create an explicitly many:many relationship
+      (fiveam:signals
+        restagraph::client-error
+        (restagraph::store-dependent-resource
+          session
+          schema
+          (format nil "/~A/~A/~A/~A"
+                  parent1-type
+                  parent1-uid
+                  (restagraph::name child5-rel)
+                  (restagraph::name child-type-1))
+          `(("uid" . ,child5-uid))
+          *admin-user*))
+      ;; Clean up
+      (restagraph::log-message :info ";TEST Delete the fixtures")
+      ;; We only have to recursively delete the parent,
+      ;; because all the other resources in this test depend on it.
+      (restagraph::delete-resource-by-path
+        session
+        (format nil "/~A/~A" parent1-type parent1-uid)
+        schema
+        :recursive t)
+      ;; Remove the temporary schema-version
+      (restagraph::delete-schema-version session schema-version)
+      ;; Clean up the session
+      (neo4cl:disconnect session))))
+
+(fiveam:test
+  resources-dependent-errors
+  :depends-on 'resources-dependent-cardinality
   "Error conditions around creating/moving dependent resources"
   (let* ((child1-type (restagraph::make-incoming-rtypes :name "Models"
                                                         :dependent t))
