@@ -492,12 +492,13 @@
   (let* ((child1-type (restagraph::make-incoming-rtypes :name "Models"
                                                         :dependent t))
          (child1-uid "Synthetics")
+         (child2-uid "Tricycles")
          (parent1-type (restagraph::make-incoming-rtypes :name "Makes"))
          (parent1-rel (restagraph::make-incoming-rels :name "PRODUCES"
                                                       :source-type (restagraph::name parent1-type)
                                                       :target-type (restagraph::name child1-type)
                                                       :reltype "dependent"
-                                                      :cardinality "1:many"))
+                                                      :cardinality "1:1"))
          (parent1-uid "Weyland-Yutani")
          (parent2-uid "Tyrell")
          (session (neo4cl:establish-bolt-session *bolt-server*))
@@ -514,12 +515,14 @@
       ;; Install the default resources
       (restagraph::install-default-resources session)
       ;; Create the feasible parent
+      (restagraph::log-message :debug ";TEST Create the feasible parent")
       (restagraph::store-resource session
                                   schema
                                   (restagraph::name parent1-type)
                                   `(("uid" . ,parent1-uid))
                                   *admin-user*)
       ;; Create the child
+      (restagraph::log-message :debug ";TEST Create the child")
       (restagraph::store-dependent-resource
         session
         schema
@@ -531,21 +534,54 @@
         `(("uid" . ,child1-uid))
         *admin-user*)
       ;; Confirm the child is there
-      (fiveam:is (restagraph::get-resources
-                   session
-                   (format nil "/~A/~A/~A/~A/~A"
-                           (restagraph::name parent1-type)
-                           parent1-uid
-                           (restagraph::name parent1-rel)
-                           (restagraph::name child1-type)
-                           child1-uid)))
+      (restagraph::log-message :debug ";TEST Confirm the child is there")
+      (let ((result (restagraph::get-resources
+                      session
+                      (format nil "/~A/~A/~A/~A/~A"
+                              (restagraph::name parent1-type)
+                              parent1-uid
+                              (restagraph::name parent1-rel)
+                              (restagraph::name child1-type)
+                              child1-uid))))
+        (restagraph::log-message :info (format nil "Success-check on aisle 5: child = ~A" result))
+        (fiveam:is (not (null result))))
+      ;; Fail to create a duplicate
+      (restagraph::log-message :debug ";TEST Fail to create a duplicate child")
+      (fiveam:signals
+        restagraph::integrity-error
+        (restagraph::store-dependent-resource
+          session
+          schema
+          (format nil "/~A/~A/~A/~A"
+                  (restagraph::name parent1-type)
+                  parent1-uid
+                  (restagraph::name parent1-rel)
+                  (restagraph::name child1-type))
+          `(("uid" . ,child1-uid))
+          *admin-user*))
+      ;; Fail to create a second child with that 1:1 dependent relationship
+      (restagraph::log-message :debug ";TEST Fail to create a second 1:1 child")
+      (fiveam:signals
+        restagraph::integrity-error
+        (restagraph::store-dependent-resource
+          session
+          schema
+          (format nil "/~A/~A/~A/~A"
+                  (restagraph::name parent1-type)
+                  parent1-uid
+                  (restagraph::name parent1-rel)
+                  (restagraph::name child1-type))
+          `(("uid" . ,child2-uid))
+          *admin-user*))
       ;; Create the new parent
+      (restagraph::log-message :debug ";TEST Create the second parent")
       (restagraph::store-resource session
                                   schema
                                   (restagraph::name parent1-type)
                                   `(("uid" . ,parent2-uid))
                                   *admin-user*)
-      ;; Fail to add a duplicate parent-child relationship
+      ;; Fail to add a second parent-child relationship
+      (restagraph::log-message :debug ";TEST Fail to create an additional parent-child relationship")
       (fiveam:signals
         restagraph::integrity-error
         (restagraph::create-relationship-by-path
@@ -562,6 +598,7 @@
                   child1-uid)
           schema))
       ;; Move the child to the new parent
+      (restagraph::log-message :debug ";TEST Move the child to the new parent")
       (fiveam:is
         (null
           (restagraph::move-dependent-resource
