@@ -9,7 +9,9 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
 
 ### Bugs fixed
 
+- Moving dependent resources: the function contained two fatal bugs.
 - `delete-subnet` now behaves correctly when re-homing IPv6 subnets.
+- `store-dependent-resource`: make it work correctly and reliably by replacing a faulty Cypher query with a call to `get-resources` that makes much more sense.
 
 
 ### Changed
@@ -18,11 +20,20 @@ Issue references of the form #<number> refer to tickets on Github: https://githu
   This averts conflict with admins who (quite reasonably) want to credit a person with the creation of a work, and increases consistency with the general pattern of using the prefix `RG_` to denote things that are specific to the operation of Restagraph.
 - #37 Prevent clients from interacting with dependent resources as though they were top-level primary resources.
 - #87 Replace the `dependent` attribute in relationships with a `reltype` one that currently has acceptable values of `dependent` and `other`.
+- #24 Reject any dependent relationships with cardinality `many:many` or `many:1`, to ensure that dependent resources can only have one parent.
+- #24 Reject any attempt to create a dependent relationship to an existing dependent resource. Again, to ensure the single-parent policy.
+- Improve detection of attempts to create multiple instances of a 1:1 dependent relationship from a given parent resource.
+- In function `get-attribute`, rename the `attr` parameter to `rtype`. It's less confusing when the parameter names aren't misleading.
+- Restrict the cardinality of dependent relationships to `1:1` and `1:many`, to ensure that a dependent resource can have exactly one parent.
+    - The cardinality of dependent relationships defaults to `1:many`, because that's what the current user actually expects.
+    - Non-dependent relationships still default to `many:many`.
 
 
 ### Added
 
 - IPv6 IPAM tests, both internal and client tests.
+- Internal functionality to derive the canonical path for a resource. Currently only partly implemented.
+- More comprehensive testing.
 
 
 ### Removed
