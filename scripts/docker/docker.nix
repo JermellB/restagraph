@@ -24,10 +24,10 @@ let
 in
 pkgs.dockerTools.buildImage {
     name = "equill/restagraph";
-    tag = "0.8.4b1";
+    tag = "0.8.5b1";
     created = "now";
 
-    contents = [
+    copyToRoot = [
       # Required for normal operation
       restagraph_deriv
       file
