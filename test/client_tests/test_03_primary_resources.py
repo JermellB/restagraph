@@ -27,7 +27,6 @@ import pytest
 import requests
 
 
-@pytest.mark.dependency(depends=["Testutilities.sanitise_uid"])
 class TestResources(unittest.TestCase):
     '''
     Basic CRD functions for resources
@@ -41,7 +40,6 @@ class TestResources(unittest.TestCase):
     refcopy = None
     yoinkcopy = None
 
-    @pytest.mark.dependency()
     def test_create_and_delete_single_resource(self):
         print('Test: test_create_and_delete_single_resource')
         # Ensure it's not already present
@@ -78,12 +76,10 @@ class TestResources(unittest.TestCase):
         # Confirm it's gone
         assert requests.get('%s/%s/%s' % (
             config.API_BASE_URL, self.restype, utilities.sanitise_uid(self.resuid))).status_code == 404
-    @pytest.mark.dependency()
     def test_fail_to_create_invalid_resourcetype(self):
         print('Test: Fail to create an instance of an invalid resourcetype')
         assert requests.post('%s/%s' % (config.API_BASE_URL, self.invalidtype),
                              data={'uid': self.invaliduid}).status_code == 400
-    @pytest.mark.dependency(depends=["TestResources::test_create_and_delete_single_resource"])
     def test_yoink_parameter(self):
         print('Test: Delete a resource, and receive a representation as a parting gift.')
         requests.post('%s/%s/' % (config.API_BASE_URL, self.restype), data={'uid': self.resuid})
@@ -101,7 +97,6 @@ class TestResources(unittest.TestCase):
         assert requests.get('%s/%s/%s' % (
             config.API_BASE_URL, self.restype, utilities.sanitise_uid(self.resuid))).status_code == 404
 
-@pytest.mark.dependency(depends=["TestResources::test_create_and_delete_single_resource"])
 class TestDuplicateResistance(unittest.TestCase):
     '''
     Check that we can't create duplicate primary resources.
@@ -109,7 +104,6 @@ class TestDuplicateResistance(unittest.TestCase):
     resourcetype = 'People'
     resourcename = 'Dante'
     result = None
-    @pytest.mark.dependency()
     def test_unique_resources(self):
         print('Test: test_unique_resources')
         # Create a new resource
@@ -133,7 +127,6 @@ class TestDuplicateResistance(unittest.TestCase):
                                                        self.resourcename)).status_code,
                          204)
 
-@pytest.mark.dependency(depends=["TestDuplicateResistance::test_unique_resources"])
 class TestMultipleResources(unittest.TestCase):
     '''
     Retrieve details of all resources of a given type.
@@ -143,7 +136,6 @@ class TestMultipleResources(unittest.TestCase):
     resource2uid = 'Fifi'
     resource3uid = 'Trixibelle'
     result = None
-    @pytest.mark.dependency()
     def test_create_and_retrieve_multiple_resources(self):
         print('Test: test_create_and_retrieve_multiple_resources')
         # Confirm we're starting with an empty set
@@ -183,7 +175,6 @@ class TestMultipleResources(unittest.TestCase):
                                                        self.resource3uid)).status_code,
                          204)
 
-@pytest.mark.dependency(depends=["TestDuplicateResistance::test_unique_resources"])
 class TestBasicResourceErrors(unittest.TestCase):
     '''
     Confirm what happens when we make basic errors in resource-creation requests.
@@ -194,7 +185,6 @@ class TestBasicResourceErrors(unittest.TestCase):
     valid_uid2 = 'Del-Tarrant'
     invalid_uid1 = 'Jenna$Stannis'
     invalid_uid2 = "Dayna'Mellanby"
-    @pytest.mark.dependency()
     def test_basic_resource_errors(self):
         print('Test: test_basic_resource_errors')
         # Invalid resource-type
@@ -223,9 +213,6 @@ class TestBasicResourceErrors(unittest.TestCase):
                                    utilities.sanitise_uid(self.invalid_uid2))
         requests.delete('%s/People/%s' % (config.API_BASE_URL, utilities.sanitise_uid(self.invalid_uid2)))
 
-@pytest.mark.dependency(depends=[
-    "TestMultipleResources::test_create_and_retrieve_multiple_resources",
-    "TestBasicResourceErrors::test_basic_resource_errors"])
 class TestAttributesBasic(unittest.TestCase):
     '''
     Add an attribute to a resource
@@ -242,7 +229,6 @@ class TestAttributesBasic(unittest.TestCase):
     file1sha3_256sum_wrong = '5555555555555555555555555555555555555555555555555555555555555555'
     response = None
     currentDate = None
-    @pytest.mark.dependency()
     def test_add_and_remove_single_attribute(self):
         # Create the resource
         requests.post('%s/People/' % (config.API_BASE_URL), data={"uid": self.person1})
@@ -316,7 +302,6 @@ class TestAttributesBasic(unittest.TestCase):
         requests.delete('%s/%s' % (config.FILES_BASE_URL, utilities.sanitise_uid(self.file1name)))
 
 
-@pytest.mark.dependency(["TestSchemaUpdates::test_schema_upload"])
 class TestAttributeValues(unittest.TestCase):
     res1type = "People"
     res1uid = "Dorian"

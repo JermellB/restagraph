@@ -26,11 +26,7 @@ import pytest
 import requests
 
 
-@pytest.mark.dependency(depends=[
-    "TestDuplicateResistance::test_unique_resources",
-    "TestBasicResourceErrors::test_basic_resource_errors"])
 class TestSchemaBasic(unittest.TestCase):
-    @pytest.mark.dependency()
     def test_schema_any(self):
         assert requests.get('%s/any' % (config.SCHEMA_BASE_URL)).json() == {
                 "name": "any",
@@ -54,7 +50,6 @@ class TestSchemaBasic(unittest.TestCase):
                         "target-type": "Tags"
                         }
                     ]}
-    @pytest.mark.dependency()
     def test_schema_tags(self):
         assert requests.get('%s/Tags' % (config.SCHEMA_BASE_URL)).json() == {
                 "name": "Tags",
@@ -74,10 +69,7 @@ class TestSchemaBasic(unittest.TestCase):
                 }
 
 
-@pytest.mark.dependency(["TestSchemaBasic::test_schema_tags"])
-#@pytest.mark.skip()
 class TestSchemaUpdates(unittest.TestCase):
-    @pytest.mark.dependency()
     def test_schema_atomic_upload_and_delete(self):
         # Check the existing list of versions
         versions_existing = requests.get('%s?version=list' % (config.SCHEMA_BASE_URL)).json()

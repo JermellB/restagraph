@@ -28,7 +28,6 @@ import pytest
 import requests
 
 
-@pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
 class TestFilesApi(unittest.TestCase):
     '''
     Upload, download, metadata and deletion of files.
@@ -38,7 +37,6 @@ class TestFilesApi(unittest.TestCase):
     file1sha3_256sum = '305664EB53010D52642594A3B3877A1BB811EAD9B610C5C1210F7F3B88B4C184'
     file2source = 'cats_cuddling.jpg'
     file2name = 'Cute kitties'
-    @pytest.mark.dependency()
     def test_files_api_basic(self):
         print('Test: file upload')
         fhandle = open(self.file1source, 'rb')
@@ -69,7 +67,6 @@ class TestFilesApi(unittest.TestCase):
                          204)
         result = requests.get('%s/files/%s' % (config.API_BASE_URL, utilities.sanitise_uid(self.file1name)))
         self.assertEqual(result.status_code, 404)
-    @pytest.mark.dependency()
     def test_files_conditional_deletion(self):
         print("Test: only delete files from the filesystem if they're fully dereferenced.")
         # Upload the first file

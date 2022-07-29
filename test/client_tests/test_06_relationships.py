@@ -26,7 +26,6 @@ import pytest
 import requests
 
 
-#@pytest.mark.dependency(depends=["TestAttributesBasic::test_add_and_remove_single_attribute"])
 class TestRelationshipsBasic(unittest.TestCase):
     '''
     The most rudimentary of relationship testing
@@ -105,7 +104,6 @@ class TestRelationshipsBasic(unittest.TestCase):
         assert requests.delete('%s/Tags/%s' % (config.API_BASE_URL, self.tag1)).status_code == 204
         assert requests.delete('%s/People/%s' % (config.API_BASE_URL, self.person1)).status_code == 204
 
-#@pytest.mark.dependency(depends=["TestRelationshipsBasic::"])
 class TestRelationshipFailures(unittest.TestCase):
     '''
     Regression tests for relationships
@@ -125,7 +123,6 @@ class TestRelationshipFailures(unittest.TestCase):
         requests.delete('%s/Tags/%s' % (config.API_BASE_URL, self.tag1))
         requests.delete('%s/People/%s' % (config.API_BASE_URL, self.person1))
 
-#@pytest.mark.dependency(["TestSchemaUpdates::test_schema_upload"])
 class TestRelationshipsToAny(unittest.TestCase):
     sourceType = 'Thingy'
     sourceUid = 'Whatsit'

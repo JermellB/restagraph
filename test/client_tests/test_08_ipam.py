@@ -25,7 +25,6 @@ import pytest
 import requests
 
 
-@pytest.mark.dependency("TestDependentResources")
 class TestIpv4SubnetsBasicNoVrf(unittest.TestCase):
     '''
     Basic CRD functions for IPv4 subnets.
@@ -70,7 +69,6 @@ class TestIpv4SubnetsBasicNoVrf(unittest.TestCase):
                                          % (config.API_BASE_URL, self.organisation)).status_code,
                          204)
 
-@pytest.mark.dependency("TestDependentResources")
 class TestIpv6SubnetsBasicNoVrf(unittest.TestCase):
     '''
     Basic CRD functions for IPv6 subnets.
@@ -115,7 +113,6 @@ class TestIpv6SubnetsBasicNoVrf(unittest.TestCase):
                                          % (config.API_BASE_URL, self.organisation)).status_code,
                          204)
 
-@pytest.mark.dependency("TestIpv4SubnetsBasicNoVrf")
 class TestIpv4AddressesBasicNoVrf(unittest.TestCase):
     '''
     Basic CRD functions for Ipv4 addresses
@@ -159,7 +156,6 @@ class TestIpv4AddressesBasicNoVrf(unittest.TestCase):
                                          data={'recursive': 'true'}).status_code,
                          204)
 
-@pytest.mark.dependency("TestIpv4SubnetsBasicNoVrf")
 class TestIpv6AddressesBasicNoVrf(unittest.TestCase):
     '''
     Basic CRD functions for Ipv6 addresses

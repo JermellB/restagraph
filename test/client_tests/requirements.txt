@@ -2,5 +2,4 @@ mypy==0.910
 requests==2.25.1
 pylint==2.9.3
 pytest==6.2.4
-pytest-dependency==0.5.1
 types-requests==2.25.6

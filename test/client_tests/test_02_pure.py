@@ -24,7 +24,6 @@ import unittest
 import pytest
 
 
-@pytest.mark.dependency()
 class TestSanitiseUid(unittest.TestCase):
     "Check that sanitise_uid() does what I want it to."
     def test_sanitise_uid(self):

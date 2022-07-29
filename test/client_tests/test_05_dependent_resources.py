@@ -22,10 +22,10 @@ from . import config
 import unittest
 
 # Third-party libraries
+import pytest
 import requests
 
 
-#@pytest.mark.dependency(["TestSchemaUpdates"])
 class TestDependentResources(unittest.TestCase):
     res1type = "Buildings"
     res1uid = "Xenon"
