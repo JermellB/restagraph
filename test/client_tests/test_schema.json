@@ -62,7 +62,7 @@
       "source-type": "Buildings",
       "name": "FLOORS",
       "target-type": "Floors",
-      "cardinality": "1:many",
+      "cardinality": "1:1",
       "reltype": "dependent",
       "description": null
     },
@@ -70,7 +70,7 @@
       "source-type": "Floors",
       "name": "IN_BUILDING",
       "target-type": "Buildings",
-      "cardinality": "many:1",
+      "cardinality": "1:1",
       "reltype": "any",
       "description": "This floor is in that building."
     },

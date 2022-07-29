@@ -22,7 +22,6 @@ from . import config
 import unittest
 
 # Third-party libraries
-import pytest
 import requests
 
 
@@ -31,13 +30,15 @@ class TestDependentResources(unittest.TestCase):
     res1uid = "Xenon"
     depres1rel = "FLOORS"
     depres1type = "Floors"
-    depres1uid = "Hangar"
+    depres1uid = "hangar"
     depres1attr1 = "description"
     depres1parentrel = "IN_BUILDING"
+    depres3uid = "cavern"
     res2uid = "ResidenceOne"
     depres2rel = "ROOMS"
     depres2type = "Rooms"
-    depres2uid = "Toolshed"
+    depres2uid = "toolshed"
+    depres4uid = "reception"
     owner1type = "People"
     owner1uid = "Frank"
     invalidparenttype1 = "Building"   # Minor typo, for added realism
@@ -190,6 +191,26 @@ class TestDependentResources(unittest.TestCase):
                                                             self.depres2rel,
                                                             self.depres2type,
                                                             self.depres2uid)).status_code == 200
+        # Create a second grandchild resource, to confirm that 1:many relationships work
+        assert requests.post('%s/%s/%s/%s/%s/%s/%s/%s' % (config.API_BASE_URL,
+                                                          self.res1type,
+                                                          self.res1uid,
+                                                          self.depres1rel,
+                                                          self.depres1type,
+                                                          self.depres1uid,
+                                                          self.depres2rel,
+                                                          self.depres2type),
+                             data={"uid": self.depres4uid}).status_code == 201
+        # Confirm the second grandchild resource is there
+        assert requests.get('%s/%s/%s/%s/%s/%s/%s/%s/%s' % (config.API_BASE_URL,
+                                                            self.res1type,
+                                                            self.res1uid,
+                                                            self.depres1rel,
+                                                            self.depres1type,
+                                                            self.depres1uid,
+                                                            self.depres2rel,
+                                                            self.depres2type,
+                                                            self.depres4uid)).status_code == 200
         # Recursively delete the parent resource
         assert requests.delete('%s/%s/%s?recursive=true' % (config.API_BASE_URL,
                                                             self.res1type,
@@ -235,9 +256,24 @@ class TestDependentResources(unittest.TestCase):
                                                  self.depres1rel,
                                                  self.depres1type),
                              data={"uid": self.depres1uid}).status_code == 201
+        # Fail to create a duplicate dependent resource
+        assert requests.post('%s/%s/%s/%s/%s' % (config.API_BASE_URL,
+                                                 self.res1type,
+                                                 self.res1uid,
+                                                 self.depres1rel,
+                                                 self.depres1type),
+                             data={"uid": self.depres1uid}).status_code == 200
+        # Fail to create a second 1:1 dependent resource
+        assert requests.post('%s/%s/%s/%s/%s' % (config.API_BASE_URL,
+                                                 self.res1type,
+                                                 self.res1uid,
+                                                 self.depres1rel,
+                                                 self.depres1type),
+                             data={"uid": self.depres3uid}).status_code == 409
         # Add the new parent resource
         requests.post('%s/%s' % (config.API_BASE_URL, self.res1type), data={"uid": self.res2uid})
-        # Fail to add a duplicate dependent relationship from the new parent
+        # Fail to add a duplicate dependent relationship from the new parent,
+        # as a regular relationship.
         assert requests.post('%s/%s/%s/%s' % (config.API_BASE_URL,
                                               self.res1type,
                                               self.res2uid,
