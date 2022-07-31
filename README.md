@@ -177,8 +177,9 @@ Mandatory attributes, which must be specified when defining one of these:
 
 Optional attributes:
 
-- `dependent` = whether this relationship is from a parent resource to a dependent one.
-    - default is `false`
+- `reltype` = what kind of relationship this is, and thus what constraints should apply. This currently only supports two cases:
+    - `dependent` = this relationship is from a parent resource to a dependent one.
+    - `any` = default case: no constraints apply.
 - `notes` = descriptive text, clarifying the intended meaning/purpose of this relationship.
     - default is `null`
 
@@ -192,6 +193,8 @@ That's the `any` resourcetype's reason for existence; the server won't allow you
 
 That is, how you actually put data into the system, and get it back out again.
 
+- `dependent` = whether this relationship is from a parent resource to a dependent one.
+    - default is `false`
 ## Resources
 
 That is, instances of a resourcetype. Their attributes are:
