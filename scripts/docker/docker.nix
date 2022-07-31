@@ -24,7 +24,7 @@ let
 in
 pkgs.dockerTools.buildImage {
     name = "equill/restagraph";
-    tag = "0.8.5b1";
+    tag = "0.8.5";
     created = "now";
 
     copyToRoot = [
