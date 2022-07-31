@@ -15,6 +15,8 @@ The rest is details, around things like:
     - E.g, a floor of a building.
 - What relationships are permitted from one resourcetype to another.
 - The cardinality of a relationship: one-to-one, one-to-many, many-to-one, or many-to-many.
+    - The default in a regular relationship is `many:many`.
+    - The default in a dependen relationship is `1:many`.
 - Whether a relationship is a parent-child one between a primary resource and a dependent one.
 
 For a practical walkthrough of how this API looks when in use, read through the [demo session](Demo_session.md).

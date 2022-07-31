@@ -52,7 +52,7 @@ Type: string.
 
 Whether this is a "dependent" resourcetype, i.e. whether it exists only in the context of another one. E.g, a room only exists in the context of a building.
 
-A dependent resourcetype can only be created in relationship to a "parent" type, via a relationship that is _also_ defined as a dependent one, meaning that it defines the dependency between them. A resourcetype can be dependent on another dependent one, e.g. the ceiling of a room.
+A dependent resourcetype can only be created in relationship to a "parent" type, via a relationship that is _also_ defined as a dependent one, meaning that it defines the dependency between them. A dependent resourcetype can be dependent on another dependent one, e.g. the ceiling of a room, in a building.
 
 Type: boolean. In accordance with [Postel's Principle](https://en.wikipedia.org/wiki/Robustness_principle), acceptable values include `true`, "true", "True", `false`, "false" and "False". The preferred values are `true` and `false`.
 
@@ -141,6 +141,18 @@ A list of relationships objects. Their keys are:
 
 
 I usually define them in the order `source-type`, `name`, `target-type` because that matches the way I think about them. In Cypher, Neo4j's native syntax, it's represented as `(:source-type)-[:name]->(:target-type)`.
+
+
+### Cardinality in dependent relationships
+
+Only two types of cardinality are permitted in a dependent relationship:
+
+1. `1:many` (the default)
+1. `1:1`
+
+The reason for this is that it doesn't really make sense for a dependent resource to have multiple parents - in this kind of situation, it's almost certainly a primary resource with the same relationship to two other resources.
+
+The expected use-case for a `1:1` dependent relationship is for managing a set of optional attributes. E.g, Files resources could be of any kind, so it's not practical to define that resourcetype with all possible attributes. Instead, you can define a dependent resourcetype containing the attributes for each given file format: JPEG images, Ogg Vorbis audio, etc. Because it only makes sense to have one such dependent resource for each file, and each one only makes sense in the context of one specific file, the `1:1` cardinality is a natural fit here.
 
 
 # Example
